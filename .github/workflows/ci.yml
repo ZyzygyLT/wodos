@@ -1,0 +1,22 @@
+name: CI
+on:
+  push: { branches: [main, develop] }
+  pull_request: { branches: [main, develop] }
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 18 }
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test -- --coverage
+      - uses: SonarSource/sonarcloud-github-action@v2
+        env: { SONAR_TOKEN: \${{ secrets.SONAR_TOKEN }} }
+        with:
+          args: >
+            -Dsonar.projectKey=sqa_4a4d554ab558b9d7cd7000e43101d999896ff1f6
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/node_modules/**,.next/**,**/generated/**
