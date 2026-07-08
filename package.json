@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "worker": "tsx scripts/start-workers.ts",
-    "seed:test-groups": "tsx prisma/seed-test-groups.ts"
+    "seed:test-groups": "tsx prisma/seed-test-groups.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
@@ -34,6 +35,10 @@
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   },
+  "lint-staged": {
+    "*.{ts,tsx}": ["eslint --fix", "bash -c 'npx tsc --noEmit'"],
+    "*.{js,jsx,json,css,md}": ["prettier --write"]
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
@@ -48,7 +53,9 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "lint-staged": "^17.0.8",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.3",
