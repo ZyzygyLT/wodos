@@ -99,21 +99,10 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
 }
 
 export async function buildHeroData(hero: any, profile: any): Promise<HeroData> {
-  let hpMax = hero.hpMax
-  let mpMax = hero.mpMax
+  const hpMax = hero.hpMax
+  const mpMax = hero.mpMax
   const attrs = { ...(hero.attrs as Record<string, number>) }
-  let manaShield = false
-
-  for (const hs of hero.skills) {
-    switch (hs.skill.effect) {
-      case 'hp_up': hpMax += Math.round(hpMax * 0.2); break
-      case 'mp_up': mpMax += Math.round(mpMax * 0.2); break
-      case 'accuracy_up': attrs.dx = (attrs.dx ?? 0) + 5; break
-      case 'speed_up': attrs.ag = (attrs.ag ?? 0) + 5; break
-      case 'defense_up': attrs.co = (attrs.co ?? 0) + 3; break
-      case 'mana_shield': manaShield = true; break
-    }
-  }
+  const manaShield = hero.skills.some((hs: any) => hs.skill.effect === 'mana_shield')
 
   const runeItemIds = Array.from(new Set<number>(
     (hero.items ?? []).filter((hi: any) => hi.equipped).flatMap((hi: any) => (hi.runesIn as any[] ?? []).map((r: any) => r.itemId))
@@ -150,7 +139,6 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     manaShield,
     combatProfile: {
       position: profile?.position ?? 'front',
-      initiativeSkill: profile?.initiativeSkill ?? 'organization',
       prelimRules: (profile?.prelimRules ?? []) as any[],
       roundRules: (profile?.roundRules ?? [
         { priority: 1, condition: { type: 'hp_self_lt', value: 30 }, action: { skillId: hero.skills[0]?.skill.id ?? 1, targetPos: 'auto', targetType: 'weakest' } },

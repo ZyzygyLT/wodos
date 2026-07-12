@@ -9,7 +9,7 @@ const VALID_ATTRS = ["st", "co", "in", "dx", "ch", "ag", "pe", "wi"] as const
 
 const schema = z.object({
   attr: z.enum(VALID_ATTRS),
-  amount: z.number().int().min(1).max(5),
+  amount: z.number().int().min(-5).max(5).refine(n => n !== 0, { message: "Amount must be non-zero" }),
 })
 
 function attrCost(currentValue: number): number {
@@ -37,8 +37,43 @@ export async function PUT(req: NextRequest) {
   }
 
   const { attr, amount } = parsed.data
-  let attrs = hero.attrs as Record<string, number>
+  let attrs = (hero.attrs ?? {}) as Record<string, number>
   const currentVal = attrs[attr] || 0
+
+  if (amount < 0) {
+    // --- REFUND: devolver puntos de atributo ---
+    const absAmount = Math.abs(amount)
+    const newVal = Math.max(0, currentVal - absAmount)
+    let refundEp = 0
+    for (let i = 0; i < currentVal - newVal; i++) {
+      refundEp += attrCost(newVal + i)
+    }
+    const newAttrs: Record<string, number> = { ...attrs, [attr]: newVal }
+    const newHpMax = calcHpMax(newAttrs as unknown as HeroAttrs, hero.level)
+    const newMpMax = calcMpMax(newAttrs as unknown as HeroAttrs)
+
+    await db.hero.update({
+      where: { id: hero.id },
+      data: {
+        attrs: newAttrs,
+        hpMax: newHpMax,
+        mpMax: newMpMax,
+        hpCurrent: Math.min(hero.hpCurrent, newHpMax),
+        mpCurrent: Math.min(hero.mpCurrent, newMpMax),
+        epSpent: { decrement: Math.min(refundEp, hero.epSpent) },
+      },
+    })
+
+    return NextResponse.json({
+      attr,
+      newValue: newVal,
+      epRefund: refundEp,
+      epRemaining: (hero.epTotal - hero.epSpent) + refundEp,
+      hpMax: newHpMax,
+      mpMax: newMpMax,
+      attrs: newAttrs,
+    })
+  }
 
   let remaining = amount
   let freeUsed = 0

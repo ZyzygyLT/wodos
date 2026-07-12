@@ -16,11 +16,12 @@ interface HeroData {
   combatProfiles: CombatProfile[]
   computedDefense?: Record<string, number>
   defenseBreakdown?: Record<string, string[]>
+  heroCount?: number
+  maxHeroes?: number
 }
 
 interface CombatProfile {
   id: string; name: string; position: string
-  initiativeSkill: string
   prelimRules: any[]; roundRules: any[]
 }
 
@@ -47,10 +48,12 @@ export default function Dashboard() {
   const [newProfilePosition, setNewProfilePosition] = useState("front")
 
   const fetchData = useCallback(async () => {
-    const heroRes = await fetch("/api/hero")
-    if (heroRes.status === 401) return router.push("/api/auth/signin")
-    if (heroRes.status === 404) return router.push("/onboarding")
-    setHero(await heroRes.json())
+    try {
+      const heroRes = await fetch("/api/hero")
+      if (heroRes.status === 401) return router.push("/api/auth/signin")
+      if (heroRes.status === 404) return router.push("/onboarding")
+      setHero(await heroRes.json())
+    } catch {}
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -63,80 +66,91 @@ export default function Dashboard() {
 
   const epAvailable = hero ? hero.epTotal - hero.epSpent : 0
 
+  function attrCost(val: number): number {
+    if (val < 10) return 10
+    if (val < 15) return 15
+    if (val < 20) return 20
+    return 30
+  }
+
   function calcTotalCost(): number {
     if (!hero) return 0
     return Object.entries(spending)
-      .filter(([, v]) => v > 0)
+      .filter(([, v]) => v !== 0)
       .reduce((total, [attr, amount]) => {
         const currentVal = hero.attrs[attr] || 0
-        for (let i = 0; i < amount; i++) {
-          const val = currentVal + i
-          let pointCost
-          if (val < 10) pointCost = 10
-          else if (val < 15) pointCost = 15
-          else if (val < 20) pointCost = 20
-          else pointCost = 30
-          total += pointCost
+        if (amount > 0) {
+          for (let i = 0; i < amount; i++) total += attrCost(currentVal + i)
+        } else {
+          for (let i = 0; i < Math.abs(amount); i++) total -= attrCost(currentVal - 1 - i)
         }
         return total
       }, 0)
   }
 
   async function spendPoints() {
-    const entries = Object.entries(spending).filter(([, v]) => v > 0)
-    if (entries.length !== 1) { alert("Solo podés gastar EP en un atributo a la vez"); return }
+    const entries = Object.entries(spending).filter(([, v]) => v !== 0)
+    if (entries.length !== 1) { alert("Solo podés modificar un atributo a la vez"); return }
     const [attr, amount] = entries[0]
 
-    const res = await fetch("/api/hero/attrs", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attr, amount }),
-    })
+    try {
+      const res = await fetch("/api/hero/attrs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attr, amount }),
+      })
 
-    if (res.ok) {
-      setSpending({})
-      fetchData()
-    } else {
-      const data = await res.json()
-      alert(data.error || "Error al gastar EP")
-    }
+      if (res.ok) {
+        setSpending({})
+        fetchData()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Error al gastar EP")
+      }
+    } catch { alert("Error de red al gastar EP") }
   }
 
   async function renameProfile(profileId: string) {
-    const res = await fetch(`/api/hero/profiles/${profileId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: renameValue }),
-    })
-    if (res.ok) {
-      setRenamingProfile(null)
-      fetchData()
-    }
+    try {
+      const res = await fetch(`/api/hero/profiles/${profileId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: renameValue }),
+      })
+      if (res.ok) {
+        setRenamingProfile(null)
+        fetchData()
+      }
+    } catch {}
   }
 
   async function deleteProfile(profileId: string) {
-    const res = await fetch(`/api/hero/profiles/${profileId}`, { method: "DELETE" })
-    if (res.ok) {
-      fetchData()
-    } else {
-      const data = await res.json()
-      alert(data.error || "Error al eliminar")
-    }
+    try {
+      const res = await fetch(`/api/hero/profiles/${profileId}`, { method: "DELETE" })
+      if (res.ok) {
+        fetchData()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Error al eliminar")
+      }
+    } catch { alert("Error de red al eliminar perfil") }
   }
 
   async function addProfile() {
     if (!newProfileName.trim()) return
-    const res = await fetch("/api/hero/profiles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newProfileName.trim(), position: newProfilePosition }),
-    })
-    if (res.ok) {
-      setShowAddProfile(false)
-      setNewProfileName("")
-      setNewProfilePosition("front")
-      fetchData()
-    }
+    try {
+      const res = await fetch("/api/hero/profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newProfileName.trim(), position: newProfilePosition }),
+      })
+      if (res.ok) {
+        setShowAddProfile(false)
+        setNewProfileName("")
+        setNewProfilePosition("front")
+        fetchData()
+      }
+    } catch {}
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
@@ -150,6 +164,7 @@ export default function Dashboard() {
           <span>{hero.name}</span>
           <span className="text-yellow-400">Nv. {hero.level}</span>
           <span className="text-yellow-300">💰 {hero.gold}</span>
+          <span className="text-gray-500 text-xs">{hero.heroCount ?? 1}/{hero.maxHeroes ?? 3} héroes</span>
           <a href="/dungeon" className="text-gray-400 hover:text-gray-200 text-xs">🗺️ Ir al juego</a>
         </div>
       </header>
@@ -166,7 +181,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="max-w-3xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+        <div>
         {tab === 'hero' && (
           <div className="space-y-6">
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -271,7 +287,7 @@ export default function Dashboard() {
                       ) : (
                         <div>
                           <p className="text-sm font-medium">{p.name}</p>
-                          <p className="text-xs text-gray-400">{POSITION_LABELS[p.position] ?? p.position} · {p.initiativeSkill}</p>
+                          <p className="text-xs text-gray-400">{POSITION_LABELS[p.position] ?? p.position}</p>
                         </div>
                       )}
                     </div>
@@ -328,11 +344,7 @@ export default function Dashboard() {
                 const base = hero.attrs[key] || 0
                 const add = spending[key] || 0
                 const attrVal = base + add
-                let cost
-                if (attrVal < 10) cost = 10
-                else if (attrVal < 15) cost = 15
-                else if (attrVal < 20) cost = 20
-                else cost = 30
+                const nextCost = attrCost(attrVal)
                 return (
                   <div key={key} className="flex items-center gap-3">
                     <div className="w-24 text-sm text-gray-400">{label}</div>
@@ -341,28 +353,113 @@ export default function Dashboard() {
                     </div>
                     <div className="w-8 text-right font-mono">{base}</div>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setSpending(s => ({ ...s, [key]: Math.max(0, (s[key] || 0) - 1) }))}
+                      <button onClick={() => setSpending(s => ({ ...s, [key]: (s[key] || 0) - 1 }))}
                         className="w-7 h-7 rounded bg-gray-800 hover:bg-gray-700 text-sm disabled:opacity-30"
-                        disabled={(spending[key] || 0) <= 0}>−</button>
-                      <span className="w-6 text-center text-sm text-yellow-400">{add > 0 ? `+${add}` : ''}</span>
-                      <span className="text-xs text-yellow-500 w-12 text-right">{cost} EP</span>
+                        disabled={attrVal <= 0}>−</button>
+                      <span className="w-8 text-center text-sm text-yellow-400">
+                        {add > 0 ? `+${add}` : add < 0 ? `${add}` : ''}
+                      </span>
+                      <span className="text-xs text-yellow-500 w-12 text-right">
+                        {add > 0 ? `${nextCost} EP` : add < 0 ? `-${attrCost(attrVal)} EP` : ''}
+                      </span>
                       <button onClick={() => setSpending(s => ({ ...s, [key]: (s[key] || 0) + 1 }))}
                         className="w-7 h-7 rounded bg-gray-800 hover:bg-gray-700 text-sm disabled:opacity-30"
-                        disabled={epAvailable - calcTotalCost() < cost}>+</button>
+                        disabled={epAvailable - calcTotalCost() < nextCost}>+</button>
                     </div>
                   </div>
                 )
               })}
             </div>
 
-            {Object.values(spending).some(v => v > 0) && (
+            {Object.values(spending).some(v => v !== 0) && (
               <button onClick={spendPoints}
                 className="w-full mt-6 py-3 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-black font-bold transition">
-                Gastar {calcTotalCost()} EP
+                {calcTotalCost() >= 0 ? `Gastar ${calcTotalCost()} EP` : `Devolver ${Math.abs(calcTotalCost())} EP`}
               </button>
             )}
           </div>
         )}
+        </div>
+
+        <aside className="space-y-4">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <h3 className="text-sm font-bold text-yellow-400 mb-3">👤 Héroe</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{hero.class.icon} {hero.race.icon}</span>
+                <div>
+                  <p className="font-bold">{hero.name}</p>
+                  <p className="text-xs text-gray-400">{hero.class.name} · {hero.race.name}</p>
+                </div>
+              </div>
+              <div className="flex justify-between border-t border-gray-800 pt-2">
+                <span className="text-gray-400">Nivel</span>
+                <span className="text-yellow-400">{hero.level}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Oro</span>
+                <span className="text-yellow-300">💰 {hero.gold}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Fama</span>
+                <span>🏆 {hero.fame}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Héroes</span>
+                <span className="text-xs">{hero.heroCount ?? 1}/{hero.maxHeroes ?? 3}</span>
+              </div>
+              <div className="pt-2 border-t border-gray-800">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-400">EXP</span>
+                  <span>{epInCurrent} / {currentLevelEp}</span>
+                </div>
+                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${epProgress}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <h3 className="text-sm font-bold text-green-400 mb-3">🗺️ Mazmorras</h3>
+            <div className="space-y-2 text-sm">
+              <a href="/dungeon" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                <span>⚔️</span>
+                <span>Ir a mazmorras</span>
+              </a>
+              <a href="/dungeon/reports" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                <span>📜</span>
+                <span>Historial</span>
+              </a>
+              <a href="/profile" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                <span>👤</span>
+                <span>Perfil</span>
+              </a>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <h3 className="text-sm font-bold text-blue-400 mb-3">⚡ Atajos</h3>
+            <div className="space-y-2 text-sm">
+              <a href="/skills" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                <span>⚡</span>
+                <span>Habilidades</span>
+              </a>
+              <a href="/inventory" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                <span>🎒</span>
+                <span>Inventario</span>
+              </a>
+              <a href="/shop" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                <span>🏪</span>
+                <span>Tienda</span>
+              </a>
+              <a href="/quests" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                <span>📋</span>
+                <span>Misiones</span>
+              </a>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   )

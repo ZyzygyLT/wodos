@@ -59,7 +59,6 @@ export async function GET() {
       nextScheduledTime: nextScheduledTime?.toISOString() ?? null,
       profiles: hero.combatProfiles.map(p => ({
         id: p.id, name: p.name, position: p.position,
-        initiativeSkill: p.initiativeSkill,
       })),
     }
 

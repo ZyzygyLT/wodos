@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -119,6 +121,7 @@ model Skill {
   maxRank         Int         @default(10)
   heroSkills      HeroSkill[]
   class           Class?      @relation(fields: [classId], references: [id])
+  raceReq         Int[]       @default([])
 
   @@unique([classId, slug])
   @@map("skills")
@@ -239,6 +242,9 @@ model Hero {
   eloRating                Int                     @default(1000)
   arenaWins                Int                     @default(0)
   arenaLosses              Int                     @default(0)
+  adventureEnergy          Int                     @default(100)
+  adventureEnergyMax       Int                     @default(100)
+  lastEnergyRechargeAt     DateTime?
   onboardingDone           Boolean                 @default(false)
   pushToken                String?
   lastLoginAt              DateTime?
@@ -270,6 +276,7 @@ model Hero {
   tournamentParticipations TournamentParticipant[]
   heroEventParticipations HeroEventParticipation[]
   factionReps             HeroFactionRep[]
+  heroAdventures          HeroAdventure[]
   currentUser              User?                   @relation("CurrentHero")
 
   @@map("heroes")
@@ -879,6 +886,7 @@ model Faction {
   color       String   @default("#6B7280")
   createdAt   DateTime @default(now())
   shops       FactionShop[]
+  adventures  Adventure[]
   heroReps    HeroFactionRep[]
 
   @@map("factions")
@@ -895,6 +903,60 @@ model FactionShop {
   faction    Faction  @relation(fields: [factionId], references: [id], onDelete: Cascade)
 
   @@map("faction_shops")
+}
+
+model Adventure {
+  id            Int            @id @default(autoincrement())
+  name          String
+  slug          String         @unique
+  icon          String
+  description   String
+  lore          String?
+  levelReq      Int            @default(1)
+  maxLevel      Int            @default(999)
+  duration      Int            @default(30)
+  energyCost    Int            @default(10)
+  steps         Json
+  rewards       Json
+  factionId     Int?
+  factionRep    Int            @default(0)
+  isActive      Boolean        @default(true)
+  minGoldReward Int            @default(0)
+  maxGoldReward Int            @default(50)
+  epReward      Int            @default(20)
+  fameReward    Int            @default(2)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  faction       Faction?       @relation(fields: [factionId], references: [id])
+  heroAdventures HeroAdventure[]
+
+  @@map("adventures")
+}
+
+model HeroAdventure {
+  id            String         @id @default(uuid())
+  heroId        String
+  adventureId   Int
+  status        AdventureStatus @default(active)
+  currentStep   Int            @default(0)
+  totalSteps    Int            @default(1)
+  startedAt     DateTime       @default(now())
+  completedAt   DateTime?
+  energySpent   Int            @default(0)
+  result        Json?
+  hero          Hero           @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  adventure     Adventure      @relation(fields: [adventureId], references: [id])
+
+  @@index([heroId, status])
+  @@index([heroId, adventureId])
+  @@map("hero_adventures")
+}
+
+enum AdventureStatus {
+  active
+  completed
+  failed
+  claimed
 }
 
 model HeroFactionRep {

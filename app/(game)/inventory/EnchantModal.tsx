@@ -11,8 +11,8 @@ export default function EnchantModal({ item, enchanting, onEnchant, onClose }: R
   const level = item.upgradeLevel ?? 0
 
   return (
-    <button type="button" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
-      <button type="button" className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
         <span className="text-4xl block mb-2">{item.item.icon}</span>
         <p className="font-bold text-lg">{item.item.name}</p>
         <p className="text-sm text-gray-400 mb-2">Nivel +{level}</p>
@@ -32,7 +32,7 @@ export default function EnchantModal({ item, enchanting, onEnchant, onClose }: R
           className="mt-2 w-full py-2 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 transition">
           Cerrar
         </button>
-      </button>
-    </button>
+      </div>
+    </div>
   )
 }

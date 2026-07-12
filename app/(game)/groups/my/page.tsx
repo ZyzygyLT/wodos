@@ -72,13 +72,17 @@ export default function MyGroupsPage() {
   }
 
   async function acceptInvite(inviteId: string) {
-    const res = await fetch(`/api/groups/invites/${inviteId}/accept`, { method: "POST" })
-    if (res.ok) fetchData()
+    try {
+      const res = await fetch(`/api/groups/invites/${inviteId}/accept`, { method: "POST" })
+      if (res.ok) fetchData()
+    } catch {}
   }
 
   async function rejectInvite(inviteId: string) {
-    const res = await fetch(`/api/groups/invites/${inviteId}/reject`, { method: "POST" })
-    if (res.ok) fetchData()
+    try {
+      const res = await fetch(`/api/groups/invites/${inviteId}/reject`, { method: "POST" })
+      if (res.ok) fetchData()
+    } catch {}
   }
 
   if (loading) {

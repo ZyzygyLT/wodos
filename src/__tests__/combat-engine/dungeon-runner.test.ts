@@ -37,7 +37,6 @@ function makeHero(overrides: Partial<HeroData> = {}): HeroData {
     gold: 100,
     combatProfile: {
       position: 'front',
-      initiativeSkill: 'organization',
       prelimRules: [],
       roundRules: [
         { priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
@@ -157,7 +156,6 @@ describe('runDungeon', () => {
     const hero = makeHero({
       combatProfile: {
         position: 'front',
-        initiativeSkill: 'organization',
         prelimRules: [
           { skillId: 999, effect: 'party_attack_up', multiplier: 1.5 },
         ],
@@ -267,7 +265,6 @@ describe('runDungeon', () => {
     const hero = makeHero({
       combatProfile: {
         position: 'front',
-        initiativeSkill: 'organization',
         prelimRules: [],
         roundRules: [
           { priority: 1, condition: { type: 'hp_self_lt', value: 100 }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },
@@ -439,7 +436,6 @@ describe('runDungeon', () => {
         attrs: { ...baseAttrs },
         combatProfile: {
           position: 'front',
-          initiativeSkill: 'organization',
           prelimRules: [],
           roundRules: [
             { priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
@@ -476,7 +472,6 @@ describe('runDungeon', () => {
         attrs: { ...baseAttrs, dx: 30 },
         combatProfile: {
           position: 'front',
-          initiativeSkill: 'organization',
           prelimRules: [],
           roundRules: [
             { priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
@@ -554,7 +549,6 @@ describe('runDungeon', () => {
           hpMax: 500,
           combatProfile: {
             position: 'rear',
-            initiativeSkill: 'organization',
             prelimRules: [],
             roundRules: [
               { priority: 1, condition: { type: 'hp_ally_lt', value: 50 }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },

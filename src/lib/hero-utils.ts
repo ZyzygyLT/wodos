@@ -78,7 +78,6 @@ export async function createHero(userId: string, name: string, classId: number, 
           create: {
             name: "Estándar",
             position: cls.position,
-            initiativeSkill: "organization",
             defenseSkills: buildDefenseDefaults(genericDefense, classDefense) as any,
             roundRules: [
               {

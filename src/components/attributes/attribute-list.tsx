@@ -1,6 +1,6 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import type { AttributeDefinition } from '@/generated/prisma/client'
+import type { AttributeDefinition } from '@/generated/prisma'
 
 interface AttributeListProps {
   attributes: AttributeDefinition[]
@@ -10,12 +10,12 @@ export default function AttributeList({ attributes }: Readonly<AttributeListProp
   const router = useRouter()
 
   const handleArchive = async (id: string) => {
-    await fetch(`/api/attributes/${id}/archive`, { method: 'POST' })
+    try { await fetch(`/api/attributes/${id}/archive`, { method: 'POST' }) } catch {}
     router.refresh()
   }
 
   const handleReactivate = async (id: string) => {
-    await fetch(`/api/attributes/${id}/reactivate`, { method: 'POST' })
+    try { await fetch(`/api/attributes/${id}/reactivate`, { method: 'POST' }) } catch {}
     router.refresh()
   }
 

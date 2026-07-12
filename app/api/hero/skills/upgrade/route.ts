@@ -5,6 +5,7 @@ import { updateQuestProgress } from "@/lib/quests/progress"
 import { checkAchievements } from "@/lib/achievements/checker"
 import { z } from "zod"
 import { formatZodError } from "@/lib/zod-error"
+import { skillUpgradeCost } from "@/lib/skill-cost"
 
 const schema = z.object({
   skillId: z.number().int().positive(),
@@ -44,13 +45,13 @@ export async function POST(req: NextRequest) {
   }
 
   const currentRank = heroSkill.rank
-  if (currentRank >= skill.maxRank) {
-    return NextResponse.json({ error: `Ya alcanzaste el rango máximo (${skill.maxRank})` }, { status: 400 })
+  if (currentRank >= (skill.maxRank ?? 1)) {
+    return NextResponse.json({ error: `Ya alcanzaste el rango máximo (${skill.maxRank ?? 1})` }, { status: 400 })
   }
   const newRank = currentRank + 1
 
-  const goldCost = skill.goldCost * currentRank
-  const epCost = skill.epCost * currentRank
+  const goldCost = skillUpgradeCost(skill.goldCost, currentRank)
+  const epCost = skillUpgradeCost(skill.epCost, currentRank)
 
   if (hero.gold < goldCost) {
     return NextResponse.json({

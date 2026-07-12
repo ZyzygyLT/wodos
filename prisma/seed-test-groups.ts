@@ -1,9 +1,9 @@
-import { PrismaClient } from '../src/generated/prisma/client.js'
+import { PrismaClient } from '../src/generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 
 const pool = new pg.Pool({
-  host: '127.0.0.1', port: 5432, user: 'postgres', password: '1234', database: 'ironhold',
+  host: '127.0.0.1', port: Number(process.env['DB_PORT'] ?? '5433'), user: 'postgres', password: '1234', database: 'ironhold',
 })
 const adapter = new PrismaPg(pool)
 const db = new PrismaClient({ adapter })
@@ -124,7 +124,6 @@ async function createCombatProfile(heroId: string, position: string, classSlug: 
   await db.combatProfile.create({
     data: {
       heroId, name: 'Estándar', position: position as any,
-      initiativeSkill: 'organization',
       defenseSkills: defenseSkills as any,
       roundRules: roundRules as any,
     },
@@ -165,25 +164,27 @@ async function main() {
   await db.clan.deleteMany({ where: { name: 'Clan de Prueba' } })
 
   const HERO_DEFS = [
-    { name: "Aldric", classSlug: "guerrero", raceSlug: "borderlander", level: 10, frontliner: true, pos: "front" as const },
-    { name: "Fiona", classSlug: "mago", raceSlug: "tirem-ag", level: 10, frontliner: false, pos: "rear" as const },
-    { name: "Jorin", classSlug: "arquero", raceSlug: "targeshian", level: 9, frontliner: false, pos: "center" as const },
-    { name: "Brom", classSlug: "guerrero", raceSlug: "mag-mor", level: 8, frontliner: true, pos: "front" as const },
-    { name: "Nadia", classSlug: "mago", raceSlug: "tirem-ag", level: 8, frontliner: false, pos: "rear" as const },
-    { name: "Kara", classSlug: "arquero", raceSlug: "halfling", level: 7, frontliner: false, pos: "center" as const },
-    { name: "Orin", classSlug: "guerrero", raceSlug: "kargashian", level: 6, frontliner: true, pos: "front" as const },
-    { name: "Sera", classSlug: "arquero", raceSlug: "halfling", level: 6, frontliner: false, pos: "center" as const },
-    { name: "Dain", classSlug: "guerrero", raceSlug: "tirem-ag", level: 4, frontliner: true, pos: "front" as const },
-    { name: "Petra", classSlug: "arquero", raceSlug: "targeshian", level: 4, frontliner: false, pos: "center" as const },
-    // Grupo 3: Guardia de Élite (niveles 12–20)
-    { name: "Siegfried", classSlug: "guerrero", raceSlug: "borderlander", level: 20, frontliner: true, pos: "front" as const },
-    { name: "Elara", classSlug: "mago", raceSlug: "tirem-ag", level: 20, frontliner: false, pos: "rear" as const },
-    { name: "Ragnar", classSlug: "guerrero", raceSlug: "kargashian", level: 18, frontliner: true, pos: "front" as const },
-    { name: "Lyra", classSlug: "arquero", raceSlug: "halfling", level: 18, frontliner: false, pos: "rear" as const },
-    { name: "Thorn", classSlug: "guerrero", raceSlug: "mag-mor", level: 16, frontliner: true, pos: "front" as const },
-    { name: "Vega", classSlug: "mago", raceSlug: "tirem-ag", level: 16, frontliner: false, pos: "rear" as const },
-    { name: "Kael", classSlug: "arquero", raceSlug: "targeshian", level: 12, frontliner: false, pos: "center" as const },
-    { name: "Mira", classSlug: "guerrero", raceSlug: "borderlander", level: 12, frontliner: true, pos: "front" as const },
+    // Grupo 1: Escuadrón Fénix (balanceado, nivel 8-10, cubre 6 clases)
+    { name: "Aldric", classSlug: "guerrero", raceSlug: "enano", level: 10, frontliner: true, pos: "front" as const },
+    { name: "Fiona", classSlug: "mago", raceSlug: "gnomo", level: 10, frontliner: false, pos: "rear" as const },
+    { name: "Jorin", classSlug: "arquero", raceSlug: "elfo", level: 9, frontliner: false, pos: "center" as const },
+    { name: "Lyra", classSlug: "clerigo", raceSlug: "humano", level: 9, frontliner: false, pos: "rear" as const },
+    { name: "Ragnar", classSlug: "barbaro", raceSlug: "orco", level: 8, frontliner: true, pos: "front" as const },
+    // Grupo 2: Lobos Solitarios (nivel 4-8, cubre 2 clases extra)
+    { name: "Nadia", classSlug: "asesino", raceSlug: "tiefling", level: 8, frontliner: false, pos: "center" as const },
+    { name: "Kael", classSlug: "paladin", raceSlug: "semielfo", level: 7, frontliner: true, pos: "front" as const },
+    { name: "Kara", classSlug: "druida", raceSlug: "elfo", level: 7, frontliner: false, pos: "center" as const },
+    { name: "Brom", classSlug: "guerrero", raceSlug: "enano", level: 6, frontliner: true, pos: "front" as const },
+    { name: "Petra", classSlug: "arquero", raceSlug: "mediano", level: 5, frontliner: false, pos: "center" as const },
+    // Grupo 3: Guardia de Élite (niveles 12-20, todas las clases)
+    { name: "Siegfried", classSlug: "guerrero", raceSlug: "enano", level: 20, frontliner: true, pos: "front" as const },
+    { name: "Elara", classSlug: "mago", raceSlug: "gnomo", level: 20, frontliner: false, pos: "rear" as const },
+    { name: "Thorn", classSlug: "barbaro", raceSlug: "orco", level: 18, frontliner: true, pos: "front" as const },
+    { name: "Vega", classSlug: "clerigo", raceSlug: "humano", level: 16, frontliner: false, pos: "rear" as const },
+    { name: "Mira", classSlug: "paladin", raceSlug: "semielfo", level: 14, frontliner: true, pos: "front" as const },
+    { name: "Sera", classSlug: "asesino", raceSlug: "tiefling", level: 14, frontliner: false, pos: "center" as const },
+    { name: "Orin", classSlug: "druida", raceSlug: "elfo", level: 12, frontliner: false, pos: "center" as const },
+    { name: "Dain", classSlug: "arquero", raceSlug: "mediano", level: 12, frontliner: false, pos: "rear" as const },
   ]
 
   const createdHeroIds: string[] = []
@@ -210,6 +211,31 @@ async function main() {
     arquero: [
       { slug: "arco-corto", slot: "mainHand" },
       { slug: "armadura-cuero", slot: "chest" },
+      { slug: "brazales-cuero", slot: "arms" },
+    ],
+    paladin: [
+      { slug: "espada-hierro", slot: "mainHand" },
+      { slug: "escudo-roble", slot: "offHand" },
+      { slug: "armadura-cuero", slot: "chest" },
+    ],
+    asesino: [
+      { slug: "daga-acero", slot: "mainHand" },
+      { slug: "armadura-cuero", slot: "chest" },
+      { slug: "cinturon-cuero", slot: "belt" },
+    ],
+    clerigo: [
+      { slug: "baston-runico", slot: "mainHand" },
+      { slug: "tunica-lino", slot: "chest" },
+      { slug: "collar-huesos", slot: "neck" },
+    ],
+    barbaro: [
+      { slug: "espada-hierro", slot: "mainHand" },
+      { slug: "armadura-cuero", slot: "chest" },
+      { slug: "cinturon-cuero", slot: "belt" },
+    ],
+    druida: [
+      { slug: "baston-runico", slot: "mainHand" },
+      { slug: "tunica-lino", slot: "chest" },
       { slug: "brazales-cuero", slot: "arms" },
     ],
   }

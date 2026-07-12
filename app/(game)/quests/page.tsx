@@ -42,50 +42,56 @@ export default function QuestsPage() {
   const [levelUp, setLevelUp] = useState<any>(null)
 
   const fetchData = useCallback(async () => {
-    const [heroRes, questsRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/quests"),
-    ])
-    if (heroRes.status === 401 || heroRes.status === 404) return
-    setHero(await heroRes.json())
-    setQuests(await questsRes.json())
+    try {
+      const [heroRes, questsRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/quests"),
+      ])
+      if (heroRes.status === 401 || heroRes.status === 404) return
+      setHero(await heroRes.json())
+      setQuests(await questsRes.json())
+    } catch {}
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   async function acceptQuest(slug: string) {
     setAccepting(slug)
-    const res = await fetch("/api/quests/accept", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ questSlug: slug }),
-    })
-    setAccepting(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage("✅ Quest aceptada!")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/quests/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questSlug: slug }),
+      })
+      setAccepting(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage("✅ Quest aceptada!")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setAccepting(null); setMessage("❌ Error de red") }
   }
 
   async function claimReward(questId: string) {
     setClaiming(questId)
-    const res = await fetch("/api/quests/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ questId }),
-    })
-    setClaiming(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`✅ Quest completada! Recompensa: ${data.rewards.ep} EP, ${data.rewards.gold} oro, ${data.rewards.fame} fama`)
-      if (data.levelUp) setLevelUp(data.levelUp)
-      fetchData()
+    try {
+      const res = await fetch("/api/quests/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questId }),
+      })
+      setClaiming(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`✅ Quest completada! Recompensa: ${data.rewards.ep} EP, ${data.rewards.gold} oro, ${data.rewards.fame} fama`)
+        if (data.levelUp) setLevelUp(data.levelUp)
+        fetchData()
     } else {
       setMessage(`❌ ${data.error}`)
-    }
+      }
+    } catch { setClaiming(null) }
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>

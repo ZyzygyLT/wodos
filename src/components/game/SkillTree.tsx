@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { skillUpgradeCost } from "@/lib/skill-cost"
 
 interface SkillNode {
   id: number; name: string; icon: string
@@ -86,7 +87,7 @@ export default function SkillTree({ skills, epAvailable, gold, classId, onUnlock
       return (
         <button onClick={() => handleAction(skill)} disabled={actionLoading}
           className="w-full py-2 rounded-lg text-sm font-medium bg-blue-700 hover:bg-blue-600 text-white transition disabled:opacity-50">
-          {actionLoading ? "..." : `Mejorar (+${skill.goldCost * skill.rank}💰 +${skill.epCost * skill.rank} EXP)`}
+          {actionLoading ? "..." : `Mejorar (+${skillUpgradeCost(skill.goldCost, skill.rank)}💰 +${skillUpgradeCost(skill.epCost, skill.rank)} EXP)`}
         </button>
       )
     }

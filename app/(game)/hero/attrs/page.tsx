@@ -54,12 +54,41 @@ export default function HeroAttrsPage() {
         freeAttrPoints: data.freeRemaining,
         hpMax: data.hpMax,
         mpMax: data.mpMax,
+        epSpent: prev.epSpent + (data.epCost ?? 0),
       }))
       if (data.freeUsed > 0) {
         showToast(`✅ +1 ${attr.toUpperCase()} (punto gratis)`)
       } else {
         showToast(`✅ +1 ${attr.toUpperCase()} (${data.epCost} EP)`)
       }
+    } catch {
+      showToast("❌ Error de conexión")
+    } finally {
+      setSpending(null)
+    }
+  }, [])
+
+  const refundPoint = useCallback(async (attr: string) => {
+    setSpending(attr)
+    try {
+      const res = await fetch("/api/hero/attrs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attr, amount: -1 }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(data.error || "Error")
+        return
+      }
+      setHero((prev: any) => ({
+        ...prev,
+        attrs: data.attrs,
+        hpMax: data.hpMax,
+        mpMax: data.mpMax,
+        epSpent: Math.max(0, prev.epSpent - (data.epRefund ?? 0)),
+      }))
+      showToast(`⬅️ -1 ${attr.toUpperCase()} (recuperaste ${data.epRefund ?? 0} EP)`)
     } catch {
       showToast("❌ Error de conexión")
     } finally {
@@ -101,13 +130,22 @@ export default function HeroAttrsPage() {
                 </div>
                 <p className="text-xs text-gray-500 truncate">{ATTR_DESC[key]}</p>
               </div>
-              <button
-                onClick={() => spendPoint(key)}
-                disabled={spending === key}
-                className="px-3 py-1.5 rounded-lg bg-amber-800/40 hover:bg-amber-700/50 text-amber-300 text-sm font-bold transition disabled:opacity-40"
-              >
-                {spending === key ? "..." : "+1"}
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => refundPoint(key)}
+                  disabled={spending === key || val <= 0 || (hero.epSpent ?? 0) <= 0}
+                  className="px-3 py-1.5 rounded-lg bg-red-800/30 hover:bg-red-700/40 text-red-400 text-sm font-bold transition disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {spending === key ? "..." : "-1"}
+                </button>
+                <button
+                  onClick={() => spendPoint(key)}
+                  disabled={spending === key}
+                  className="px-3 py-1.5 rounded-lg bg-amber-800/40 hover:bg-amber-700/50 text-amber-300 text-sm font-bold transition disabled:opacity-40"
+                >
+                  {spending === key ? "..." : "+1"}
+                </button>
+              </div>
             </div>
           )
         })}
@@ -117,6 +155,7 @@ export default function HeroAttrsPage() {
       <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-4 text-xs text-gray-500 space-y-1">
         <p>💡 Los puntos de atributo gratis se obtienen al subir de nivel.</p>
         <p>⚡ Si no tenés puntos gratis, se usarán EP con la curva de costo.</p>
+        <p>⬅️ -1 devuelve EP invertidos (congela si el atributo está en 0 o no hay EP invertidos).</p>
       </div>
     </div>
   )

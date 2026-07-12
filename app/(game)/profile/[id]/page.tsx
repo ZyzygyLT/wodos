@@ -42,12 +42,14 @@ export default function ProfilePage() {
     }).catch(() => setHero(null))
   }, [params.id])
 
+  const isMyProfile = myId === hero?.id
+
   useEffect(() => {
     if (!params.id || !isMyProfile) return
     fetch("/api/achievements").then(r => r.ok ? r.json() : []).then(d => {
       setAchievements((d.achievements ?? []).filter((a: any) => a.completed).slice(0, 6))
     }).catch(() => {})
-  }, [params.id])
+  }, [params.id, isMyProfile])
 
   const startEditing = useCallback(() => {
     setEditName(hero?.name ?? "")
@@ -83,8 +85,6 @@ export default function ProfilePage() {
   }, [editName, editDesc, params.id])
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
-
-  const isMyProfile = myId === hero.id
 
   const epForLevel = (level: number) => Math.round(200 * Math.pow(1.6, level - 1))
   const currentLevelEp = epForLevel(hero.level)

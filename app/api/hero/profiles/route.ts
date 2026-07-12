@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
       heroId: hero.id,
       name: parsed.data.name,
       position: parsed.data.position,
-      initiativeSkill: "organization",
       roundRules: [
         {
           priority: 1,

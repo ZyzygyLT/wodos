@@ -1,0 +1,384 @@
+import db from '@/lib/db'
+import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
+import {
+  calcEnergyRecharge, resolveCombatStep, rollAdventureRewards,
+} from '@/lib/adventures/adventure-helpers'
+import {
+  ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
+} from '@/lib/adventures/types'
+
+async function getHeroWithEnergy(heroId: string) {
+  const hero = await db.hero.findUnique({
+    where: { id: heroId },
+    select: {
+      id: true, level: true, adventureEnergy: true, adventureEnergyMax: true,
+      lastEnergyRechargeAt: true, gold: true, hpCurrent: true, hpMax: true,
+      mpCurrent: true, mpMax: true, attrs: true,
+    },
+  })
+  if (!hero) throw new Error('Héroe no encontrado')
+
+  const energyRechargeAmount = calcEnergyRecharge(hero.lastEnergyRechargeAt)
+  if (energyRechargeAmount > 0) {
+    const newEnergy = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + energyRechargeAmount)
+    await db.hero.update({
+      where: { id: heroId },
+      data: { adventureEnergy: newEnergy, lastEnergyRechargeAt: new Date() },
+    })
+    return { ...hero, adventureEnergy: newEnergy }
+  }
+
+  return hero
+}
+
+export async function listAdventures(heroId: string) {
+  const hero = await getHeroWithEnergy(heroId)
+  const adventures = await db.adventure.findMany({
+    where: {
+      isActive: true,
+      levelReq: { lte: hero.level },
+      maxLevel: { gte: hero.level },
+    },
+    include: { faction: { select: { id: true, name: true, icon: true, color: true } } },
+    orderBy: { levelReq: 'asc' },
+  })
+
+  const activeAdventure = await db.heroAdventure.findFirst({
+    where: { heroId, status: 'active' },
+  })
+
+  return {
+    adventures: adventures.map(a => ({
+      id: a.id, name: a.name, slug: a.slug, icon: a.icon, description: a.description,
+      lore: a.lore, levelReq: a.levelReq, duration: a.duration, energyCost: a.energyCost,
+      faction: a.faction, canAfford: hero.adventureEnergy >= a.energyCost,
+    })),
+    energy: hero.adventureEnergy,
+    energyMax: hero.adventureEnergyMax,
+    hasActiveAdventure: !!activeAdventure,
+  }
+}
+
+export async function startAdventure(heroId: string, adventureId: number) {
+  const hero = await getHeroWithEnergy(heroId)
+  const adventure = await db.adventure.findUnique({ where: { id: adventureId } })
+  if (!adventure) throw new Error('Aventura no encontrada')
+  if (!adventure.isActive) throw new Error('Aventura no disponible')
+  if (hero.level < adventure.levelReq) throw new Error('Nivel insuficiente')
+  if (hero.level > adventure.maxLevel) throw new Error('Nivel demasiado alto')
+  if (hero.adventureEnergy < adventure.energyCost) throw new Error('Energía insuficiente')
+
+  const existing = await db.heroAdventure.findFirst({
+    where: { heroId, status: 'active' },
+  })
+  if (existing) throw new Error('Ya tienes una aventura activa')
+
+  const steps = adventure.steps as unknown as AdventureStep[]
+
+  const [heroAdventure] = await db.$transaction([
+    db.heroAdventure.create({
+      data: {
+        heroId,
+        adventureId,
+        currentStep: 0,
+        totalSteps: steps.length,
+        energySpent: adventure.energyCost,
+      },
+    }),
+    db.hero.update({
+      where: { id: heroId },
+      data: {
+        adventureEnergy: { decrement: adventure.energyCost },
+        lastEnergyRechargeAt: new Date(),
+      },
+    }),
+  ])
+
+  return { heroAdventureId: heroAdventure.id, totalSteps: steps.length }
+}
+
+export async function getActiveAdventure(heroId: string) {
+  const ha = await db.heroAdventure.findFirst({
+    where: { heroId, status: 'active' },
+    include: { adventure: true },
+  })
+  if (!ha) return null
+
+  const steps = ha.adventure.steps as unknown as AdventureStep[]
+  const result = (ha.result as any) ?? { steps: [], rewards: null }
+  const currentStep = steps[ha.currentStep]
+
+  return {
+    id: ha.id,
+    adventureId: ha.adventureId,
+    adventureName: ha.adventure.name,
+    adventureIcon: ha.adventure.icon,
+    adventureDescription: ha.adventure.description,
+    adventureLore: ha.adventure.lore,
+    currentStep: ha.currentStep,
+    totalSteps: ha.totalSteps,
+    status: ha.status,
+    startedAt: ha.startedAt,
+    result,
+    currentStepData: currentStep ?? null,
+  }
+}
+
+export async function executeStep(heroId: string, heroAdventureId: string) {
+  const ha = await db.heroAdventure.findUnique({
+    where: { id: heroAdventureId },
+    include: { adventure: true },
+  })
+  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
+  if (ha.status !== 'active') throw new Error('Aventura no activa')
+  if (ha.currentStep >= ha.totalSteps) throw new Error('Aventura ya completada')
+
+  const hero = await getHeroWithEnergy(heroId)
+  const steps = ha.adventure.steps as unknown as AdventureStep[]
+  const currentStep = steps[ha.currentStep]
+  const resultData = (ha.result as any) ?? { steps: [], rewards: null }
+
+  let stepResult: StepResult
+  let nextStepIndex = ha.currentStep + 1
+
+  switch (currentStep.type) {
+    case 'narrative': {
+      stepResult = { type: 'narrative' }
+      break
+    }
+    case 'choice': {
+      stepResult = { type: 'choice', chosenIndex: -1, nextStep: ha.currentStep + 1 }
+      break
+    }
+    case 'combat': {
+      const combat = resolveCombatStep(
+        { hpMax: hero.hpMax, mpMax: hero.mpMax, attrs: hero.attrs as Record<string, number>, level: hero.level },
+        currentStep.enemies ?? [],
+      )
+      stepResult = combat
+      if (!combat.victory) {
+        resultData.steps.push(stepResult)
+        const rewards = null
+        await db.heroAdventure.update({
+          where: { id: heroAdventureId },
+          data: {
+            status: 'failed',
+            completedAt: new Date(),
+            result: resultData,
+          },
+        })
+        return { completed: true, victory: false, stepResult, rewards, totalSteps: ha.totalSteps }
+      }
+      break
+    }
+    case 'reward': {
+      stepResult = { type: 'reward', rewards: currentStep.rewards ?? {} }
+      break
+    }
+    default: {
+      stepResult = { type: 'narrative' }
+    }
+  }
+
+  resultData.steps.push(stepResult)
+
+  const isLastStep = nextStepIndex >= ha.totalSteps
+  if (isLastStep) {
+    const rewardsTable = ha.adventure.rewards as unknown as AdventureRewardTable
+    const rewards = rollAdventureRewards(rewardsTable)
+    resultData.rewards = rewards
+
+    await db.heroAdventure.update({
+      where: { id: heroAdventureId },
+      data: {
+        status: 'completed',
+        currentStep: nextStepIndex,
+        completedAt: new Date(),
+        result: resultData,
+      },
+    })
+
+    return { completed: true, victory: true, stepResult, rewards, totalSteps: ha.totalSteps }
+  }
+
+  await db.heroAdventure.update({
+    where: { id: heroAdventureId },
+    data: { currentStep: nextStepIndex, result: resultData },
+  })
+
+  return {
+    completed: false,
+    stepResult,
+    currentStep: nextStepIndex,
+    totalSteps: ha.totalSteps,
+    nextStep: steps[nextStepIndex],
+  }
+}
+
+export async function makeChoice(
+  heroId: string, heroAdventureId: string, choiceIndex: number
+) {
+  const ha = await db.heroAdventure.findUnique({
+    where: { id: heroAdventureId },
+    include: { adventure: true },
+  })
+  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
+  if (ha.status !== 'active') throw new Error('Aventura no activa')
+
+  const steps = ha.adventure.steps as unknown as AdventureStep[]
+  const currentStep = steps[ha.currentStep]
+  if (currentStep.type !== 'choice') throw new Error('Este paso no requiere decisión')
+  if (!currentStep.choices || choiceIndex >= currentStep.choices.length) {
+    throw new Error('Opción inválida')
+  }
+
+  const chosen = currentStep.choices[choiceIndex]
+  const resultData = (ha.result as any) ?? { steps: [], rewards: null }
+  const stepResult = { type: 'choice' as const, chosenIndex: choiceIndex, nextStep: chosen.nextStep }
+  resultData.steps.push(stepResult)
+
+  await db.heroAdventure.update({
+    where: { id: heroAdventureId },
+    data: { currentStep: chosen.nextStep, result: resultData },
+  })
+
+  return {
+    chosen: chosen.text,
+    nextStepIndex: chosen.nextStep,
+    flavor: chosen.flavor ?? null,
+    nextStep: steps[chosen.nextStep] ?? null,
+    totalSteps: ha.totalSteps,
+  }
+}
+
+export async function claimRewards(heroId: string, heroAdventureId: string) {
+  const ha = await db.heroAdventure.findUnique({
+    where: { id: heroAdventureId },
+    include: { adventure: { select: { factionId: true, factionRep: true } } },
+  })
+  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
+  if (ha.status === 'claimed') throw new Error('Recompensas ya reclamadas')
+  if (ha.status === 'active') throw new Error('Aventura no completada')
+
+  const result = ha.result as any
+  const rewards = result?.rewards
+
+  return await db.$transaction(async (tx) => {
+    if (rewards) {
+      const stepRewards = (result?.steps ?? [])
+        .filter((s: any) => s.type === 'reward' && s.rewards)
+        .reduce((acc: any, s: any) => {
+          if (s.rewards.gold) acc.gold = (acc.gold ?? 0) + s.rewards.gold
+          if (s.rewards.ep) acc.ep = (acc.ep ?? 0) + s.rewards.ep
+          if (s.rewards.fame) acc.fame = (acc.fame ?? 0) + s.rewards.fame
+          if (s.rewards.items) acc.items = [...(acc.items ?? []), ...s.rewards.items]
+          if (s.rewards.materials) acc.materials = [...(acc.materials ?? []), ...s.rewards.materials]
+          return acc
+        }, {})
+
+      const totalGold = (rewards.gold ?? 0) + (stepRewards.gold ?? 0)
+      const totalEp = (rewards.ep ?? 0) + (stepRewards.ep ?? 0)
+      const totalFame = (rewards.fame ?? 0) + (stepRewards.fame ?? 0)
+
+      await tx.hero.update({
+        where: { id: heroId },
+        data: {
+          gold: { increment: totalGold },
+          epTotal: { increment: totalEp },
+          fame: { increment: totalFame },
+        },
+      })
+
+      const allItems = [...(rewards.items ?? []), ...(stepRewards.items ?? [])]
+      for (const item of allItems) {
+        await tx.heroItem.createMany({
+          data: Array.from({ length: item.qty }, () => ({
+            heroId, itemId: item.itemId, equipped: false,
+          })),
+        })
+      }
+
+      const allMaterials = [...(rewards.materials ?? []), ...(stepRewards.materials ?? [])]
+      for (const mat of allMaterials) {
+        await tx.heroMaterial.upsert({
+          where: { heroId_materialId: { heroId, materialId: mat.materialId } },
+          create: { heroId, materialId: mat.materialId, quantity: mat.qty },
+          update: { quantity: { increment: mat.qty } },
+        })
+      }
+
+      if (ha.adventure.factionId && ha.adventure.factionRep > 0) {
+        await tx.heroFactionRep.upsert({
+          where: { heroId_factionId: { heroId, factionId: ha.adventure.factionId } },
+          create: { heroId, factionId: ha.adventure.factionId, rep: ha.adventure.factionRep },
+          update: { rep: { increment: ha.adventure.factionRep } },
+        })
+      }
+    }
+
+    await tx.heroAdventure.update({
+      where: { id: heroAdventureId },
+      data: { status: 'claimed' },
+    })
+
+    return { claimed: true, rewards: result?.rewards }
+  })
+}
+
+export async function abandonAdventure(heroId: string, heroAdventureId: string) {
+  const ha = await db.heroAdventure.findUnique({ where: { id: heroAdventureId } })
+  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
+  if (ha.status !== 'active') throw new Error('Aventura no activa')
+
+  await db.heroAdventure.update({
+    where: { id: heroAdventureId },
+    data: { status: 'failed', completedAt: new Date() },
+  })
+
+  return { abandoned: true }
+}
+
+export async function rechargeEnergy(heroId: string) {
+  const hero = await getHeroWithEnergy(heroId)
+  if (hero.adventureEnergy >= hero.adventureEnergyMax) {
+    throw new Error('Energía ya está al máximo')
+  }
+
+  const rechargeAmount = Math.floor(
+    (Date.now() - (hero.lastEnergyRechargeAt?.getTime() ?? Date.now())) / (5 * 60000)
+  )
+
+  const newEnergy = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + Math.max(1, rechargeAmount))
+
+  await db.hero.update({
+    where: { id: heroId },
+    data: { adventureEnergy: newEnergy, lastEnergyRechargeAt: new Date() },
+  })
+
+  return { energy: newEnergy, energyMax: hero.adventureEnergyMax }
+}
+
+export async function buyEnergy(heroId: string, amount: number = ENERGY_RECHARGE_AMOUNT_GOLD) {
+  const hero = await db.hero.findUnique({
+    where: { id: heroId },
+    select: { id: true, gold: true, adventureEnergy: true, adventureEnergyMax: true },
+  })
+  if (!hero) throw new Error('Héroe no encontrado')
+  if (hero.adventureEnergy >= hero.adventureEnergyMax) throw new Error('Energía ya está al máximo')
+
+  const available = hero.adventureEnergyMax - hero.adventureEnergy
+  const toBuy = Math.min(amount, available)
+  const cost = toBuy * ENERGY_RECHARGE_COST_GOLD
+
+  if (hero.gold < cost) throw new Error('Oro insuficiente')
+
+  await db.hero.update({
+    where: { id: heroId },
+    data: {
+      gold: { decrement: cost },
+      adventureEnergy: { increment: toBuy },
+    },
+  })
+
+  return { energyBought: toBuy, cost, energy: hero.adventureEnergy + toBuy }
+}

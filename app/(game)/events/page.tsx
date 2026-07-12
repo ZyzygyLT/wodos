@@ -86,20 +86,24 @@ export default function EventsPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchActive = useCallback(async () => {
-    const [heroRes, eventsRes, clanRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/events"),
-      fetch("/api/clan"),
-    ])
-    if (heroRes.status === 401 || heroRes.status === 404) return
-    setHero(await heroRes.json())
-    setActiveEvents(await eventsRes.json())
-    setClan(await clanRes.json())
+    try {
+      const [heroRes, eventsRes, clanRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/events"),
+        fetch("/api/clan"),
+      ])
+      if (heroRes.status === 401 || heroRes.status === 404) return
+      setHero(await heroRes.json())
+      setActiveEvents(await eventsRes.json())
+      setClan(await clanRes.json())
+    } catch {}
   }, [])
 
   const fetchPast = useCallback(async () => {
-    const res = await fetch("/api/events?past=true")
-    if (res.ok) setPastEvents(await res.json())
+    try {
+      const res = await fetch("/api/events?past=true")
+      if (res.ok) setPastEvents(await res.json())
+    } catch {}
   }, [])
 
   useEffect(() => {
@@ -115,64 +119,72 @@ export default function EventsPage() {
   async function contributeClan(eventId: string) {
     if (!clan) return
     setContributing(eventId)
-    const res = await fetch(`/api/events/${eventId}/contribute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clanId: clan.id, kills: 1 }),
-    })
-    setContributing(null)
-    if (res.ok) {
-      setMessage("✅ Contribuiste al evento (clan)!")
-      fetchActive()
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error}`)
-    }
+    try {
+      const res = await fetch(`/api/events/${eventId}/contribute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clanId: clan.id, kills: 1 }),
+      })
+      setContributing(null)
+      if (res.ok) {
+        setMessage("✅ Contribuiste al evento (clan)!")
+        fetchActive()
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error}`)
+      }
+    } catch { setContributing(null); setMessage("❌ Error de red") }
   }
 
   async function contributeHero(eventId: string) {
     setContributing(eventId)
-    const res = await fetch(`/api/events/${eventId}/hero-contribute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: 1 }),
-    })
-    setContributing(null)
-    if (res.ok) {
-      setMessage("✅ +1 progreso personal!")
-      fetchActive()
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error}`)
-    }
+    try {
+      const res = await fetch(`/api/events/${eventId}/hero-contribute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 1 }),
+      })
+      setContributing(null)
+      if (res.ok) {
+        setMessage("✅ +1 progreso personal!")
+        fetchActive()
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error}`)
+      }
+    } catch { setContributing(null); setMessage("❌ Error de red") }
   }
 
   async function claimClanReward(eventId: string) {
     setClaiming(eventId)
-    const res = await fetch(`/api/events/${eventId}/claim`, { method: "POST" })
-    setClaiming(null)
-    if (res.ok) {
-      setMessage("✅ Recompensas del clan reclamadas!")
-      fetchPast()
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error}`)
-    }
+    try {
+      const res = await fetch(`/api/events/${eventId}/claim`, { method: "POST" })
+      setClaiming(null)
+      if (res.ok) {
+        setMessage("✅ Recompensas del clan reclamadas!")
+        fetchPast()
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error}`)
+      }
+    } catch { setClaiming(null); setMessage("❌ Error de red") }
   }
 
   async function claimHeroReward(eventId: string) {
     setClaiming(eventId)
-    const res = await fetch(`/api/events/${eventId}/hero-claim`, { method: "POST" })
-    setClaiming(null)
-    if (res.ok) {
-      const d = await res.json()
-      setMessage(`✅ Recompensa reclamada! 🏆${d.fame} 💰${d.gold}`)
-      fetchActive()
-      fetchPast()
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error}`)
-    }
+    try {
+      const res = await fetch(`/api/events/${eventId}/hero-claim`, { method: "POST" })
+      setClaiming(null)
+      if (res.ok) {
+        const d = await res.json()
+        setMessage(`✅ Recompensa reclamada! 🏆${d.fame} 💰${d.gold}`)
+        fetchActive()
+        fetchPast()
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error}`)
+      }
+    } catch { setClaiming(null); setMessage("❌ Error de red") }
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>

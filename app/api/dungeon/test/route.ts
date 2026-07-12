@@ -34,7 +34,6 @@ export async function GET() {
     gold: 100,
     combatProfile: {
       position: 'front',
-      initiativeSkill: 'organization',
       prelimRules: [],
       roundRules: [
         { priority: 1, condition: { type: 'hp_self_lt', value: 30 }, action: { skillId: 3, targetPos: 'auto', targetType: 'most_injured_ally' } },

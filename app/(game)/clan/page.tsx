@@ -63,15 +63,17 @@ export default function ClanPage() {
   }
 
   const fetchData = useCallback(async () => {
-    const [heroRes, clanRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/clan"),
-    ])
-    if (heroRes.status === 401 || heroRes.status === 404) return
-    setHero(await heroRes.json())
-    const c = await clanRes.json()
-    setClan(c)
-    if (c) setTab("view")
+    try {
+      const [heroRes, clanRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/clan"),
+      ])
+      if (heroRes.status === 401 || heroRes.status === 404) return
+      setHero(await heroRes.json())
+      const c = await clanRes.json()
+      setClan(c)
+      if (c) setTab("view")
+    } catch { setMessage("❌ Error al cargar datos del clan") }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -79,117 +81,131 @@ export default function ClanPage() {
   async function createClan() {
     if (!createName || !createTag) { setMessage("❌ Nombre y tag requeridos"); return }
     setLoading(true)
-    const res = await fetch("/api/clan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: createName, tag: createTag, icon: createIcon, description: createDesc }),
-    })
-    const data = await res.json()
-    setLoading(false)
-    if (res.ok) {
-      setMessage("✅ Clan creado!")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/clan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: createName, tag: createTag, icon: createIcon, description: createDesc }),
+      })
+      const data = await res.json()
+      setLoading(false)
+      if (res.ok) {
+        setMessage("✅ Clan creado!")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setLoading(false); setMessage("❌ Error al crear clan") }
   }
 
   async function joinClan() {
     if (!joinId) { setMessage("❌ Ingresá un ID de clan"); return }
     setLoading(true)
-    const res = await fetch("/api/clan/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clanId: joinId }),
-    })
-    const data = await res.json()
-    setLoading(false)
-    if (res.ok) {
-      setMessage("✅ Te uniste al clan!")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/clan/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clanId: joinId }),
+      })
+      const data = await res.json()
+      setLoading(false)
+      if (res.ok) {
+        setMessage("✅ Te uniste al clan!")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setLoading(false); setMessage("❌ Error al unirse al clan") }
   }
 
   async function contribute() {
     if (!contributeAmount || contributeAmount < 1) { setMessage("❌ Monto inválido"); return }
     setLoading(true)
-    const res = await fetch("/api/clan/contribute", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: contributeAmount }),
-    })
-    const data = await res.json()
-    setLoading(false)
-    if (res.ok) {
-      setMessage(`✅ Contribuiste ${data.contributed} oro al clan!`)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/clan/contribute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: contributeAmount }),
+      })
+      const data = await res.json()
+      setLoading(false)
+      if (res.ok) {
+        setMessage(`✅ Contribuiste ${data.contributed} oro al clan!`)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setLoading(false); setMessage("❌ Error al contribuir") }
   }
 
   async function kickMember(heroId: string) {
     setKicking(heroId)
-    const res = await fetch("/api/clan/kick", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroId }),
-    })
-    setKicking(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`✅ ${data.kicked} fue expulsado del clan`)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/clan/kick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroId }),
+      })
+      setKicking(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`✅ ${data.kicked} fue expulsado del clan`)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setKicking(null); setMessage("❌ Error al expulsar") }
   }
 
   async function changeRole(heroId: string, role: string) {
     setChangingRole(heroId + role)
-    const res = await fetch("/api/clan/role", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroId, role }),
-    })
-    setChangingRole(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`✅ Rol cambiado a ${role}`)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/clan/role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroId, role }),
+      })
+      setChangingRole(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`✅ Rol cambiado a ${role}`)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setChangingRole(null); setMessage("❌ Error al cambiar rol") }
   }
 
   async function transfer(heroId: string) {
     if (!confirm("¿Estás seguro? Vas a transferir el liderazgo del clan.")) return
-    const res = await fetch("/api/clan/transfer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroId }),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      setMessage("✅ Liderazgo transferido!")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/clan/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setMessage("✅ Liderazgo transferido!")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setMessage("❌ Error al transferir liderazgo") }
   }
 
   async function leaveClan() {
     if (!confirm("¿Estás seguro de abandonar el clan?")) return
-    const res = await fetch("/api/clan/leave", { method: "POST" })
-    const data = await res.json()
-    if (res.ok) {
-      setMessage("✅ Abandonaste el clan")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/clan/leave", { method: "POST" })
+      const data = await res.json()
+      if (res.ok) {
+        setMessage("✅ Abandonaste el clan")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setMessage("❌ Error al abandonar el clan") }
   }
 
   const myMember = clan?.members?.find((m: any) => m.heroId === hero?.id)
@@ -205,18 +221,20 @@ export default function ClanPage() {
   const [unassignedMembers, setUnassignedMembers] = useState<any[]>([])
 
   const fetchGroups = useCallback(async () => {
-    const [groupsRes, invitesRes] = await Promise.all([
-      fetch("/api/clan/groups"),
-      fetch("/api/clan/groups/invites"),
-    ])
-    if (groupsRes.ok) {
-      const gs = await groupsRes.json()
-      setGroups(gs)
-    }
-    if (invitesRes.ok) {
-      const invs = await invitesRes.json()
-      setPendingInvites(invs)
-    }
+    try {
+      const [groupsRes, invitesRes] = await Promise.all([
+        fetch("/api/clan/groups"),
+        fetch("/api/clan/groups/invites"),
+      ])
+      if (groupsRes.ok) {
+        const gs = await groupsRes.json()
+        setGroups(gs)
+      }
+      if (invitesRes.ok) {
+        const invs = await invitesRes.json()
+        setPendingInvites(invs)
+      }
+    } catch {}
   }, [])
 
   useEffect(() => {
@@ -229,82 +247,98 @@ export default function ClanPage() {
   async function createGroup() {
     if (!newGroupName) { setMessage("❌ Nombre requerido"); return }
     setCreatingGroup(true)
-    const res = await fetch("/api/clan/groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newGroupName }),
-    })
-    setCreatingGroup(false)
-    const data = await res.json()
-    if (res.ok) { setMessage("✅ Grupo creado!"); setNewGroupName(""); fetchGroups() }
-    else { setMessage(`❌ ${data.error}`) }
+    try {
+      const res = await fetch("/api/clan/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName }),
+      })
+      setCreatingGroup(false)
+      const data = await res.json()
+      if (res.ok) { setMessage("✅ Grupo creado!"); setNewGroupName(""); fetchGroups() }
+      else { setMessage(`❌ ${data.error}`) }
+    } catch { setCreatingGroup(false); setMessage("❌ Error al crear grupo") }
   }
 
   async function joinGroup(groupId: string) {
     setJoiningGroup(groupId)
-    const res = await fetch(`/api/clan/groups/${groupId}/join`, { method: "POST" })
-    setJoiningGroup(null)
-    const data = await res.json()
-    if (res.ok) { setMessage(`✅ Te uniste a ${data.groupName}`); fetchGroups(); fetchData() }
-    else { setMessage(`❌ ${data.error}`) }
+    try {
+      const res = await fetch(`/api/clan/groups/${groupId}/join`, { method: "POST" })
+      setJoiningGroup(null)
+      const data = await res.json()
+      if (res.ok) { setMessage(`✅ Te uniste a ${data.groupName}`); fetchGroups(); fetchData() }
+      else { setMessage(`❌ ${data.error}`) }
+    } catch { setJoiningGroup(null); setMessage("❌ Error al unirse al grupo") }
   }
 
   async function leaveGroup(groupId: string) {
     setLeavingGroup(groupId)
-    const res = await fetch(`/api/clan/groups/${groupId}/leave`, { method: "POST" })
-    setLeavingGroup(null)
-    const data = await res.json()
-    if (res.ok) { setMessage("✅ Saliste del grupo"); fetchGroups(); fetchData() }
-    else { setMessage(`❌ ${data.error}`) }
+    try {
+      const res = await fetch(`/api/clan/groups/${groupId}/leave`, { method: "POST" })
+      setLeavingGroup(null)
+      const data = await res.json()
+      if (res.ok) { setMessage("✅ Saliste del grupo"); fetchGroups(); fetchData() }
+      else { setMessage(`❌ ${data.error}`) }
+    } catch { setLeavingGroup(null); setMessage("❌ Error al salir del grupo") }
   }
 
   async function kickFromGroup(groupId: string, heroId: string) {
-    const res = await fetch(`/api/clan/groups/${groupId}/kick`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroId }),
-    })
-    const data = await res.json()
-    if (res.ok) { setMessage(`✅ Expulsado`); fetchGroups() }
-    else { setMessage(`❌ ${data.error}`) }
+    try {
+      const res = await fetch(`/api/clan/groups/${groupId}/kick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroId }),
+      })
+      const data = await res.json()
+      if (res.ok) { setMessage(`✅ Expulsado`); fetchGroups() }
+      else { setMessage(`❌ ${data.error}`) }
+    } catch { setMessage("❌ Error al expulsar del grupo") }
   }
 
   async function transferGroup(groupId: string, heroId: string) {
     if (!confirm("¿Transferir liderazgo del grupo?")) return
-    const res = await fetch(`/api/clan/groups/${groupId}/transfer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroId }),
-    })
-    const data = await res.json()
-    if (res.ok) { setMessage("✅ Liderazgo transferido"); fetchGroups() }
-    else { setMessage(`❌ ${data.error}`) }
+    try {
+      const res = await fetch(`/api/clan/groups/${groupId}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroId }),
+      })
+      const data = await res.json()
+      if (res.ok) { setMessage("✅ Liderazgo transferido"); fetchGroups() }
+      else { setMessage(`❌ ${data.error}`) }
+    } catch { setMessage("❌ Error al transferir liderazgo") }
   }
 
   async function inviteToGroup(groupId: string, heroId: string) {
     setInvitingHero(heroId)
-    const res = await fetch("/api/clan/groups/invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ groupId, heroId }),
-    })
-    setInvitingHero(null)
-    const data = await res.json()
-    if (res.ok) { setMessage(`✅ Invitación enviada!`); fetchGroups() }
-    else { setMessage(`❌ ${data.error}`) }
+    try {
+      const res = await fetch("/api/clan/groups/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId, heroId }),
+      })
+      setInvitingHero(null)
+      const data = await res.json()
+      if (res.ok) { setMessage(`✅ Invitación enviada!`); fetchGroups() }
+      else { setMessage(`❌ ${data.error}`) }
+    } catch { setInvitingHero(null); setMessage("❌ Error al invitar") }
   }
 
   async function acceptInvite(inviteId: string) {
-    const res = await fetch(`/api/clan/groups/invites/${inviteId}/accept`, { method: "POST" })
-    const data = await res.json()
-    if (res.ok) { setMessage("✅ Te uniste al grupo!"); fetchGroups(); fetchData() }
-    else { setMessage(`❌ ${data.error}`) }
+    try {
+      const res = await fetch(`/api/clan/groups/invites/${inviteId}/accept`, { method: "POST" })
+      const data = await res.json()
+      if (res.ok) { setMessage("✅ Te uniste al grupo!"); fetchGroups(); fetchData() }
+      else { setMessage(`❌ ${data.error}`) }
+    } catch { setMessage("❌ Error al aceptar invitación") }
   }
 
   async function rejectInvite(inviteId: string) {
-    const res = await fetch(`/api/clan/groups/invites/${inviteId}/reject`, { method: "POST" })
-    if (res.ok) { setMessage("✅ Invitación rechazada"); fetchGroups() }
-    else { setMessage(`❌ ${(await res.json()).error}`) }
+    try {
+      const res = await fetch(`/api/clan/groups/invites/${inviteId}/reject`, { method: "POST" })
+      if (res.ok) { setMessage("✅ Invitación rechazada"); fetchGroups() }
+      else { setMessage(`❌ ${(await res.json()).error}`) }
+    } catch { setMessage("❌ Error al rechazar invitación") }
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
@@ -700,19 +734,21 @@ export default function ClanPage() {
                         </div>
                         <button onClick={async () => {
                           setUpgrading(id)
-                          const res = await fetch("/api/clan/upgrade", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ upgradeId: id }),
-                          })
-                          const data = await res.json()
-                          setUpgrading(null)
-                          if (res.ok) {
-                            setMessage(`✅ ${def.name} mejorada a Tier ${data.newTier}!`)
-                            fetchData()
-                          } else {
-                            setMessage(`❌ ${data.error}`)
-                          }
+                          try {
+                            const res = await fetch("/api/clan/upgrade", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ upgradeId: id }),
+                            })
+                            const data = await res.json()
+                            setUpgrading(null)
+                            if (res.ok) {
+                              setMessage(`✅ ${def.name} mejorada a Tier ${data.newTier}!`)
+                              fetchData()
+                            } else {
+                              setMessage(`❌ ${data.error}`)
+                            }
+                          } catch { setUpgrading(null); setMessage("❌ Error al mejorar") }
                         }}
                           disabled={isMax || upgrading === id}
                           className="shrink-0 px-3 py-1 rounded bg-yellow-700 hover:bg-yellow-600 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition">

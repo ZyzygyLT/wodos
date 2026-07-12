@@ -20,8 +20,10 @@ export default function TopicPage() {
 
   async function refresh() {
     if (!params.id) return
-    const r = await fetch(`/api/forum/topics/${params.id}/replies`)
-    if (r.ok) setData(await r.json()); else router.push("/forum")
+    try {
+      const r = await fetch(`/api/forum/topics/${params.id}/replies`)
+      if (r.ok) setData(await r.json()); else router.push("/forum")
+    } catch {}
   }
 
   useEffect(() => {
@@ -33,20 +35,22 @@ export default function TopicPage() {
   async function postReply() {
     if (!content) return
     setPosting(true)
-    const res = await fetch(`/api/forum/topics/${params.id}/replies`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-    })
-    setPosting(false)
-    if (res.ok) {
-      setMessage("✅ Respuesta publicada!")
-      setContent("")
-      refresh()
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error}`)
-    }
+    try {
+      const res = await fetch(`/api/forum/topics/${params.id}/replies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      })
+      setPosting(false)
+      if (res.ok) {
+        setMessage("✅ Respuesta publicada!")
+        setContent("")
+        refresh()
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error}`)
+      }
+    } catch { setPosting(false); setMessage("❌ Error al publicar respuesta") }
   }
 
   const isMod = hero?.id === data?.topic?.authorId || clanRole === "leader" || clanRole === "officer"

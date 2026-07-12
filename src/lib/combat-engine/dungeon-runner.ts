@@ -29,7 +29,6 @@ export interface HeroData {
   groupAtkBonus?: number
   combatProfile: {
     position: string
-    initiativeSkill: string
     prelimRules: any[]
     roundRules: RoundRule[]
     defenseSkills: Record<string, number | null>
@@ -537,7 +536,7 @@ function enemyToUnit(e: EnemyData, idx: number): CombatUnit {
     id: `enemy_${e.id}_${idx}`,
     name: e.name, icon: e.icon ?? '👹', level: e.level ?? 1,
     hp: e.hp ?? 10, maxHp: e.hp ?? 10,
-    mp: e.mp ?? 0, maxMp: (e.mp ?? 0) || 1,
+    mp: Math.max(0, e.mp ?? 0), maxMp: Math.max(1, e.mp ?? 0),
     isHero: false, isAlly: false,
     trap: e.isTrap ?? false,
     passiveEffects: e.passiveEffects,
@@ -1118,8 +1117,12 @@ function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }): Combat
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+function isEnemySkillOnCooldown(state: CombatState, actorId: string, skillId: number): boolean {
+  return !!state.skillCooldowns?.[actorId]?.[skillId]
+}
+
 function pickEnemySkill(enemy: EnemyData, enemyUnit: CombatUnit, state: CombatState, round: number): EnemySkillRef | null {
-  const enemySkills = enemy.skills ?? []
+  const enemySkills = (enemy.skills ?? []).filter(s => !isEnemySkillOnCooldown(state, enemyUnit.id, s.skillId))
   if (enemyUnit.hp < enemyUnit.maxHp * 0.4) {
     const heal = enemySkills.find(s => s.effect === 'heal')
     if (heal) return heal
@@ -1238,7 +1241,7 @@ function executeEnemySingleTargetAttack(
   }
 
   const crit = rollCrit(enemy.dx)
-  const dmg = computeEnemyDamageWithFallback(fResult, adjAttack, crit, enemy, chosenSkill, isArmorPen, damageType, state, target)
+  const dmg = computeEnemyDamageWithFallback({ fResult, adjAttack, crit, enemy, chosenSkill, isArmorPen, dt: damageType }, ctx, target)
   const defEff = target.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(target, dmg, defEff)
   let finalDmg = resolved.damage
@@ -1392,6 +1395,10 @@ function executeEnemyAction(
   const skillName = chosenSkill?.name ?? enemy.skillName ?? 'Ataque'
   const damageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
 
+  if (chosenSkill) {
+    applySkillCooldown(state, enemyUnit, null, chosenSkill.skillId, chosenSkill.cooldownRounds ?? 0)
+  }
+
   if (chosenSkill?.effect === 'party_attack_up') {
     return executeEnemyBuffEffect(enemy, enemyUnit, chosenSkill, skillName, ctx, { initiative, actionNum, totalActions })
   }
@@ -1410,6 +1417,7 @@ function executeEnemyAction(
     return executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen }, ctx, { initiative, actionNum, totalActions })
   }
 
+  const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
   const target = pickEnemyTarget(heroUnits, enemy.ai)
   if (!target) return null
 
@@ -1477,6 +1485,8 @@ function statusEffectFromDamageType(dt: DamageType, atk: number): { type: Status
     case 'poison': return { type: 'poison', value: Math.max(1, Math.round(atk * 0.15)), rounds: 3 }
     case 'fire': return { type: 'burn', value: Math.max(1, Math.round(atk * 0.2)), rounds: 2 }
     case 'ice': return { type: 'freeze', value: 0, rounds: 1 }
+    case 'lightning': return { type: 'stun', value: 0, rounds: 1 }
+    case 'holy': return { type: 'burn', value: Math.max(1, Math.round(atk * 0.25)), rounds: 2 }
     case 'psychological':
     case 'dark': return { type: 'stun', value: 0, rounds: 1 }
     case 'bleed':
@@ -1835,12 +1845,16 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   return override
 }
 
-function applySkillCooldown(state: CombatState, actorUnit: CombatUnit, hero: HeroData, skillId: number): void {
-  const skillObj = getSkill(hero, skillId)
-  if (!skillObj.cooldownRounds || skillObj.cooldownRounds <= 0) return
+function applySkillCooldown(state: CombatState, actorUnit: CombatUnit, hero: HeroData | null, skillId: number, cooldownOverride?: number): void {
+  let cd = cooldownOverride
+  if (cd === undefined && hero) {
+    const skillObj = getSkill(hero, skillId)
+    cd = skillObj.cooldownRounds
+  }
+  if (!cd || cd <= 0) return
   state.skillCooldowns ??= {}
   if (!state.skillCooldowns[actorUnit.id]) state.skillCooldowns[actorUnit.id] = {}
-  state.skillCooldowns[actorUnit.id][skillId] = skillObj.cooldownRounds
+  state.skillCooldowns[actorUnit.id][skillId] = cd
 }
 
 function decaySkillCooldowns(state: CombatState): void {
@@ -1961,7 +1975,7 @@ function runHeroTurn(
   let finalAction = resolveCooldownOverride(hero, action, state, actorUnit, log, round, levelNum)
   finalAction = resolveBuffOverride(hero, finalAction, state, actorUnit, log, round, levelNum)
 
-  const detail = executeHeroAction(actorUnit, hero, finalAction, { log, round, level: levelNum, state: perHeroState }, actor.initiative, ai + 1, totalActors, heroUnits, enemyUnits)
+  const detail = executeHeroAction(actorUnit, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { log, round, level: levelNum, state: perHeroState }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
   if (detail) applySkillCooldown(state, actorUnit, hero, finalAction.skillId)
   return detail
 }
@@ -2124,52 +2138,11 @@ export async function runDungeon(
         }
 
         if (actor.isHero) {
-          const detail = runHeroTurn(actorUnit, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions)
+          const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions)
           if (detail) roundActions.push(detail)
         } else {
           const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, totalActors)
           if (detail) roundActions.push(detail)
-        }
-      }
-
-        if (actor.isHero) {
-          const heroIndex = heroUnits.indexOf(actorUnit as any)
-          const hero = heroes[heroIndex]
-          if (!hero) continue
-
-          // Construir CombatState para este héroe (él es 'hero', los demás son 'allies')
-          const perHeroState: CombatState = {
-            hero: actorUnit,
-            allies: heroUnits.filter(h => h !== actorUnit && h.hp > 0),
-            enemies: enemyUnits.filter(e => e.hp > 0),
-            round: state.round,
-            damagedThisRound: state.damagedThisRound,
-            groupAtkBonus: state.groupAtkBonus,
-            groupDefBonus: state.groupDefBonus,
-            manaShield: state.manaShield ?? false,
-            factionBonuses: state.factionBonuses,
-            buffs: state.buffs,
-          }
-
-          const action = evalTactics(hero.combatProfile.roundRules, perHeroState, fallbackSkillId)
-          addLog(log, 'tactic_eval', round, lvl.number, 'combat',
-            `⚡ Táctica: ${actorUnit.name} → skill_${action.skillId} → ${action.targetType}`,
-            { actor: actorUnit.name, skill: `skill_${action.skillId}` })
-
-          let finalAction = resolveCooldownOverride(hero, action, state, actorUnit, log, round, lvl.number)
-          finalAction = resolveBuffOverride(hero, finalAction, state, actorUnit, log, round, lvl.number)
-
-          const detail = executeHeroAction(actorUnit as CombatUnit & { attrs: Record<string, number> }, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { log, round, level: lvl.number, state: perHeroState }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
-          if (detail) {
-            roundActions.push(detail)
-            applySkillCooldown(state, actorUnit, hero, finalAction.skillId)
-          }
-        } else {
-          const enemyData = lvl.enemies[enemyUnits.indexOf(actorUnit)]
-          if (enemyData && actorUnit.hp > 0) {
-            const detail = executeEnemyAction(enemyData, actorUnit, heroUnits, { log, round, level: lvl.number, state }, actor.initiative, ai + 1, totalActors)
-            if (detail) roundActions.push(detail)
-          }
         }
       }
 

@@ -30,32 +30,35 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState<string>("rarity")
 
   const fetchData = useCallback(async () => {
-    const res = await fetch("/api/shop")
-    if (res.status === 401) { router.push("/login"); return }
-    if (res.status === 404) { router.push("/onboarding"); return }
-    const data = await res.json()
-    setItems(data.items ?? [])
-    setGold(data.gold ?? 0)
-    setLoading(false)
+    try {
+      const res = await fetch("/api/shop")
+      if (res.status === 401) { router.push("/login"); return }
+      if (res.status === 404) { router.push("/onboarding"); return }
+      const data = await res.json()
+      setItems(data.items ?? [])
+      setGold(data.gold ?? 0)
+    } catch {} finally { setLoading(false) }
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   async function buyItem(itemId: number) {
     setBuying(itemId)
-    const res = await fetch("/api/shop", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId }),
-    })
-    setBuying(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`✅ ${data.name} comprado por ${data.price}💰`)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/shop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId }),
+      })
+      setBuying(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`✅ ${data.name} comprado por ${data.price}💰`)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setBuying(null); setMessage("❌ Error de red") }
   }
 
   const categories = ["all", ...new Set(items.map(i => i.category))]

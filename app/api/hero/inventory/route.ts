@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
-import { $Enums } from '@/generated/prisma/client'
+import { $Enums } from '@/generated/prisma'
 
 export async function GET() {
   const session = await auth()
@@ -54,11 +54,15 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Item no encontrado" }, { status: 404 })
   }
 
-  if (equipped) {
-    return handleEquip(hero, heroItem)
+  try {
+    if (equipped) {
+      return await handleEquip(hero, heroItem)
+    }
+    return await handleUnequip(hero, heroItem)
+  } catch (e) {
+    console.error('[inventory] Error equip/unequip:', e)
+    return NextResponse.json({ error: 'Error al equipar/desequipar' }, { status: 500 })
   }
-
-  return handleUnequip(hero, heroItem)
 }
 
 async function handleEquip(hero: any, heroItem: any) {

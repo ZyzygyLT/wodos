@@ -36,19 +36,21 @@ export default function AdminItemsPage() {
     setSaving(true)
     const isNew = !editing.id
     const body = JSON.stringify(isNew ? editing : { ...editing, id: editing.id })
-    const res = await fetch("/api/admin/items", {
-      method: isNew ? "POST" : "PUT",
-      headers: { "Content-Type": "application/json" },
-      body,
-    })
-    if (res.ok) { setEditing(null); setMessage(isNew ? "✅ Item creado" : "✅ Item actualizado"); load() }
-    else { const d = await res.json(); setMessage(`❌ ${d.error || "Error"}`) }
+    try {
+      const res = await fetch("/api/admin/items", {
+        method: isNew ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body,
+      })
+      if (res.ok) { setEditing(null); setMessage(isNew ? "✅ Item creado" : "✅ Item actualizado"); load() }
+      else { const d = await res.json(); setMessage(`❌ ${d.error || "Error"}`) }
+    } catch { setMessage("❌ Error de red") }
     setSaving(false)
   }
 
   async function remove(id: number) {
     if (!confirm("¿Borrar item?")) return
-    await fetch(`/api/admin/items?id=${id}`, { method: "DELETE" })
+    await fetch(`/api/admin/items?id=${id}`, { method: "DELETE" }).catch(() => {})
     setMessage("🗑️ Item borrado")
     load()
   }
@@ -63,8 +65,8 @@ export default function AdminItemsPage() {
       </div>
 
       {editing && (
-        <button type="button" className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
-          <button type="button" className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditing(null)} role="dialog" aria-modal="true">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">{editing.id ? "Editar" : "Nuevo"} Item</h2>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -158,8 +160,8 @@ export default function AdminItemsPage() {
                 {saving ? "Guardando..." : "Guardar"}
               </button>
             </div>
-          </button>
-        </button>
+          </div>
+        </div>
       )}
 
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">

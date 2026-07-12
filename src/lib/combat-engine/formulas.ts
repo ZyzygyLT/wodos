@@ -82,9 +82,6 @@ export function applyDiceMultiplier(
   return Math.round(base * Math.max(0.3, mult))
 }
 
-export const calcDamageBase = (attrs: HeroAttrs): number =>
-  attrs.st + Math.floor(attrs.dx / 2)
-
 export const calcDefenseBase = (attrs: HeroAttrs): number =>
   2 * attrs.ag + attrs.pe
 
@@ -123,20 +120,11 @@ export const calcActualDamage = (
 }
 
 /**
- * Roll de impacto basado en destreza del atacante y agilidad del defensor.
- * Rango de probabilidad: 20% - 95%
- */
-export const rollHit = (attackerDx: number, defenderAg: number): boolean => {
-  const chance = 0.6 + attackerDx * 0.01 - defenderAg * 0.01
-  return Math.random() < Math.min(0.95, Math.max(0.2, chance))
-}
-
-/**
- * Roll de crítico. Base 5%, +0.8% por punto de destreza.
- * Crítico aplica ×1.8 al daño calculado.
+ * Roll de crítico. Base 5%, +0.5% por punto de destreza.
+ * Cap de 75%. Crítico aplica ×1.5 al daño calculado.
  */
 export const rollCrit = (attackerDx: number): boolean =>
-  Math.random() < 0.05 + attackerDx * 0.005
+  Math.random() < Math.min(0.75, 0.05 + attackerDx * 0.005)
 
 export const CRIT_MULTIPLIER = 1.5
 
@@ -169,8 +157,7 @@ export const getCondition = (hp: number, maxHp: number): Condition => {
 }
 
 // ─── EP Y PROGRESIÓN ─────────────────────────────────────────────────────────
-
-export { totalEpForLevel as epRequiredForLevel, levelFromEp } from "@/lib/level-up"
+// Re-exportado eliminado: usar @/lib/level-up directamente
 
 // ─── RECOMPENSAS DE DUNGEON ───────────────────────────────────────────────────
 

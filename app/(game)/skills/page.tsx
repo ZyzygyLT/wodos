@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { skillUpgradeCost } from "@/lib/skill-cost"
 
 export default function SkillsPage() {
   const router = useRouter()
@@ -13,14 +14,16 @@ export default function SkillsPage() {
   const [tab, setTab] = useState<"learned" | "available">("learned")
 
   const fetchData = useCallback(async () => {
-    const [heroRes, skillsRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/hero/skills"),
-    ])
-    if (heroRes.status === 401) return router.push("/auth/login")
-    if (heroRes.status === 404) return router.push("/onboarding")
-    setHero(await heroRes.json())
-    setSkills(await skillsRes.json())
+    try {
+      const [heroRes, skillsRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/hero/skills"),
+      ])
+      if (heroRes.status === 401) return router.push("/auth/login")
+      if (heroRes.status === 404) return router.push("/onboarding")
+      setHero(await heroRes.json())
+      setSkills(await skillsRes.json())
+    } catch {}
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -28,37 +31,41 @@ export default function SkillsPage() {
   async function buySkill(skillId: number) {
     setLoading(skillId)
     setActionType("buy")
-    const res = await fetch("/api/hero/skills", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skillId }),
-    })
-    setLoading(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage("✅ Skill aprendida!")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/hero/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillId }),
+      })
+      setLoading(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage("✅ Skill aprendida!")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setLoading(null); setMessage("❌ Error de red") }
   }
 
   async function upgradeSkill(skillId: number) {
     setLoading(skillId)
     setActionType("upgrade")
-    const res = await fetch("/api/hero/skills/upgrade", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skillId }),
-    })
-    setLoading(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`⬆️ Skill mejorada a rango ${data.newRank}!`)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/hero/skills/upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillId }),
+      })
+      setLoading(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`⬆️ Skill mejorada a rango ${data.newRank}!`)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setLoading(null); setMessage("❌ Error de red") }
   }
 
   function canUnlock(skill: any): { ok: boolean; reason?: string } {
@@ -128,7 +135,7 @@ export default function SkillsPage() {
                       {s.unlocked ? (
                         <button onClick={() => upgradeSkill(s.id)} disabled={isActive}
                           className="text-xs px-3 py-1.5 rounded bg-blue-800 hover:bg-blue-700 disabled:opacity-50 transition">
-                          {isActive && actionType === "upgrade" ? "..." : `⬆ Mejorar (💡${s.epCost * s.rank} EXP · 💰${s.goldCost * s.rank})`}
+                          {isActive && actionType === "upgrade" ? "..." : `⬆ Mejorar (💡${skillUpgradeCost(s.epCost, s.rank)} EXP · 💰${skillUpgradeCost(s.goldCost, s.rank)})`}
                         </button>
                       ) : (
                         <button onClick={() => buySkill(s.id)} disabled={isActive || !req.ok}

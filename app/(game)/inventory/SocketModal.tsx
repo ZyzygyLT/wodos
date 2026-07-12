@@ -13,8 +13,8 @@ interface Props {
 
 export default function SocketModal({ item, runes, socketing, onSocket, onUnsocket, onClose }: Readonly<Props>) {
   return (
-    <button type="button" className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
-      <button type="button" className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">{item.item.icon}</span>
           <div>
@@ -54,8 +54,8 @@ export default function SocketModal({ item, runes, socketing, onSocket, onUnsock
           className="mt-4 w-full py-2 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 transition">
           Cerrar
         </button>
-      </button>
-    </button>
+      </div>
+    </div>
   )
 }
 

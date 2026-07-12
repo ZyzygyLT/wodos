@@ -10,6 +10,7 @@ const MENUS: { label: string; items: MenuItem[] }[] = [
   {
     label: "⚔️ Combate",
     items: [
+      { href: "/adventures", label: "🏕️ Aventuras" },
       { href: "/dungeon", label: "🗺️ Mazmorras" },
       { href: "/arena", label: "⚔️ Arena" },
       { href: "/tournament", label: "🏆 Torneo" },
@@ -97,7 +98,7 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
   }, [showNotif, openMenu])
 
   async function markAllRead() {
-    await fetch("/api/notifications", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) })
+    try { await fetch("/api/notifications", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) }) } catch {}
     setNotifications(notifications.map((n: any) => ({ ...n, readAt: new Date().toISOString() })))
     setUnreadCount(0)
   }
@@ -200,7 +201,67 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
         </div>
       </nav>
 
-      {children}
+      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 p-4">
+        <main className="min-w-0">{children}</main>
+        <aside className="hidden lg:block space-y-4">
+          {hero && (
+            <>
+              <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+                <h3 className="text-sm font-bold text-yellow-400 mb-3">👤 Héroe</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{hero.class?.icon} {hero.race?.icon}</span>
+                    <div>
+                      <p className="font-bold truncate">{hero.name}</p>
+                      <p className="text-xs text-gray-400">{hero.class?.name} · {hero.race?.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-800 pt-2">
+                    <span className="text-gray-400">Nivel</span>
+                    <span className="text-yellow-400">{hero.level}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Oro</span>
+                    <span className="text-yellow-300">💰 {hero.gold}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Fama</span>
+                    <span>🏆 {hero.fame}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Héroes</span>
+                    <span className="text-xs">{hero.heroCount ?? 1}/{hero.maxHeroes ?? 3}</span>
+                  </div>
+                  {hero.epTotal != null && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">EXP disponible</span>
+                      <span>{hero.epTotal - hero.epSpent}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+                <h3 className="text-sm font-bold text-green-400 mb-3">⚡ Acción rápida</h3>
+                <div className="space-y-2 text-sm">
+                  <Link href="/dungeon" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                    <span>⚔️</span><span>Ir a mazmorras</span>
+                  </Link>
+                  <Link href="/quests" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                    <span>📋</span><span>Misiones</span>
+                  </Link>
+                  <Link href="/skills" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                    <span>⚡</span><span>Skills</span>
+                  </Link>
+                  <Link href="/shop" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+                    <span>🏪</span><span>Tienda</span>
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
     </div>
   )
 }

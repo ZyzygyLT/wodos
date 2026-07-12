@@ -10,44 +10,50 @@ export default function TournamentPage() {
   const [advancing, setAdvancing] = useState(false)
 
   const fetchData = useCallback(async () => {
-    const [heroRes, tourRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/arena/tournament"),
-    ])
-    if (heroRes.status === 401 || heroRes.status === 404) return
-    setHero(await heroRes.json())
-    setTournament(await tourRes.json())
+    try {
+      const [heroRes, tourRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/arena/tournament"),
+      ])
+      if (heroRes.status === 401 || heroRes.status === 404) return
+      setHero(await heroRes.json())
+      setTournament(await tourRes.json())
+    } catch {}
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   async function register() {
     setLoading(true)
-    const res = await fetch("/api/arena/tournament", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    })
-    const data = await res.json()
-    setLoading(false)
-    if (res.ok) {
-      setMessage("✅ Te inscribiste al torneo!")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/arena/tournament", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const data = await res.json()
+      setLoading(false)
+      if (res.ok) {
+        setMessage("✅ Te inscribiste al torneo!")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setLoading(false); setMessage("❌ Error de red") }
   }
 
   async function advance() {
     setAdvancing(true)
-    const res = await fetch("/api/arena/tournament/advance", { method: "POST" })
-    const data = await res.json()
-    setAdvancing(false)
-    if (res.ok) {
-      setMessage(`✅ Torneo avanzado — estado: ${data.status}`)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/arena/tournament/advance", { method: "POST" })
+      const data = await res.json()
+      setAdvancing(false)
+      if (res.ok) {
+        setMessage(`✅ Torneo avanzado — estado: ${data.status}`)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setAdvancing(false); setMessage("❌ Error de red") }
   }
 
   const isRegistered = tournament?.participants?.some((p: any) => p.heroId === hero?.id)

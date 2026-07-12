@@ -19,16 +19,18 @@ export function useInventory() {
   const [sellingItem, setSellingItem] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
-    const [heroRes, invRes, clanRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/hero/inventory"),
-      fetch("/api/clan"),
-    ])
-    if (heroRes.status === 401) return router.push("/auth/login")
-    if (heroRes.status === 404) return router.push("/onboarding")
-    setHero(await heroRes.json())
-    setItems(await invRes.json())
-    if (clanRes.ok) setClan(await clanRes.json())
+    try {
+      const [heroRes, invRes, clanRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/hero/inventory"),
+        fetch("/api/clan"),
+      ])
+      if (heroRes.status === 401) return router.push("/auth/login")
+      if (heroRes.status === 404) return router.push("/onboarding")
+      setHero(await heroRes.json())
+      setItems(await invRes.json())
+      if (clanRes.ok) setClan(await clanRes.json())
+    } catch { /* silently ignore network errors */ }
     fetch("/api/hero/inventory/socket").then(r => r.json()).then(setRunes).catch(() => {})
   }, [router])
 
@@ -36,111 +38,123 @@ export function useInventory() {
 
   async function toggleEquip(heroItemId: string, currentlyEquipped: boolean) {
     setToggling(heroItemId)
-    const res = await fetch("/api/hero/inventory", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId, equipped: !currentlyEquipped }),
-    })
-    setToggling(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(currentlyEquipped ? "🔓 Item de-equipado" : "✅ Item equipado")
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/hero/inventory", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId, equipped: !currentlyEquipped }),
+      })
+      setToggling(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(currentlyEquipped ? "🔓 Item de-equipado" : "✅ Item equipado")
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setToggling(null); setMessage("❌ Error de red") }
   }
 
   async function socketRune(slotIndex: number, runeHeroItemId: string) {
     if (!socketItem) return
     setSocketing(`${slotIndex}-${runeHeroItemId}`)
-    const res = await fetch("/api/hero/inventory/socket", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId: socketItem.id, slotIndex, runeHeroItemId }),
-    })
-    setSocketing(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage("💎 Runa socketada!")
-      setSocketItem(null)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/hero/inventory/socket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId: socketItem.id, slotIndex, runeHeroItemId }),
+      })
+      setSocketing(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage("💎 Runa socketada!")
+        setSocketItem(null)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setSocketing(null); setMessage("❌ Error de red") }
   }
 
   async function unsocketRune(slotIndex: number) {
     if (!socketItem) return
     setSocketing(`unsocket-${slotIndex}`)
-    const res = await fetch("/api/hero/inventory/socket", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId: socketItem.id, slotIndex }),
-    })
-    setSocketing(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage("🔓 Runa removida")
-      setSocketItem(null)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/hero/inventory/socket", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId: socketItem.id, slotIndex }),
+      })
+      setSocketing(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage("🔓 Runa removida")
+        setSocketItem(null)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setSocketing(null); setMessage("❌ Error de red") }
   }
 
   async function doEnchant(heroItemId: string) {
     setEnchanting(true)
-    const res = await fetch("/api/hero/inventory/enchant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId }),
-    })
-    setEnchanting(false)
-    const data = await res.json()
-    if (res.ok) {
-      if (data.success) {
-        setMessage(`✨ ¡Mejora exitosa! Nivel ${data.newLevel}`)
+    try {
+      const res = await fetch("/api/hero/inventory/enchant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId }),
+      })
+      setEnchanting(false)
+      const data = await res.json()
+      if (res.ok) {
+        if (data.success) {
+          setMessage(`✨ ¡Mejora exitosa! Nivel ${data.newLevel}`)
+        } else {
+          setMessage(`💥 Falló la mejora. Item sigue en nivel ${data.currentLevel}`)
+        }
+        setEnchantItem(null)
+        fetchData()
       } else {
-        setMessage(`💥 Falló la mejora. Item sigue en nivel ${data.currentLevel}`)
+        setMessage(`❌ ${data.error}`)
       }
-      setEnchantItem(null)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    } catch { setEnchanting(false); setMessage("❌ Error de red") }
   }
 
   async function consumeItem(heroItemId: string) {
     setUsingItem(heroItemId)
-    const res = await fetch("/api/hero/consumables", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId }),
-    })
-    setUsingItem(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`✅ Usado! ${data.effects.healHp ? '+' + data.effects.healHp + '❤️' : ''} ${data.effects.healMp ? '+' + data.effects.healMp + '💧' : ''}`)
-      fetchData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/hero/consumables", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId }),
+      })
+      setUsingItem(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`✅ Usado! ${data.effects.healHp ? '+' + data.effects.healHp + '❤️' : ''} ${data.effects.healMp ? '+' + data.effects.healMp + '💧' : ''}`)
+        fetchData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setUsingItem(null); setMessage("❌ Error de red") }
   }
 
   async function sellToBazar(heroItemId: string) {
     setSellingItem(heroItemId)
     const price = prompt("Precio de venta (oro):")
     if (!price || Number.isNaN(Number.parseInt(price)) || Number.parseInt(price) < 1) { setSellingItem(null); return }
-    const res = await fetch("/api/bazar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId, price: Number.parseInt(price), listingType: "fixed" }),
-    })
-    setSellingItem(null)
-    const data = await res.json()
-    setMessage(res.ok ? "✅ Item listado en el bazar" : `❌ ${data.error}`)
-    if (res.ok) fetchData()
+    try {
+      const res = await fetch("/api/bazar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId, price: Number.parseInt(price), listingType: "fixed" }),
+      })
+      setSellingItem(null)
+      const data = await res.json()
+      setMessage(res.ok ? "✅ Item listado en el bazar" : `❌ ${data.error}`)
+      if (res.ok) fetchData()
+    } catch { setSellingItem(null); setMessage("❌ Error de red") }
   }
 
   return {

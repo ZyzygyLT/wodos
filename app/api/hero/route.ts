@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const user = await db.user.findUnique({ where: { id: session.user.id }, select: { currentHeroId: true } })
+  const user = await db.user.findUnique({ where: { id: session.user.id }, select: { currentHeroId: true, maxHeroes: true, _count: { select: { heroes: true } } } })
   let hero = null
   if (user?.currentHeroId) {
     hero = await db.hero.findUnique({ where: { id: user.currentHeroId }, include: { class: true, race: true, combatProfiles: { orderBy: { createdAt: 'asc' } }, skills: { include: { skill: true } }, items: { include: { item: true } } } })
@@ -21,5 +21,11 @@ export async function GET() {
   }
 
   const defData = computeDefenseForHero(hero)
-  return NextResponse.json({ ...hero, computedDefense: defData.values, defenseBreakdown: defData.breakdown })
+  return NextResponse.json({
+    ...hero,
+    computedDefense: defData.values,
+    defenseBreakdown: defData.breakdown,
+    heroCount: user?._count?.heroes ?? 1,
+    maxHeroes: user?.maxHeroes ?? 3,
+  })
 }

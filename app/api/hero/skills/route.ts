@@ -25,8 +25,12 @@ export async function GET() {
 
   const heroSkillMap = new Map(hero.skills.map(hs => [hs.skillId, hs]))
 
+  const allowedRaceIds = hero.raceId ? [hero.raceId] : []
   const allSkills = await db.skill.findMany({
-    where: { OR: [{ classId: hero.classId }, { classId: null }] },
+    where: {
+      OR: [{ classId: hero.classId }, { classId: null }],
+      AND: [{ OR: [{ raceReq: { isEmpty: true } }, { raceReq: { hasSome: allowedRaceIds } }] }],
+    },
     orderBy: [{ tier: "asc" }, { id: "asc" }],
   })
 

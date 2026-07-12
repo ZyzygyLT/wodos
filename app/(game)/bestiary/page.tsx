@@ -177,8 +177,8 @@ export default function BestiaryPage() {
 
       {/* Enemy detail modal */}
       {selectedEnemy && (
-        <button type="button" className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEnemy(null)}>
-          <button type="button" className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEnemy(null)} role="dialog" aria-modal="true">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-4 mb-4">
               <span className="text-5xl">{selectedEnemy.icon}</span>
               <div>
@@ -275,8 +275,8 @@ export default function BestiaryPage() {
               className="mt-4 w-full py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm transition">
               Cerrar
             </button>
-          </button>
-        </button>
+          </div>
+        </div>
       )}
     </div>
   )

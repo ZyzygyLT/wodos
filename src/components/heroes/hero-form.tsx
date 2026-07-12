@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import type { AttributeDefinition } from '@/generated/prisma/client'
+import type { AttributeDefinition } from '@/generated/prisma'
 
 interface HeroFormProps {
   attributes: AttributeDefinition[]

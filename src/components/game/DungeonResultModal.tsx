@@ -1,11 +1,14 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+
 interface Props {
   result: any
   onClose: () => void
 }
 
 export default function DungeonResultModal({ result, onClose }: Readonly<Props>) {
+  const router = useRouter()
   if (!result) return null
 
   const isVictory = result.victory
@@ -15,11 +18,10 @@ export default function DungeonResultModal({ result, onClose }: Readonly<Props>)
   const glowCls = isVictory ? 'shadow-[0_0_40px_rgba(16,185,129,0.2)]' : 'shadow-[0_0_40px_rgba(239,68,68,0.2)]'
 
   return (
-    <button type="button" className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <button type="button"
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose} role="dialog" aria-modal="true">
+      <div
         className={`relative bg-gray-950 border ${borderCls} ${glowCls} rounded-2xl max-w-lg w-full overflow-hidden`}
         onClick={e => e.stopPropagation()}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-amber-900/5 to-transparent pointer-events-none" />
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-600/30 to-transparent" />
@@ -137,22 +139,18 @@ export default function DungeonResultModal({ result, onClose }: Readonly<Props>)
           )}
 
           {result.runId && (
-            <a
-              href={`/dungeon/report/${result.runId}`}
-              className="inline-block mt-5 text-xs text-amber-500 hover:text-amber-400 underline transition-colors"
-            >
+            <button type="button" onClick={() => router.push(`/dungeon/report/${result.runId}`)}
+              className="mt-5 text-xs text-amber-500 hover:text-amber-400 underline transition-colors">
               📜 Ver reporte completo →
-            </a>
+            </button>
           )}
 
-          <button
-            onClick={onClose}
-            className="mt-5 px-6 py-2 rounded-lg bg-gray-800/60 border border-gray-700/50 text-sm text-gray-300 hover:bg-gray-700/60 hover:border-gray-600/50 transition-colors"
-          >
+          <button type="button" onClick={onClose}
+            className="mt-5 px-6 py-2 rounded-lg bg-gray-800/60 border border-gray-700/50 text-sm text-gray-300 hover:bg-gray-700/60 hover:border-gray-600/50 transition-colors">
             Cerrar
           </button>
         </div>
-      </button>
-    </button>
+      </div>
+    </div>
   )
 }

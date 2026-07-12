@@ -18,7 +18,6 @@ export interface CombatProfile {
   id: string; heroId: string
   name: string; dungeonLevel: number | null
   position: string
-  initiativeSkill: string
   defenseSkills: Record<string, number | null>
   prelimRules: PrelimRule[]
   roundRules: RoundRule[]
@@ -66,22 +65,24 @@ export function useTactics() {
   const profile = selectedDungeonLevel === null ? generalProfile : currentProfile
 
   const fetchProfiles = useCallback(async () => {
-    const res = await fetch("/api/tactics")
-    if (res.status === 401) return router.push("/api/auth/signin")
-    const data = await res.json()
-    setProfiles(data.profiles ?? data)
-    if (data.attrs) {
-      setHeroAttrs(data.attrs)
-      setHeroLevel(data.heroLevel ?? 1)
-      setDefenseSkillDetails(data.skills ?? [])
-    }
+    try {
+      const res = await fetch("/api/tactics")
+      if (res.status === 401) return router.push("/api/auth/signin")
+      const data = await res.json()
+      setProfiles(data.profiles ?? data)
+      if (data.attrs) {
+        setHeroAttrs(data.attrs)
+        setHeroLevel(data.heroLevel ?? 1)
+        setDefenseSkillDetails(data.skills ?? [])
+      }
+    } catch {}
   }, [router])
 
   useEffect(() => { fetchProfiles() }, [fetchProfiles])
 
   useEffect(() => {
-    fetch("/api/hero/skills").then(r => r.json()).then(setHeroSkills)
-    fetch("/api/hero/consumables").then(r => r.json()).then(setConsumableItems)
+    fetch("/api/hero/skills").then(r => r.json()).then(setHeroSkills).catch(() => {})
+    fetch("/api/hero/consumables").then(r => r.json()).then(setConsumableItems).catch(() => {})
   }, [])
 
   function updateProfile(field: string, value: any) {
@@ -154,22 +155,23 @@ export function useTactics() {
 
   async function save() {
     setSaving(true)
-    for (const p of profiles) {
-      await fetch("/api/tactics", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dungeonLevel: p.dungeonLevel,
-          position: p.position,
-          initiativeSkill: p.initiativeSkill,
-          defenseSkills: p.defenseSkills,
-          prelimRules: p.prelimRules,
-          roundRules: p.roundRules,
-        }),
-      })
-    }
+    try {
+      for (const p of profiles) {
+        await fetch("/api/tactics", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dungeonLevel: p.dungeonLevel,
+            position: p.position,
+            defenseSkills: p.defenseSkills,
+            prelimRules: p.prelimRules,
+            roundRules: p.roundRules,
+          }),
+        })
+      }
+      alert("✅ Tácticas guardadas")
+    } catch { alert("❌ Error de red") }
     setSaving(false)
-    alert("✅ Tácticas guardadas")
   }
 
   return {

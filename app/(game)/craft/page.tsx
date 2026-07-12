@@ -47,56 +47,62 @@ export default function CraftPage() {
 
   async function craftItem(itemId: number) {
     setCrafting(itemId)
-    const res = await fetch("/api/craft", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId }),
-    })
-    setCrafting(null)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`🔨 ${data.name} crafteado!`)
-      loadData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/craft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId }),
+      })
+      setCrafting(null)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`🔨 ${data.name} crafteado!`)
+        loadData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setCrafting(null); setMessage("❌ Error de red") }
   }
 
   async function decomposeItem(heroItemId: string) {
     setDecomposing(heroItemId)
-    const res = await fetch("/api/craft/decompose", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId }),
-    })
-    setDecomposing(null)
-    const data = await res.json()
-    if (res.ok) {
-      const mats = data.materials.map((m: any) => `${m.icon}×${m.quantity}`).join(", ")
-      setMessage(`♻️ Desmontado! +${data.gold}💰, ${mats}`)
-      loadData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/craft/decompose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId }),
+      })
+      setDecomposing(null)
+      const data = await res.json()
+      if (res.ok) {
+        const mats = data.materials.map((m: any) => `${m.icon}×${m.quantity}`).join(", ")
+        setMessage(`♻️ Desmontado! +${data.gold}💰, ${mats}`)
+        loadData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setDecomposing(null); setMessage("❌ Error de red") }
   }
 
   async function rerollStat() {
     if (!rerollTarget) return
     setRerolling(true)
-    const res = await fetch("/api/craft/reroll", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId: rerollTarget.heroItemId, statKey: rerollTarget.statKey }),
-    })
-    setRerolling(false)
-    const data = await res.json()
-    if (res.ok) {
-      setMessage(`🔄 ${rerollTarget.statKey.toUpperCase()}: ${data.oldValue} → ${data.newValue}`)
-      setRerollTarget(null)
-      loadData()
-    } else {
-      setMessage(`❌ ${data.error}`)
-    }
+    try {
+      const res = await fetch("/api/craft/reroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId: rerollTarget.heroItemId, statKey: rerollTarget.statKey }),
+      })
+      setRerolling(false)
+      const data = await res.json()
+      if (res.ok) {
+        setMessage(`🔄 ${rerollTarget.statKey.toUpperCase()}: ${data.oldValue} → ${data.newValue}`)
+        setRerollTarget(null)
+        loadData()
+      } else {
+        setMessage(`❌ ${data.error}`)
+      }
+    } catch { setRerolling(false); setMessage("❌ Error de red") }
   }
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
@@ -256,8 +262,8 @@ export default function CraftPage() {
       </div>
 
       {rerollTarget && (
-        <button type="button" className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setRerollTarget(null)}>
-          <button type="button" className="bg-gray-900 rounded-2xl border border-gray-700 p-6 max-w-sm w-full" onClick={e => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setRerollTarget(null)} role="dialog" aria-modal="true">
+          <div className="bg-gray-900 rounded-2xl border border-gray-700 p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <h3 className="font-bold text-lg mb-4">🔄 Re-Roll {rerollTarget.statKey.toUpperCase()}</h3>
             <p className="text-gray-400 text-sm mb-4">
               Valor actual: <span className="text-white font-bold">{rerollTarget.current}</span>
@@ -273,8 +279,8 @@ export default function CraftPage() {
                 Cancelar
               </button>
             </div>
-            </button>
-          </button>
+          </div>
+        </div>
       )}
     </>
   )

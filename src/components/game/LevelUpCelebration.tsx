@@ -1,3 +1,5 @@
+"use client"
+
 import { useEffect, useState } from "react"
 
 interface LevelUpData {
@@ -25,11 +27,14 @@ export function LevelUpCelebration({ data, onClose }: Readonly<Props>) {
   if (!visible) return null
 
   return (
-    <button type="button" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
-      <button type="button"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
+      <div
         className="bg-gray-900 border border-amber-600/60 rounded-2xl p-8 max-w-sm w-full mx-4 text-center space-y-4 animate-bounce-in"
         onClick={e => e.stopPropagation()}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") e.stopPropagation() }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Subida de nivel"
       >
         <p className="text-5xl">🎉</p>
         <h3 className="text-2xl font-bold text-amber-400">
@@ -46,12 +51,13 @@ export function LevelUpCelebration({ data, onClose }: Readonly<Props>) {
           </p>
         )}
         <button
+          type="button"
           onClick={onClose}
           className="mt-2 px-6 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold transition"
         >
           ¡Bien!
         </button>
-      </button>
-    </button>
+      </div>
+    </div>
   )
 }

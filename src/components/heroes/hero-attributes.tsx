@@ -1,4 +1,4 @@
-import type { AttributeDefinition } from '@/generated/prisma/client'
+import type { AttributeDefinition } from '@/generated/prisma'
 
 interface HeroAttributesProps {
   attrs: Record<string, number>

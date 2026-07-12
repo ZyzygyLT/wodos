@@ -25,7 +25,7 @@ interface Tournament {
 
 function DuelResultModal({ duelResult, hero, onClose }: Readonly<{ duelResult: any; hero: any; onClose: () => void }>) {
   return (
-    <button type="button" className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className={`bg-gray-900 border ${duelResult.winner === hero.name ? "border-green-700" : "border-red-700"} rounded-2xl p-8 max-w-md w-full text-center`}>
         <p className="text-4xl mb-2">{duelResult.winner === hero.name ? "🏆" : "💀"}</p>
@@ -58,7 +58,7 @@ function DuelResultModal({ duelResult, hero, onClose }: Readonly<{ duelResult: a
           Cerrar
         </button>
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -105,20 +105,22 @@ export default function ArenaPage() {
   const [duelHistory, setDuelHistory] = useState<any[]>([])
 
   const fetchData = useCallback(async () => {
-    const [heroRes, rankRes, tRes, histRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/arena"),
-      fetch("/api/arena/tournament"),
-      fetch("/api/arena/history"),
-    ])
-    if (heroRes.status === 401 || heroRes.status === 404) return
-    setHero(await heroRes.json())
-    setRanking(await rankRes.json())
-    if (tRes.ok) setTournament(await tRes.json())
-    if (histRes.ok) {
-      const histData = await histRes.json()
-      setDuelHistory(histData.duels ?? [])
-    }
+    try {
+      const [heroRes, rankRes, tRes, histRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/arena"),
+        fetch("/api/arena/tournament"),
+        fetch("/api/arena/history"),
+      ])
+      if (heroRes.status === 401 || heroRes.status === 404) return
+      setHero(await heroRes.json())
+      setRanking(await rankRes.json())
+      if (tRes.ok) setTournament(await tRes.json())
+      if (histRes.ok) {
+        const histData = await histRes.json()
+        setDuelHistory(histData.duels ?? [])
+      }
+    } catch {}
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])

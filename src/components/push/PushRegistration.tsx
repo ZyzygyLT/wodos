@@ -33,11 +33,13 @@ export default function PushRegistration() {
 
       const userId = await OneSignal.getUserId()
       if (userId) {
-        await fetch("/api/hero/push-token", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: userId }),
-        })
+        try {
+          await fetch("/api/hero/push-token", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: userId }),
+          })
+        } catch {}
         OneSignal.sendTags({ hero_id: heroId }).catch(() => {})
       }
     }

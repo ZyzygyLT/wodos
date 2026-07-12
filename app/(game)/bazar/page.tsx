@@ -12,47 +12,55 @@ export default function BazarPage() {
   const [cleaning, setCleaning] = useState(false)
 
   const fetchData = useCallback(async () => {
-    const [heroRes, bazarRes] = await Promise.all([
-      fetch("/api/hero"),
-      fetch("/api/bazar"),
-    ])
-    if (heroRes.status === 401 || heroRes.status === 404) return
-    const h = await heroRes.json()
-    setHero(h)
-    setListings(await bazarRes.json())
+    try {
+      const [heroRes, bazarRes] = await Promise.all([
+        fetch("/api/hero"),
+        fetch("/api/bazar"),
+      ])
+      if (heroRes.status === 401 || heroRes.status === 404) return
+      const h = await heroRes.json()
+      setHero(h)
+      setListings(await bazarRes.json())
+    } catch {}
   }, [])
 
   const fetchMyItems = useCallback(async () => {
-    const res = await fetch("/api/hero/inventory")
-    if (res.ok) {
-      const items = await res.json()
-      setMyItems(items.filter((i: any) => i.item.category !== "consumable"))
-    }
+    try {
+      const res = await fetch("/api/hero/inventory")
+      if (res.ok) {
+        const items = await res.json()
+        setMyItems(items.filter((i: any) => i.item.category !== "consumable"))
+      }
+    } catch {}
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { if (tab === "sell") fetchMyItems() }, [tab, fetchMyItems])
 
   async function buyNow(listingId: string) {
-    const res = await fetch("/api/bazar/bid", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listingId }),
-    })
-    const data = await res.json()
-    setMessage(res.ok ? `✅ Comprado por ${data.pricePaid} oro` : `❌ ${data.error}`)
+    try {
+      const res = await fetch("/api/bazar/bid", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingId }),
+      })
+      const data = await res.json()
+      setMessage(res.ok ? `✅ Comprado por ${data.pricePaid} oro` : `❌ ${data.error}`)
+    } catch { setMessage("❌ Error de red") }
     fetchData()
   }
 
   async function placeBid(listingId: string) {
     const amount = Number.parseInt(bidAmounts[listingId] ?? "0")
-    const res = await fetch("/api/bazar/bid", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listingId, amount }),
-    })
-    const data = await res.json()
-    setMessage(res.ok ? `✅ Puja de ${data.bidAmount} oro registrada` : `❌ ${data.error}`)
+    try {
+      const res = await fetch("/api/bazar/bid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingId, amount }),
+      })
+      const data = await res.json()
+      setMessage(res.ok ? `✅ Puja de ${data.bidAmount} oro registrada` : `❌ ${data.error}`)
+    } catch { setMessage("❌ Error de red") }
     fetchData()
   }
 
@@ -60,23 +68,27 @@ export default function BazarPage() {
     const price = Number.parseInt((document.getElementById(`price-${heroItemId}`) as HTMLInputElement)?.value ?? "0")
     const listingType = (document.querySelector(`input[name="type-${heroItemId}"]:checked`) as HTMLInputElement)?.value ?? "fixed"
     if (!price || price < 1) { setMessage("❌ Poné un precio válido"); return }
-    const res = await fetch("/api/bazar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heroItemId, price, listingType }),
-    })
-    const data = await res.json()
-    setMessage(res.ok ? "✅ Item listado en el bazar" : `❌ ${data.error}`)
+    try {
+      const res = await fetch("/api/bazar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ heroItemId, price, listingType }),
+      })
+      const data = await res.json()
+      setMessage(res.ok ? "✅ Item listado en el bazar" : `❌ ${data.error}`)
+    } catch { setMessage("❌ Error de red") }
     fetchData()
     fetchMyItems()
   }
 
   async function cleanExpired() {
     setCleaning(true)
-    const res = await fetch("/api/bazar/expire", { method: "POST" })
-    setCleaning(false)
-    const data = await res.json()
-    setMessage(res.ok ? `🧹 ${data.expired ?? 0} listings vencidos limpiados` : `❌ ${data.error}`)
+    try {
+      const res = await fetch("/api/bazar/expire", { method: "POST" })
+      setCleaning(false)
+      const data = await res.json()
+      setMessage(res.ok ? `🧹 ${data.expired ?? 0} listings vencidos limpiados` : `❌ ${data.error}`)
+    } catch { setCleaning(false); setMessage("❌ Error de red") }
     fetchData()
   }
 

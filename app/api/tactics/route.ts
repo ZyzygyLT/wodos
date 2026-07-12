@@ -9,7 +9,6 @@ const POSITIONS = ['front', 'center', 'rear', 'left_flank', 'right_flank', 'flex
 const putSchema = z.object({
   dungeonLevel: z.number().int().positive().nullable().optional(),
   position: z.enum(POSITIONS).optional(),
-  initiativeSkill: z.string().optional(),
   defenseSkills: z.record(z.string(), z.number().int().nullable()).optional(),
   prelimRules: z.array(z.any()).optional(),
   roundRules: z.array(z.any()).optional(),
@@ -117,7 +116,6 @@ export async function PUT(req: NextRequest) {
           name: dl ? `Nivel ${dl}` : "Estándar",
           dungeonLevel: dl,
           position: parsed.data.position ?? 'front',
-          initiativeSkill: parsed.data.initiativeSkill ?? 'organization',
           defenseSkills: parsed.data.defenseSkills ?? {},
           prelimRules: parsed.data.prelimRules ?? [],
           roundRules: parsed.data.roundRules ?? [

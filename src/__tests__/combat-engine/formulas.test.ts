@@ -14,7 +14,9 @@ beforeEach(() => {
   vi.restoreAllMocks()
 })
 
-const { calcHpMax, calcMpMax, evaluateFormula, calcDamageBase, calcDefenseBase, calcInitiativeBase, calcActualDamage, rollHit, rollCrit, CRIT_MULTIPLIER, rollInitiative, calcHeal, getCondition, epRequiredForLevel, levelFromEp, calcReward, expectedScore, calcEloChange } = await import('@/lib/combat-engine/formulas')
+const { calcHpMax, calcMpMax, evaluateFormula, calcDefenseBase, calcInitiativeBase, calcActualDamage, rollCrit, CRIT_MULTIPLIER, rollInitiative, calcHeal, getCondition, calcReward, expectedScore, calcEloChange } = await import('@/lib/combat-engine/formulas')
+const { totalEpForLevel, levelFromEp } = await import('@/lib/level-up')
+const epRequiredForLevel = totalEpForLevel
 
 const baseAttrs = { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 }
 
@@ -39,16 +41,6 @@ describe('calcMpMax', () => {
 
   it('works with zero values', () => {
     expect(calcMpMax({ ...baseAttrs, wi: 0, in: 0 })).toBe(0)
-  })
-})
-
-describe('calcDamageBase', () => {
-  it('returns st + floor(dx / 2)', () => {
-    expect(calcDamageBase({ ...baseAttrs, st: 15, dx: 13 })).toBe(15 + 6)
-  })
-
-  it('rounds down dx/2', () => {
-    expect(calcDamageBase({ ...baseAttrs, dx: 9 })).toBe(10 + 4)
   })
 })
 
@@ -116,30 +108,6 @@ describe('calcActualDamage', () => {
     const normal = calcActualDamage(100, 0, 100, false)
     const withPen = calcActualDamage(100, 0, 100, true)
     expect(withPen).toBeGreaterThan(normal)
-  })
-})
-
-describe('rollHit', () => {
-  it('returns true when random < chance', () => {
-    seedRandom([0])
-    expect(rollHit(20, 10)).toBe(true)
-  })
-
-  it('returns false when random >= chance', () => {
-    seedRandom([0.99])
-    expect(rollHit(1, 20)).toBe(false)
-  })
-
-  it('caps at 95% hit chance', () => {
-    seedRandom([0.94, 0.96])
-    expect(rollHit(100, 1)).toBe(true)
-    expect(rollHit(100, 1)).toBe(false)
-  })
-
-  it('minimum 20% hit chance', () => {
-    seedRandom([0.19, 0.21])
-    expect(rollHit(1, 100)).toBe(true)
-    expect(rollHit(1, 100)).toBe(false)
   })
 })
 

@@ -37,13 +37,15 @@ export default function DailyLoginModal({ onClaimed }: Readonly<{ onClaimed?: ()
 
   async function claim() {
     setClaiming(true)
-    const res = await fetch("/api/daily-login", { method: "POST" })
-    setClaiming(false)
-    if (res.ok) {
-      const data = await res.json()
-      setClaimed(data)
-      onClaimed?.()
-    }
+    try {
+      const res = await fetch("/api/daily-login", { method: "POST" })
+      setClaiming(false)
+      if (res.ok) {
+        const data = await res.json()
+        setClaimed(data)
+        onClaimed?.()
+      }
+    } catch { setClaiming(false) }
   }
 
   if (!show || !status) return null

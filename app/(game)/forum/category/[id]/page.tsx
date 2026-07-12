@@ -24,23 +24,25 @@ export default function CategoryPage() {
   async function createTopic() {
     if (!title || !content) return
     setPosting(true)
-    const res = await fetch(`/api/forum/categories/${params.id}/topics`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, content }),
-    })
-    setPosting(false)
-    if (res.ok) {
-      setMessage("✅ Topic creado!")
-      setShowForm(false)
-      setTitle("")
-      setContent("")
-      const newData = await fetch(`/api/forum/categories/${params.id}/topics`).then(r => r.json())
-      setData(newData)
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error}`)
-    }
+    try {
+      const res = await fetch(`/api/forum/categories/${params.id}/topics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content }),
+      })
+      setPosting(false)
+      if (res.ok) {
+        setMessage("✅ Topic creado!")
+        setShowForm(false)
+        setTitle("")
+        setContent("")
+        const newData = await fetch(`/api/forum/categories/${params.id}/topics`).then(r => r.json())
+        setData(newData)
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error}`)
+      }
+    } catch { setPosting(false); setMessage("❌ Error al crear topic") }
   }
 
   if (!hero || !data) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>

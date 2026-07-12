@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation"
 import DungeonMap from "@/components/game/DungeonMap"
 
 async function fetchGroups() {
-  const groupsRes = await fetch("/api/groups")
-  if (!groupsRes.ok) return []
-  return groupsRes.json()
+  try {
+    const groupsRes = await fetch("/api/groups")
+    if (!groupsRes.ok) return []
+    return groupsRes.json()
+  } catch { return [] }
 }
 
 export default function DungeonPage() {
@@ -22,22 +24,26 @@ export default function DungeonPage() {
   const [questSlugs, setQuestSlugs] = useState<Set<string>>(new Set())
 
   async function fetchHeroAndDungeons() {
-    const [heroRes, dungeonsRes] = await Promise.all([
-      fetch("/api/hero"), fetch("/api/dungeons"),
-    ])
-    if (heroRes.status === 401 || heroRes.status === 404) return null
-    const heroData = await heroRes.json()
-    setHero(heroData)
-    setDungeons(await dungeonsRes.json())
-    return heroData
+    try {
+      const [heroRes, dungeonsRes] = await Promise.all([
+        fetch("/api/hero"), fetch("/api/dungeons"),
+      ])
+      if (heroRes.status === 401 || heroRes.status === 404) return null
+      const heroData = await heroRes.json()
+      setHero(heroData)
+      setDungeons(await dungeonsRes.json())
+      return heroData
+    } catch { return null }
   }
 
   async function fetchClan() {
-    const clanRes = await fetch("/api/clan")
-    if (!clanRes.ok) return []
-    const clan = await clanRes.json()
-    setClanUpgrades(clan?.upgrades)
-    return clan?.groups ?? []
+    try {
+      const clanRes = await fetch("/api/clan")
+      if (!clanRes.ok) return []
+      const clan = await clanRes.json()
+      setClanUpgrades(clan?.upgrades)
+      return clan?.groups ?? []
+    } catch { return [] }
   }
 
   function mergeGroups(clanGroups: any[], independentGroups: any[]) {
@@ -53,9 +59,10 @@ export default function DungeonPage() {
   }
 
   async function fetchQuestSlugs() {
-    const questsRes = await fetch("/api/quests")
-    if (!questsRes.ok) return
-    const questData = await questsRes.json()
+    try {
+      const questsRes = await fetch("/api/quests")
+      if (!questsRes.ok) return
+      const questData = await questsRes.json()
     const slugs = new Set<string>()
     for (const hq of questData.active ?? []) {
       for (const obj of hq.quest?.objectives ?? []) {
@@ -65,6 +72,7 @@ export default function DungeonPage() {
       }
     }
     setQuestSlugs(slugs)
+    } catch {}
   }
 
   function autoSelectGroup(mergedGroups: any[], heroId: string) {
@@ -98,51 +106,55 @@ export default function DungeonPage() {
   async function createGroup() {
     const name = prompt("Nombre del nuevo grupo:")
     if (!name || name.length < 2) return
-    const res = await fetch("/api/groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    })
-    if (res.ok) {
-      const group = await res.json()
-      setSelectedGroupId(group.id)
-      fetchData()
-    } else {
-      const data = await res.json()
-      alert(data.error || "Error al crear grupo")
-    }
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+      if (res.ok) {
+        const group = await res.json()
+        setSelectedGroupId(group.id)
+        fetchData()
+      } else {
+        const data = await res.json()
+        alert(data.error || "Error al crear grupo")
+      }
+    } catch { alert("Error de red") }
   }
 
   async function registerDungeon(dungeonId: number, isInstant: boolean, groupId?: string) {
     const profileId = selectedProfiles[dungeonId] ?? undefined
     setRunning(true)
-    const res = await fetch("/api/dungeon/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dungeonId, profileId, groupId }),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({ error: "Error de conexión" }))
-      alert(data.error || "Error")
-      setRunning(false)
-      return
-    }
-    const data = await res.json()
-    if (data.instant) {
-      let url = `/dungeon/play/${data.runId}`
-      const params = new URLSearchParams()
-      if (data.levelUp) {
-        params.set('lvl', String(data.levelUp.newLevel))
-        params.set('pts', String(data.levelUp.pointsAwarded))
+    try {
+      const res = await fetch("/api/dungeon/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dungeonId, profileId, groupId }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Error de conexión" }))
+        alert(data.error || "Error")
+        setRunning(false)
+        return
       }
-      if (data.firstOfDay) params.set('fod', '1')
-      const qs = params.toString()
-      if (qs) url += `?${qs}`
-      router.push(url)
-    } else {
-      fetchData()
-    }
-    setRunning(false)
+      const data = await res.json()
+      if (data.instant) {
+        let url = `/dungeon/play/${data.runId}`
+        const params = new URLSearchParams()
+        if (data.levelUp) {
+          params.set('lvl', String(data.levelUp.newLevel))
+          params.set('pts', String(data.levelUp.pointsAwarded))
+        }
+        if (data.firstOfDay) params.set('fod', '1')
+        const qs = params.toString()
+        if (qs) url += `?${qs}`
+        router.push(url)
+      } else {
+        fetchData()
+      }
+      setRunning(false)
+    } catch { setRunning(false) }
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>

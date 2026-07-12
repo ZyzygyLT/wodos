@@ -39,19 +39,21 @@ export default function AdminSkillsPage() {
   async function save() {
     if (!editing) return
     setSaving(true)
-    const isNew = !editing.id
-    const res = await fetch("/api/admin/skills", {
-      method: isNew ? "POST" : "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editing),
-    })
-    if (res.ok) { setEditing(null); load() }
+    try {
+      const isNew = !editing.id
+      const res = await fetch("/api/admin/skills", {
+        method: isNew ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editing),
+      })
+      if (res.ok) { setEditing(null); load() }
+    } catch {}
     setSaving(false)
   }
 
   async function remove(id: number) {
     if (!confirm("¿Borrar esta skill?")) return
-    await fetch(`/api/admin/skills?id=${id}`, { method: "DELETE" })
+    await fetch(`/api/admin/skills?id=${id}`, { method: "DELETE" }).catch(() => {})
     load()
   }
 
@@ -66,8 +68,8 @@ export default function AdminSkillsPage() {
       </div>
 
       {editing && (
-        <button type="button" className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
-          <button type="button" className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditing(null)} role="dialog" aria-modal="true">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h2 className="text-lg font-bold mb-4">{editing.id ? "Editar" : "Nueva"} Skill</h2>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -167,8 +169,8 @@ export default function AdminSkillsPage() {
                 {saving ? "Guardando..." : "Guardar"}
               </button>
             </div>
-          </button>
-        </button>
+          </div>
+        </div>
       )}
 
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">

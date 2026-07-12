@@ -17,7 +17,7 @@ const makeFakeHero = (id: string, name: string, elo: number) => ({
   mpCurrent: 120,
   attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
   class: { icon: '⚔️' },
-  combatProfiles: [{ id: 'cp-1', position: 'front', initiativeSkill: 'organization', dungeonLevel: null, prelimRules: [], roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }], defenseSkills: {} }],
+  combatProfiles: [{ id: 'cp-1', position: 'front', dungeonLevel: null, prelimRules: [], roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }], defenseSkills: {} }],
   skills: [{ rank: 1, skill: { id: 1, name: 'Golpe', multiplier: 1, manaCost: 5, effect: 'attack', formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 }, tags: [] } }],
   items: [],
 })

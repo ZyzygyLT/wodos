@@ -1,6 +1,6 @@
 import db from '@/lib/db'
 import { trackItemListed } from '@/lib/analytics/events'
-import type { ListingType } from '@prisma/client'
+import type { ListingType } from '@/generated/prisma'
 
 export interface ListItemResult {
   id: string

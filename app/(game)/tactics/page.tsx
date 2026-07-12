@@ -121,14 +121,8 @@ export default function TacticsEditor() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label htmlFor="tactics-initiative" className="text-gray-500 text-xs">Iniciativa</label>
-                <select id="tactics-initiative" value={profile.initiativeSkill} onChange={e => updateProfile('initiativeSkill', e.target.value)}
-                  className="w-full bg-gray-800 rounded-lg px-3 py-2 mt-1 outline-none focus:ring-1 focus:ring-yellow-500">
-                  <option value="organization">Organización</option>
-                  <option value="agility">Agilidad</option>
-                  <option value="perception">Percepción</option>
-                </select>
+              <div className="p-3 rounded-lg bg-gray-800/50">
+                <p className="text-xs text-gray-400">⚡ La iniciativa se calcula automáticamente: <strong className="text-gray-200">AG + PE/2</strong></p>
               </div>
             </div>
           </div>

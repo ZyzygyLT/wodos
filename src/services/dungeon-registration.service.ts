@@ -211,10 +211,19 @@ async function createRunTransaction(heroId: string, dungeon: any, profile: any, 
     }
 
     if (result.loot && result.loot.length > 0) {
-      for (const fs of result.heroesFinalState) {
+      const lootByHero = new Map<string, Array<{ itemId: number; qty: number }>>()
+      for (const l of result.loot) {
+        const hId = (l as any).heroId ?? result.heroesFinalState[0]?.id
+        if (!hId) continue
+        if (!lootByHero.has(hId)) lootByHero.set(hId, [])
+        lootByHero.get(hId)!.push({ itemId: l.itemId, qty: l.qty })
+      }
+      for (const [hId, items] of lootByHero) {
         await tx.heroItem.createMany({
-          data: result.loot.flatMap((l: any) =>
-            Array.from({ length: l.qty }, () => ({ heroId: fs.id, itemId: l.itemId, equipped: false }))
+          data: items.flatMap(l =>
+            Array.from({ length: l.qty }, () => ({
+              heroId: hId, itemId: l.itemId, equipped: false,
+            }))
           ),
         })
       }

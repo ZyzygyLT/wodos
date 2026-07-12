@@ -77,22 +77,24 @@ export default function AdminDungeonsPage() {
   async function saveFloors() {
     if (!selectedDungeon) return
     setSaving(true)
-    const res = await fetch("/api/admin/dungeons", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: selectedDungeon.id, levels: floors }),
-    })
-    if (res.ok) {
-      setMessage("✅ Niveles guardados")
-      setEditingFloor(null)
-      load()
-      const updated = await fetch(`/api/admin/dungeons`).then(r => r.json())
-      const d = (Array.isArray(updated) ? updated : []).find((x: any) => x.id === selectedDungeon.id)
-      if (d) selectDungeon(d)
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error || "Error"}`)
-    }
+    try {
+      const res = await fetch("/api/admin/dungeons", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedDungeon.id, levels: floors }),
+      })
+      if (res.ok) {
+        setMessage("✅ Niveles guardados")
+        setEditingFloor(null)
+        load()
+        const updated = await fetch(`/api/admin/dungeons`).then(r => r.json())
+        const d = (Array.isArray(updated) ? updated : []).find((x: any) => x.id === selectedDungeon.id)
+        if (d) selectDungeon(d)
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error || "Error"}`)
+      }
+    } catch { setMessage("❌ Error de red") }
     setSaving(false)
   }
 
@@ -109,23 +111,25 @@ export default function AdminDungeonsPage() {
     body.goldReward = Number.parseInt(body.goldReward) || 0
     body.fameReward = Number.parseInt(body.fameReward) || 5
     try { body.scheduledTimes = JSON.parse(body.scheduledTimes) } catch {}
-    const res = await fetch("/api/admin/dungeons", {
-      method, headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-    if (res.ok) {
-      setMessage(isNew ? "✅ Dungeon creado" : "✅ Dungeon actualizado")
-      setEditingDungeon(null)
-      load()
-    } else {
-      const d = await res.json()
-      setMessage(`❌ ${d.error || "Error"}`)
-    }
+    try {
+      const res = await fetch("/api/admin/dungeons", {
+        method, headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        setMessage(isNew ? "✅ Dungeon creado" : "✅ Dungeon actualizado")
+        setEditingDungeon(null)
+        load()
+      } else {
+        const d = await res.json()
+        setMessage(`❌ ${d.error || "Error"}`)
+      }
+    } catch { setMessage("❌ Error de red") }
   }
 
   async function removeDungeon(id: number) {
     if (!confirm("¿Borrar dungeon?")) return
-    await fetch(`/api/admin/dungeons?id=${id}`, { method: "DELETE" })
+    await fetch(`/api/admin/dungeons?id=${id}`, { method: "DELETE" }).catch(() => {})
     setMessage("🗑️ Dungeon borrado")
     setSelectedDungeon(null)
     load()
@@ -222,8 +226,8 @@ export default function AdminDungeonsPage() {
 
       {/* Floor edit modal */}
       {editingFloor && (
-        <button type="button" className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditingFloor(null)}>
-          <button type="button" className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditingFloor(null)} role="dialog" aria-modal="true">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">Editar Nivel {editingFloor.number}</h3>
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div>
@@ -280,14 +284,14 @@ export default function AdminDungeonsPage() {
               }}
                 className="flex-1 px-4 py-2 bg-red-700 hover:bg-red-600 rounded-lg text-sm font-bold transition">Aplicar</button>
             </div>
-          </button>
-        </button>
+          </div>
+        </div>
       )}
 
       {/* Dungeon edit/create modal */}
       {editingDungeon && (
-        <button type="button" className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditingDungeon(null)}>
-          <button type="button" className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditingDungeon(null)} role="dialog" aria-modal="true">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold mb-4">{editingDungeon.id ? "Editar" : "Nuevo"} Dungeon</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -362,8 +366,8 @@ export default function AdminDungeonsPage() {
               <button onClick={saveDungeon}
                 className="flex-1 px-4 py-2 bg-red-700 hover:bg-red-600 rounded-lg text-sm font-bold transition">Guardar</button>
             </div>
-          </button>
-        </button>
+          </div>
+        </div>
       )}
     </div>
   )

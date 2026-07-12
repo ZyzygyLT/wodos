@@ -46,25 +46,29 @@ export default function FactionsPage() {
 
   async function selectFaction(f: Faction) {
     setSelected(f)
-    const res = await fetch(`/api/factions/${f.id}/shop`)
-    if (res.ok) setShopData(await res.json())
+    try {
+      const res = await fetch(`/api/factions/${f.id}/shop`)
+      if (res.ok) setShopData(await res.json())
+    } catch {}
   }
 
   async function buyItem(factionId: number, shopId: number, itemIndex: number, itemName: string) {
     setBuying(itemName)
-    const res = await fetch(`/api/factions/${factionId}/shop/${shopId}/buy`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemIndex }),
-    })
-    setBuying(null)
-    if (res.ok) {
-      setMessage(`✅ Compraste "${itemName}"!`)
-      if (selected) selectFaction(selected)
-    } else {
-      const d = await res.json()
+    try {
+      const res = await fetch(`/api/factions/${factionId}/shop/${shopId}/buy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemIndex }),
+      })
+      setBuying(null)
+      if (res.ok) {
+        setMessage(`✅ Compraste "${itemName}"!`)
+        if (selected) selectFaction(selected)
+      } else {
+        const d = await res.json()
       setMessage(`❌ ${d.error}`)
-    }
+      }
+    } catch { setBuying(null); setMessage("❌ Error de red") }
   }
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>

@@ -1,5 +1,5 @@
 import db from '@/lib/db'
-import type { AttributeDefinition } from '@/generated/prisma/client'
+import type { AttributeDefinition } from '@/generated/prisma'
 import type { CreateAttributeInput, UpdateAttributeInput } from '@/lib/models/attribute'
 
 export async function findAllAttributes(includeArchived = false): Promise<AttributeDefinition[]> {

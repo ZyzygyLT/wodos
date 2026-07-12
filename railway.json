@@ -5,10 +5,10 @@
     "buildCommand": "npx prisma generate && npm run build"
   },
   "deploy": {
-    "startCommand": "npx prisma db push --accept-data-loss && npm run start",
-    "healthcheckPath": "/api/auth/session",
-    "healthcheckTimeout": 30,
+    "startCommand": "npx prisma db push --accept-data-loss && npx prisma db seed && npm run start",
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 120,
     "restartPolicyType": "on_failure",
-    "restartPolicyMaxRetries": 3
+    "restartPolicyMaxRetries": 10
   }
 }

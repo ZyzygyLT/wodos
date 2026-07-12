@@ -36,7 +36,6 @@ function makeHeroAtLevel(level: number, id: string, name: string, pos: string, r
     gold: 100 + level * 50,
     combatProfile: {
       position: pos,
-      initiativeSkill: 'organization',
       prelimRules: [],
       roundRules: [
         { priority: 1, condition: { type: role === 'heal' ? 'hp_ally_lt' : 'hp_self_lt', value: 50 }, action: { skillId: role === 'heal' ? 20 : 10, targetPos: 'auto', targetType: 'most_injured_ally' } },
