@@ -12,7 +12,7 @@ export async function GET() {
     include: {
       adventure: { select: { name: true, icon: true, description: true, levelReq: true } },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { startedAt: "desc" },
     take: 20,
   })
 

@@ -277,7 +277,6 @@ export default function ActiveAdventurePage() {
               </button>
             )}
           </div>
-          </div>
         </div>
       </div>
     </div>

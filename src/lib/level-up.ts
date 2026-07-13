@@ -3,6 +3,7 @@ import { updateQuestProgress } from "@/lib/quests/progress"
 import { checkAchievements } from "@/lib/achievements/checker"
 import { calcHpMax, calcMpMax, HeroAttrs } from "@/lib/combat-engine/formulas"
 import { notify } from "@/lib/notifications/emitter"
+import logger from "@/lib/logger"
 
 const POINTS_PER_LEVEL = 5
 

@@ -1,5 +1,6 @@
 import db from "@/lib/db"
 import { sendPush } from "@/lib/notifications/push"
+import logger from "@/lib/logger"
 
 type NotificationInput = {
   heroId: string

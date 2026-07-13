@@ -100,7 +100,7 @@ export async function startAdventure(heroId: string, adventureId: number) {
 export async function getActiveAdventure(heroId: string) {
   const ha = await db.heroAdventure.findFirst({
     where: { heroId, status: { in: ['active', 'completed', 'failed'] } },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: { startedAt: 'desc' },
     include: { adventure: true },
   })
   if (!ha) return null

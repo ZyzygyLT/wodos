@@ -1,5 +1,6 @@
 import db from "@/lib/db"
 import { notify } from "@/lib/notifications/emitter"
+import logger from "@/lib/logger"
 
 export async function tickEvents() {
   const now = new Date()

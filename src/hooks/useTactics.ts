@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import logger from "@/lib/logger"
 
 export interface RoundRule {
   priority: number
