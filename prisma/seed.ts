@@ -1152,9 +1152,12 @@ async function seedAdventures() {
     },
   ]
 
-  await db.adventure.deleteMany()
   for (const a of adventures) {
-    await db.adventure.create({ data: a })
+    await db.adventure.upsert({
+      where: { slug: a.slug },
+      update: {},
+      create: a as any,
+    })
   }
 }
 
