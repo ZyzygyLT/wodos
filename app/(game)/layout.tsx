@@ -4,6 +4,7 @@ import logger from "@/lib/logger"
 
 import { useEffect, useState, useRef } from "react"
 import { usePathname } from "next/navigation"
+import { signOut } from "next-auth/react"
 import Link from "next/link"
 
 interface MenuItem { href: string; label: string; exact?: boolean }
@@ -152,6 +153,10 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
               <span className="text-gray-300 hidden xs:inline">{hero.name}</span>
               <span className="text-yellow-400">Nv.{hero.level}</span>
               <span className="text-yellow-300">💰{hero.gold}</span>
+              <button onClick={() => signOut({ callbackUrl: "/login" })}
+                className="text-gray-500 hover:text-red-400 transition ml-1" title="Cerrar sesión">
+                🚪
+              </button>
             </>
           )}
         </div>

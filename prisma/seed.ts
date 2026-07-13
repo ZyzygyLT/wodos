@@ -11,14 +11,17 @@ function stripNulls<T extends Record<string, unknown>>(obj: T): T {
   return cleaned
 }
 
-const pool = new pg.Pool({
-  connectionString: process.env['DATABASE_URL'] ?? undefined,
-  host: process.env['DATABASE_URL'] ? undefined : '127.0.0.1',
-  port: process.env['DATABASE_URL'] ? undefined : Number(process.env['DB_PORT'] ?? '5433'),
-  user: process.env['DATABASE_URL'] ? undefined : 'postgres',
-  password: process.env['DATABASE_URL'] ? undefined : '1234',
-  database: process.env['DATABASE_URL'] ? undefined : 'ironhold',
-})
+const pool = new pg.Pool(
+  process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST ?? '127.0.0.1',
+        port: Number(process.env.DB_PORT ?? '5433'),
+        user: process.env.DB_USER ?? 'postgres',
+        password: process.env.DB_PASSWORD ?? '',
+        database: process.env.DB_NAME ?? 'ironhold',
+      }
+)
 const adapter = new PrismaPg(pool)
 const db = new PrismaClient({ adapter })
 
@@ -50,6 +53,7 @@ async function main() {
   await seedFactions()
   await seedFactionShops()
   await seedAdventures()
+  await seedTestDungeon(itemSlugMap)
 console.log('✅ Seed completado')
 }
 
@@ -596,6 +600,50 @@ async function seedMoreDungeons(itemSlugMap: Record<string, number>) {
   }
 }
 
+async function seedTestDungeon(itemSlugMap: Record<string, number>) {
+  const _i = (slug: string) => itemSlugMap[slug] ?? 999
+  const testDungeon = {
+    slug: 'mazmorra-test',
+    name: 'Mazmorra de Prueba',
+    icon: '🧪',
+    region: 'Test',
+    description: 'Mazmorra de prueba instantánea. Sin tiempo de espera.',
+    lore: 'Una zona de entrenamiento para nuevos aventureros.',
+    levelReq: 1,
+    recommendedLevel: 1,
+    difficulty: 1,
+    difficultyLabel: 'Prueba',
+    epReward: 20,
+    goldReward: 20,
+    fameReward: 1,
+    levels: [
+      {
+        number: 1,
+        locationName: 'Sala de Entrenamiento',
+        enemies: [{ id: 1, count: 1, pos: 'front' }],
+        epReward: 10,
+        goldReward: 10,
+      },
+      {
+        number: 2,
+        locationName: 'Sala de Práctica',
+        enemies: [{ id: 1, count: 2, pos: 'front' }],
+        epReward: 10,
+        goldReward: 10,
+      },
+    ],
+    lootTable: [
+      { chance: 0.5, itemId: _i('pocion-vida'), minQty: 1, maxQty: 2 },
+    ],
+  }
+
+  await db.dungeon.upsert({
+    where: { slug: testDungeon.slug },
+    update: { isInstant: true, scheduledTimes: [] },
+    create: { ...testDungeon, isInstant: true, isEventOnly: false, scheduledTimes: [] },
+  })
+}
+
 async function seedMaterials() {
   const materials = [
     { name: 'Madera de Roble', icon: '🪵', rarity: 'common' as const, description: 'Madera resistente de roble.', dropSources: ['Bosque Oscuro'] },
@@ -701,19 +749,27 @@ async function seedAchievements() {
 }
 
 async function seedAdminUser() {
-  const existing = await db.user.findUnique({ where: { email: 'admin@ironhold.com' } })
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@ironhold.com'
+  const adminPassword = process.env.ADMIN_PASSWORD
+
+  if (!adminPassword) {
+    console.warn('⚠️  ADMIN_PASSWORD no definido — usuario admin NO creado. Definí ADMIN_PASSWORD en .env para crearlo.')
+    return
+  }
+
+  const existing = await db.user.findUnique({ where: { email: adminEmail } })
   if (existing) return
 
-  const hash = await bcrypt.hash('admin123', 10)
+  const hash = await bcrypt.hash(adminPassword, 10)
   await db.user.create({
     data: {
-      email: 'admin@ironhold.com',
+      email: adminEmail,
       name: 'Admin',
       passwordHash: hash,
       isAdmin: true,
     },
   })
-  console.log('✔ Usuario admin creado: admin@ironhold.com / admin123')
+  console.log(`✔ Usuario admin creado: ${adminEmail}`)
 }
 
 async function seedAttributeDefinitions() {
