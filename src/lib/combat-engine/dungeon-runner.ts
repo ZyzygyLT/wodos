@@ -2020,7 +2020,7 @@ export async function runDungeon(
   let goldGained = 0
   let fameGained = 0
   let levelsCleared = 0
-  let allLoot: Array<{ itemId: number; qty: number }> = []
+  const allLoot: Array<{ itemId: number; qty: number }> = []
 
   applyClanBonuses(heroes, clan)
   scaleEnemiesToParty(dungeon, heroes)
@@ -2174,8 +2174,8 @@ export async function runDungeon(
     levelResults.push({ level: lvl.number, victory: levelVictory, rounds: totalRounds })
 
     const rewardResult = computeLevelRewards(lvl, dungeon, levelVictory, options, clan, heroUnits)
-    let lvlEp = rewardResult.lvlEp
-    let lvlGold = rewardResult.lvlGold
+    const lvlEp = rewardResult.lvlEp
+    const lvlGold = rewardResult.lvlGold
 
     if (levelVictory) {
       levelsCleared++

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 export default function AdventuresPage() {
   const router = useRouter()
   const [data, setData] = useState<any>(null)
+  const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +22,17 @@ export default function AdventuresPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchAdventures() }, [])
+  async function fetchHistory() {
+    try {
+      const res = await fetch("/api/adventures/history")
+      if (res.ok) {
+        const h = await res.json()
+        setHistory(h.history ?? [])
+      }
+    } catch {}
+  }
+
+  useEffect(() => { fetchAdventures(); fetchHistory() }, [])
 
   async function startAdventure(adventureId: number) {
     setStarting(adventureId)
@@ -122,6 +133,29 @@ export default function AdventuresPage() {
         {data?.adventures?.length === 0 && (
           <div className="text-center py-12 text-gray-500">
             No hay aventuras disponibles para tu nivel
+          </div>
+        )}
+
+        {history.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold text-amber-300 mb-4">📋 Historial</h2>
+            <div className="space-y-2">
+              {history.map((h: any) => (
+                <div key={h.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">{h.adventureIcon}</span>
+                    <div>
+                      <p className="font-semibold text-gray-200">{h.adventureName}</p>
+                      <p className="text-xs text-gray-500">
+                        {h.status === 'claimed' ? '✅ Reclamado' : h.status === 'completed' ? '🎉 Completado' : '💀 Fallado'}
+                        {h.completedAt && ` · ${new Date(h.completedAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500">⚡ {h.energySpent} energía</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

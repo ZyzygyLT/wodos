@@ -20,7 +20,7 @@ export default function ActiveAdventurePage() {
       const res = await fetch("/api/adventures/active")
       if (res.status === 401) { router.push("/login"); return }
       const data = await res.json()
-      if (!data || data.status !== 'active') {
+      if (!data) {
         router.push("/adventures")
         return
       }
@@ -52,14 +52,14 @@ export default function ActiveAdventurePage() {
         setActive((prev: any) => ({
           ...prev,
           status: result.victory ? 'completed' : 'failed',
-          result: { steps: [...history, result.stepResult], rewards: result.rewards },
+          result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: result.rewards },
         }))
         setStepType(null)
       } else {
         setActive((prev: any) => ({
           ...prev,
           currentStep: result.currentStep,
-          result: { steps: [...history, result.stepResult], rewards: null },
+          result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: null },
         }))
         setStepType(result.nextStep?.type ?? null)
       }
@@ -85,7 +85,7 @@ export default function ActiveAdventurePage() {
       setActive((prev: any) => ({
         ...prev,
         currentStep: result.nextStepIndex,
-        result: { steps: [...history, { type: 'choice', chosenIndex: choiceIndex }], rewards: null },
+        result: { steps: [...(prev.result?.steps ?? []), { type: 'choice', chosenIndex: choiceIndex }], rewards: null },
       }))
       setStepType(result.nextStep?.type ?? null)
     } catch { setError("Error al elegir") }
@@ -250,13 +250,13 @@ export default function ActiveAdventurePage() {
           )}
 
           <div className="flex gap-3">
-            {!isOver && (
+            {!isOver && !isChoice && (
               <button
                 onClick={advanceStep}
                 disabled={executing}
                 className="flex-1 py-3 bg-amber-700 hover:bg-amber-600 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-semibold"
               >
-                {executing ? "Cargando..." : isChoice ? "Elegir opción" : "Continuar →"}
+                {executing ? "Cargando..." : "Continuar →"}
               </button>
             )}
             {isOver && (
@@ -277,8 +277,6 @@ export default function ActiveAdventurePage() {
               </button>
             )}
           </div>
-          <div className="text-xs text-gray-600 mt-2 text-center">
-            isOver={String(isOver)} isChoice={String(isChoice)} stepType={stepType ?? 'null'}
           </div>
         </div>
       </div>

@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const { attr, amount } = parsed.data
-  let attrs = (hero.attrs ?? {}) as Record<string, number>
+  const attrs = (hero.attrs ?? {}) as Record<string, number>
   const currentVal = attrs[attr] || 0
 
   if (amount < 0) {

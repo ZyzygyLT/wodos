@@ -107,7 +107,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
   const runeItemIds = Array.from(new Set<number>(
     (hero.items ?? []).filter((hi: any) => hi.equipped).flatMap((hi: any) => (hi.runesIn as any[] ?? []).map((r: any) => r.itemId))
   ))
-  let equipStats: Record<string, number> = (hero.items ?? []).filter((hi: any) => hi.equipped).reduce((acc: Record<string, number>, hi: any) => {
+  const equipStats: Record<string, number> = (hero.items ?? []).filter((hi: any) => hi.equipped).reduce((acc: Record<string, number>, hi: any) => {
     const baseStats = hi.item.stats as Record<string, number> ?? {}
     const overrides = (hi.statOverrides ?? {}) as Record<string, number>
     const mergedStats = { ...baseStats, ...overrides }

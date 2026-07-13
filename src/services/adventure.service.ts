@@ -99,7 +99,8 @@ export async function startAdventure(heroId: string, adventureId: number) {
 
 export async function getActiveAdventure(heroId: string) {
   const ha = await db.heroAdventure.findFirst({
-    where: { heroId, status: 'active' },
+    where: { heroId, status: { in: ['active', 'completed', 'failed'] } },
+    orderBy: { updatedAt: 'desc' },
     include: { adventure: true },
   })
   if (!ha) return null
@@ -139,7 +140,7 @@ export async function executeStep(heroId: string, heroAdventureId: string) {
   const resultData = (ha.result as any) ?? { steps: [], rewards: null }
 
   let stepResult: StepResult
-  let nextStepIndex = ha.currentStep + 1
+  const nextStepIndex = ha.currentStep + 1
 
   switch (currentStep.type) {
     case 'narrative': {
@@ -147,8 +148,7 @@ export async function executeStep(heroId: string, heroAdventureId: string) {
       break
     }
     case 'choice': {
-      stepResult = { type: 'choice', chosenIndex: -1, nextStep: ha.currentStep + 1 }
-      break
+      throw new Error('Este paso requiere elegir una opción')
     }
     case 'combat': {
       const combat = resolveCombatStep(
