@@ -51,30 +51,44 @@ export async function POST(req: NextRequest) {
     // Refund previous bidder (last purchase)
   const lastPurchase = listing.purchases[0]
   if (lastPurchase && lastPurchase.buyerId !== hero.id) {
-    await db.hero.update({
-      where: { id: lastPurchase.buyerId },
-      data: { gold: { increment: lastPurchase.pricePaid } },
-    })
+    await db.$transaction([
+      db.hero.update({
+        where: { id: lastPurchase.buyerId },
+        data: { gold: { increment: lastPurchase.pricePaid } },
+      }),
+      db.hero.update({
+        where: { id: hero.id },
+        data: { gold: { decrement: bidAmount } },
+      }),
+      db.bazarPurchase.create({
+        data: {
+          listingId: listing.id,
+          buyerId: hero.id,
+          pricePaid: bidAmount,
+        },
+      }),
+    ])
     notify({
       heroId: lastPurchase.buyerId,
       type: "outbid",
       title: "🟡 Superado en la puja",
       body: `Alguien te superó con ${bidAmount}💰`,
     }).catch(e => logger.error("bazar-bid", "Background operation failed", e))
+  } else {
+    await db.$transaction([
+      db.hero.update({
+        where: { id: hero.id },
+        data: { gold: { decrement: bidAmount } },
+      }),
+      db.bazarPurchase.create({
+        data: {
+          listingId: listing.id,
+          buyerId: hero.id,
+          pricePaid: bidAmount,
+        },
+      }),
+    ])
   }
-
-  await db.hero.update({
-    where: { id: hero.id },
-    data: { gold: { decrement: bidAmount } },
-  })
-
-  await db.bazarPurchase.create({
-    data: {
-      listingId: listing.id,
-      buyerId: hero.id,
-      pricePaid: bidAmount,
-    },
-  })
 
   // If buyNowPrice reached, auto-sell
   if (listing.buyNowPrice && bidAmount >= listing.buyNowPrice) {

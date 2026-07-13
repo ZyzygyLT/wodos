@@ -68,15 +68,27 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await db.hero.update({
-    where: { id: hero.id },
-    data: {
-      gold: { decrement: item.price },
-      items: {
-        create: { itemId: item.id, equipped: false },
+  const price = item.price ?? 0
+  const result = await db.$transaction(async (tx) => {
+    const freshHero = await tx.hero.findUnique({ where: { id: hero.id } })
+    if (!freshHero || freshHero.gold < price) {
+      return { error: `No tenés suficiente oro. Necesitás ${price}💰` }
+    }
+    await tx.hero.update({
+      where: { id: hero.id },
+      data: {
+        gold: { decrement: price },
+        items: {
+          create: { itemId: item.id, equipped: false },
+        },
       },
-    },
+    })
+    return { success: true }
   })
+
+  if ('error' in result) {
+    return NextResponse.json({ error: result.error }, { status: 400 })
+  }
 
   return NextResponse.json({ success: true, name: item.name, price: item.price })
 }

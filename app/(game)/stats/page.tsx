@@ -55,7 +55,7 @@ export default function StatsPage() {
     setLoading(true)
     try {
       const res = await fetch("/api/hero/stats")
-      if (res.status === 401) { router.push("/api/auth/signin"); return }
+      if (res.status === 401) { router.push("/login"); return }
       if (res.ok) {
         const data = await res.json()
         setSummary(data.summary)

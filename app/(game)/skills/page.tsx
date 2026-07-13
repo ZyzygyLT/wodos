@@ -19,7 +19,7 @@ export default function SkillsPage() {
         fetch("/api/hero"),
         fetch("/api/hero/skills"),
       ])
-      if (heroRes.status === 401) return router.push("/auth/login")
+      if (heroRes.status === 401) return router.push("/login")
       if (heroRes.status === 404) return router.push("/onboarding")
       setHero(await heroRes.json())
       setSkills(await skillsRes.json())

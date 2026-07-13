@@ -63,7 +63,7 @@ export default function BestiaryPage() {
     setLoading(true)
     try {
       const res = await fetch("/api/bestiary")
-      if (res.status === 401) { router.push("/api/auth/signin"); return }
+      if (res.status === 401) { router.push("/login"); return }
       if (res.ok) {
         const data = await res.json()
         setEnemies(data.enemies)

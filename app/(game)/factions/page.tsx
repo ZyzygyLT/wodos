@@ -152,7 +152,7 @@ export default function FactionsPage() {
                       {shop.unlocked ? (
                         <span className="text-xs text-green-400">✅ Desbloqueada</span>
                       ) : (
-                        <span className="text-xs text-red-400">🔒 Rep {shop.minReq} requerida</span>
+                        <span className="text-xs text-red-400">🔒 Rep {shop.minRep} requerida</span>
                       )}
                     </div>
                     {shop.unlocked && (

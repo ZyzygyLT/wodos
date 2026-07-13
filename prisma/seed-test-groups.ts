@@ -2,9 +2,17 @@ import { PrismaClient } from '../src/generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 
-const pool = new pg.Pool({
-  host: '127.0.0.1', port: Number(process.env['DB_PORT'] ?? '5433'), user: 'postgres', password: '1234', database: 'ironhold',
-})
+const pool = new pg.Pool(
+  process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST ?? '127.0.0.1',
+        port: Number(process.env.DB_PORT ?? '5433'),
+        user: process.env.DB_USER ?? 'postgres',
+        password: process.env.DB_PASSWORD ?? '',
+        database: process.env.DB_NAME ?? 'ironhold',
+      }
+)
 const adapter = new PrismaPg(pool)
 const db = new PrismaClient({ adapter })
 

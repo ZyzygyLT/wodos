@@ -27,6 +27,7 @@ export default function Onboarding() {
   const [name, setName] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
 
   useEffect(() => {
     Promise.all([
@@ -35,7 +36,7 @@ export default function Onboarding() {
     ]).then(([cls, rac]) => {
       setClasses(cls)
       setRaces(rac)
-    })
+    }).catch(() => {}).finally(() => setFetching(false))
   }, [])
 
   async function handleCreate() {
@@ -71,6 +72,9 @@ export default function Onboarding() {
         {step === 1 && (
           <>
             <h1 className="text-2xl font-bold text-center mb-6">Elegí tu clase</h1>
+            {fetching ? (
+              <p className="text-center text-gray-400 py-12">Cargando clases...</p>
+            ) : (
             <div className="grid gap-4">
               {classes.map(c => (
                 <button key={c.id} onClick={() => { setSelectedClass(c); setStep(2) }}
@@ -85,6 +89,7 @@ export default function Onboarding() {
                 </button>
               ))}
             </div>
+            )}
           </>
         )}
 

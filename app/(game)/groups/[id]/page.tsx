@@ -48,7 +48,7 @@ export default function GroupDetailPage() {
         fetch(`/api/groups/${groupId}`),
         fetch("/api/hero"),
       ])
-      if (groupRes.status === 401 || heroRes.status === 401) { router.push("/api/auth/signin"); return }
+      if (groupRes.status === 401 || heroRes.status === 401) { router.push("/login"); return }
       if (!groupRes.ok) {
         const body = await groupRes.json().catch(() => ({}))
         throw new Error(body.error || `Error ${groupRes.status}`)

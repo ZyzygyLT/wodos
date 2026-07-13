@@ -204,7 +204,7 @@ export default function ProfilePage() {
               const total = val + bonus
               return (
                 <div key={key} className="bg-gray-800 rounded-lg p-2 text-center">
-                  <p className="text-[10px] text-gray-500 uppercase">{key}</p>
+                  <p className="text-[10px] text-gray-500 uppercase">{ATTR_LABELS[key] ?? key}</p>
                   <p className="text-sm font-bold text-amber-400">{total}</p>
                   {bonus > 0 && <p className="text-[10px] text-green-400">+{bonus}</p>}
                 </div>

@@ -18,7 +18,7 @@ export default function DungeonHistory() {
 
   useEffect(() => {
     fetch("/api/dungeon/history")
-      .then(r => { if (r.status === 401) { router.push("/api/auth/signin"); } return r })
+      .then(r => { if (r.status === 401) { router.push("/login"); } return r })
       .then(r => r.json())
       .then(d => { setRuns(d); setLoading(false) })
       .catch(() => setLoading(false))

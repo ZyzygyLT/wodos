@@ -36,7 +36,7 @@ export default function MyGroupsPage() {
         fetch("/api/hero"),
         fetch("/api/groups/invites"),
       ])
-      if (groupsRes.status === 401 || heroRes.status === 401) { router.push("/api/auth/signin"); return }
+      if (groupsRes.status === 401 || heroRes.status === 401) { router.push("/login"); return }
       if (groupsRes.ok) setGroups(await groupsRes.json())
       if (heroRes.ok) {
         const h = await heroRes.json()

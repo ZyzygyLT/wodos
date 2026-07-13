@@ -95,7 +95,7 @@ export default function BazarPage() {
   const rarityColors: Record<string, string> = {
     common: "text-gray-300",
     uncommon: "text-green-400",
-    rare: "text-yellow-400",
+    rare: "text-blue-400",
     epic: "text-purple-400",
     unique: "text-red-400",
   }

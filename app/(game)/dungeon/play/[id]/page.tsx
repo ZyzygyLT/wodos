@@ -44,7 +44,7 @@ export default function DungeonPlayPage() {
     setError(null)
     try {
       const res = await fetch(`/api/dungeon/report/${id}`)
-      if (res.status === 401) { router.push("/api/auth/signin"); return }
+      if (res.status === 401) { router.push("/login"); return }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || `Error ${res.status}`)

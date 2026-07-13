@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import DailyLoginModal from "@/components/game/DailyLoginModal"
 
 interface HeroData {
@@ -46,11 +47,19 @@ export default function Dashboard() {
   const [showAddProfile, setShowAddProfile] = useState(false)
   const [newProfileName, setNewProfileName] = useState("")
   const [newProfilePosition, setNewProfilePosition] = useState("front")
+  const [message, setMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (message) {
+      const t = setTimeout(() => setMessage(null), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [message])
 
   const fetchData = useCallback(async () => {
     try {
       const heroRes = await fetch("/api/hero")
-      if (heroRes.status === 401) return router.push("/api/auth/signin")
+      if (heroRes.status === 401) return router.push("/login")
       if (heroRes.status === 404) return router.push("/onboarding")
       setHero(await heroRes.json())
     } catch {}
@@ -90,7 +99,7 @@ export default function Dashboard() {
 
   async function spendPoints() {
     const entries = Object.entries(spending).filter(([, v]) => v !== 0)
-    if (entries.length !== 1) { alert("Solo podés modificar un atributo a la vez"); return }
+    if (entries.length !== 1) { setMessage("Solo podés modificar un atributo a la vez"); return }
     const [attr, amount] = entries[0]
 
     try {
@@ -105,9 +114,9 @@ export default function Dashboard() {
         fetchData()
       } else {
         const data = await res.json()
-        alert(data.error || "Error al gastar EP")
+        setMessage(data.error || "Error al gastar EP")
       }
-    } catch { alert("Error de red al gastar EP") }
+    } catch { setMessage("Error de red al gastar EP") }
   }
 
   async function renameProfile(profileId: string) {
@@ -131,9 +140,9 @@ export default function Dashboard() {
         fetchData()
       } else {
         const data = await res.json()
-        alert(data.error || "Error al eliminar")
+        setMessage(data.error || "Error al eliminar")
       }
-    } catch { alert("Error de red al eliminar perfil") }
+    } catch { setMessage("Error de red al eliminar perfil") }
   }
 
   async function addProfile() {
@@ -158,6 +167,11 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <DailyLoginModal onClaimed={fetchData} />
+      {message && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-gray-900 border border-amber-800/50 text-sm text-amber-300 shadow-lg cursor-pointer" onClick={() => setMessage(null)}>
+          {message}
+        </div>
+      )}
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-3 flex items-center justify-between">
         <h1 className="text-xl font-bold text-yellow-400">⚔️ Ironhold</h1>
         <div className="flex items-center gap-4 text-sm">
@@ -165,7 +179,7 @@ export default function Dashboard() {
           <span className="text-yellow-400">Nv. {hero.level}</span>
           <span className="text-yellow-300">💰 {hero.gold}</span>
           <span className="text-gray-500 text-xs">{hero.heroCount ?? 1}/{hero.maxHeroes ?? 3} héroes</span>
-          <a href="/dungeon" className="text-gray-400 hover:text-gray-200 text-xs">🗺️ Ir al juego</a>
+          <Link href="/dungeon" className="text-gray-400 hover:text-gray-200 text-xs">🗺️ Ir al juego</Link>
         </div>
       </header>
 
@@ -423,40 +437,40 @@ export default function Dashboard() {
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
             <h3 className="text-sm font-bold text-green-400 mb-3">🗺️ Mazmorras</h3>
             <div className="space-y-2 text-sm">
-              <a href="/dungeon" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+              <Link href="/dungeon" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
                 <span>⚔️</span>
                 <span>Ir a mazmorras</span>
-              </a>
-              <a href="/dungeon/reports" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+              </Link>
+              <Link href="/dungeon/reports" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
                 <span>📜</span>
                 <span>Historial</span>
-              </a>
-              <a href="/profile" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+              </Link>
+              <Link href="/profile" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
                 <span>👤</span>
                 <span>Perfil</span>
-              </a>
+              </Link>
             </div>
           </div>
 
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
             <h3 className="text-sm font-bold text-blue-400 mb-3">⚡ Atajos</h3>
             <div className="space-y-2 text-sm">
-              <a href="/skills" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+              <Link href="/skills" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
                 <span>⚡</span>
                 <span>Habilidades</span>
-              </a>
-              <a href="/inventory" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+              </Link>
+              <Link href="/inventory" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
                 <span>🎒</span>
                 <span>Inventario</span>
-              </a>
-              <a href="/shop" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+              </Link>
+              <Link href="/shop" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
                 <span>🏪</span>
                 <span>Tienda</span>
-              </a>
-              <a href="/quests" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
+              </Link>
+              <Link href="/quests" className="flex items-center gap-2 text-gray-300 hover:text-yellow-400 transition">
                 <span>📋</span>
                 <span>Misiones</span>
-              </a>
+              </Link>
             </div>
           </div>
         </aside>

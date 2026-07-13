@@ -32,21 +32,54 @@ interface Props {
   questSlugs?: Set<string>
 }
 
-const POSITIONS: Record<string, { x: number; y: number }> = {
-  "bosque-oscuro": { x: 110, y: 320 },
-  "cuevas-olvidadas": { x: 280, y: 320 },
-  "ruinas-ancestrales": { x: 450, y: 360 },
-  "torre-mago": { x: 480, y: 220 },
-  "montana-dragon": { x: 580, y: 520 },
-  __clan__: { x: 400, y: 80 },
+const POSITION_LABELS: Record<string, string> = {
+  front: "Frontal", center: "Centro", rear: "Trasera",
+  left_flank: "Flanco izq.", right_flank: "Flanco der.", flexible: "Flexible",
 }
 
-const PATHS: [string, string][] = [
-  ["bosque-oscuro", "cuevas-olvidadas"],
-  ["cuevas-olvidadas", "ruinas-ancestrales"],
-  ["ruinas-ancestrales", "torre-mago"],
-  ["torre-mago", "montana-dragon"],
-]
+function computePositions(dungeons: any[]): Record<string, { x: number; y: number }> {
+  const sorted = [...dungeons].sort((a, b) => (a.levelReq ?? 1) - (b.levelReq ?? 1))
+  const positions: Record<string, { x: number; y: number }> = {}
+  const count = sorted.length
+  if (count === 0) return positions
+
+  const regionCenters = [
+    { x: 240, y: 340 },
+    { x: 240, y: 420 },
+    { x: 480, y: 240 },
+    { x: 560, y: 340 },
+    { x: 560, y: 500 },
+  ]
+
+  sorted.forEach((d, i) => {
+    if (d.slug.startsWith("clan-dungeon-")) {
+      positions[d.slug] = { x: 420, y: 70 }
+      return
+    }
+    const regionIdx = Math.min(Math.floor(i / Math.ceil(count / regionCenters.length)), regionCenters.length - 1)
+    const rc = regionCenters[regionIdx]
+    const inRegion = i % Math.ceil(count / regionCenters.length)
+    const regionSize = Math.ceil(count / regionCenters.length)
+    const angle = (inRegion / Math.max(regionSize - 1, 1)) * Math.PI * 0.6 - Math.PI * 0.3
+    const radius = 80 + inRegion * 15
+    positions[d.slug] = {
+      x: Math.round(rc.x + Math.sin(angle) * radius),
+      y: Math.round(rc.y + Math.cos(angle) * radius * 0.5),
+    }
+  })
+  return positions
+}
+
+function computePaths(dungeons: any[]): [string, string][] {
+  const sorted = [...dungeons]
+    .filter(d => !d.slug.startsWith("clan-dungeon-"))
+    .sort((a, b) => (a.levelReq ?? 1) - (b.levelReq ?? 1))
+  const paths: [string, string][] = []
+  for (let i = 0; i < sorted.length - 1; i++) {
+    paths.push([sorted[i].slug, sorted[i + 1].slug])
+  }
+  return paths
+}
 
 const REGIONS = [
   { x: 100, y: 260, w: 280, h: 160, label: "Valdheim", color: "#EAF3DE", textColor: "#4a7a18" },
@@ -54,11 +87,6 @@ const REGIONS = [
   { x: 480, y: 450, w: 200, h: 160, label: "Drakkar", color: "#FAEEDA", textColor: "#854F0B" },
   { x: 340, y: 30, w: 160, h: 80, label: "Territorio del clan", color: "#FEF9C3", textColor: "#854D0E" },
 ]
-
-const POSITION_LABELS: Record<string, string> = {
-  front: "Frontal", center: "Centro", rear: "Trasera",
-  left_flank: "Flanco izq.", right_flank: "Flanco der.", flexible: "Flexible",
-}
 
 const DIFFICULTY_FILTERS = [
   { key: "all", label: "Todos", color: "gray" },
@@ -115,6 +143,9 @@ export default function DungeonMap({ dungeons, heroLevel, heroHp, selectedProfil
   const [diffFilter, setDiffFilter] = useState("all")
   const [levelMin, setLevelMin] = useState("")
   const [levelMax, setLevelMax] = useState("")
+
+  const POSITIONS = useMemo(() => computePositions(dungeons), [dungeons])
+  const PATHS = useMemo(() => computePaths(dungeons), [dungeons])
 
   const dungeonMap = new Map(dungeons.map(d => [d.id, d]))
   const showLootPreview = hasBonus(clanUpgrades, "cartography", 2)
@@ -200,7 +231,7 @@ export default function DungeonMap({ dungeons, heroLevel, heroHp, selectedProfil
 
             {dungeons.map(d => {
               const isClanOnly = d.slug.startsWith("clan-dungeon-")
-              const pos = isClanOnly ? POSITIONS.__clan__ : POSITIONS[d.slug]
+              const pos = POSITIONS[d.slug]
               if (!pos) return null
               const locked = !isClanOnly && d.levelReq > heroLevel
               const isSelected = selected?.id === d.id
