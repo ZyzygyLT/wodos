@@ -48,27 +48,38 @@ export async function PUT(req: NextRequest) {
     for (let i = 0; i < currentVal - newVal; i++) {
       refundEp += attrCost(newVal + i)
     }
+    const actualRefundEp = Math.min(refundEp, hero.epSpent)
+    const freeToRestore = absAmount - Math.min(absAmount, Math.ceil(refundEp > 0 ? refundEp / 10 : absAmount))
+
     const newAttrs: Record<string, number> = { ...attrs, [attr]: newVal }
     const newHpMax = calcHpMax(newAttrs as unknown as HeroAttrs, hero.level)
     const newMpMax = calcMpMax(newAttrs as unknown as HeroAttrs)
 
+    const updateData: Record<string, any> = {
+      attrs: newAttrs,
+      hpMax: newHpMax,
+      mpMax: newMpMax,
+      hpCurrent: Math.min(hero.hpCurrent, newHpMax),
+      mpCurrent: Math.min(hero.mpCurrent, newMpMax),
+      epSpent: { decrement: actualRefundEp },
+    }
+
+    if (hero.freeAttrPoints < 5) {
+      const restoreFree = Math.min(5 - hero.freeAttrPoints, absAmount)
+      if (restoreFree > 0) updateData.freeAttrPoints = { increment: restoreFree }
+    }
+
     await db.hero.update({
       where: { id: hero.id },
-      data: {
-        attrs: newAttrs,
-        hpMax: newHpMax,
-        mpMax: newMpMax,
-        hpCurrent: Math.min(hero.hpCurrent, newHpMax),
-        mpCurrent: Math.min(hero.mpCurrent, newMpMax),
-        epSpent: { decrement: Math.min(refundEp, hero.epSpent) },
-      },
+      data: updateData,
     })
 
     return NextResponse.json({
       attr,
       newValue: newVal,
-      epRefund: refundEp,
-      epRemaining: (hero.epTotal - hero.epSpent) + refundEp,
+      epRefund: actualRefundEp,
+      freeRemaining: Math.min(5, hero.freeAttrPoints + (updateData.freeAttrPoints?.increment ?? 0)),
+      epRemaining: (hero.epTotal - hero.epSpent) + actualRefundEp,
       hpMax: newHpMax,
       mpMax: newMpMax,
       attrs: newAttrs,

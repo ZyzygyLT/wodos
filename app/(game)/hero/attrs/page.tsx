@@ -88,6 +88,7 @@ export default function HeroAttrsPage() {
         attrs: data.attrs,
         hpMax: data.hpMax,
         mpMax: data.mpMax,
+        freeAttrPoints: data.freeRemaining ?? prev.freeAttrPoints,
         epSpent: Math.max(0, prev.epSpent - (data.epRefund ?? 0)),
       }))
       showToast(`⬅️ -1 ${attr.toUpperCase()} (recuperaste ${data.epRefund ?? 0} EP)`)
@@ -135,7 +136,7 @@ export default function HeroAttrsPage() {
               <div className="flex gap-1.5">
                 <button
                   onClick={() => refundPoint(key)}
-                  disabled={spending === key || val <= 0 || (hero.epSpent ?? 0) <= 0}
+                  disabled={spending === key || val <= 0}
                   className="px-3 py-1.5 rounded-lg bg-red-800/30 hover:bg-red-700/40 text-red-400 text-sm font-bold transition disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   {spending === key ? "..." : "-1"}

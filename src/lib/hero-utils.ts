@@ -112,6 +112,31 @@ export async function createHero(userId: string, name: string, classId: number, 
       skipDuplicates: true,
     })
 
+    const STARTER_WEAPONS: Record<string, string> = {
+      guerrero: 'espada-hierro', paladin: 'espada-hierro', barbaro: 'espada-hierro',
+      mago: 'baston-runico', druida: 'baston-runico',
+      arquero: 'arco-corto',
+      asesino: 'daga-acero', clerigo: 'daga-acero',
+    }
+    const casterClasses = ['mago', 'druida', 'clerigo']
+    const starterArmor = casterClasses.includes(cls.slug) ? 'tunica-lino' : 'armadura-cuero'
+    const weaponSlug = STARTER_WEAPONS[cls.slug]
+    const starterSlugs = [weaponSlug, starterArmor, 'pocion-vida'].filter(Boolean)
+
+    const starterItems = await tx.item.findMany({
+      where: { slug: { in: starterSlugs } },
+    })
+    if (starterItems.length > 0) {
+      await tx.heroItem.createMany({
+        data: starterItems.map(item => ({
+          heroId: hero.id,
+          itemId: item.id,
+          equipped: item.slot != null,
+          slot: item.slot as any,
+        })),
+      })
+    }
+
     return hero
   })
 }
