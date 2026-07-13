@@ -279,6 +279,7 @@ model Hero {
   heroAdventures          HeroAdventure[]
   currentUser              User?                   @relation("CurrentHero")
 
+  @@index([userId])
   @@map("heroes")
 }
 
@@ -289,7 +290,7 @@ model HeroSkill {
   rank       Int      @default(1)
   unlockedAt DateTime @default(now())
   hero       Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  skill      Skill    @relation(fields: [skillId], references: [id])
+  skill      Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@unique([heroId, skillId])
   @@map("hero_skills")
@@ -307,7 +308,7 @@ model HeroItem {
   slot         EquipmentSlot?
   bazarListing BazarListing?
   hero         Hero           @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  item         Item           @relation(fields: [itemId], references: [id])
+  item         Item           @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@map("hero_items")
 }
@@ -317,7 +318,7 @@ model HeroMaterial {
   materialId Int
   quantity   Int      @default(0)
   hero       Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
-  material   Material @relation(fields: [materialId], references: [id])
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
 
   @@id([heroId, materialId])
   @@map("hero_materials")
@@ -363,9 +364,10 @@ model DungeonRun {
   levelReports  Json?
   dungeon       Dungeon    @relation(fields: [dungeonId], references: [id])
   group         ClanGroup? @relation(fields: [groupId], references: [id])
-  hero          Hero       @relation(fields: [heroId], references: [id])
+  hero          Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
 
   @@index([heroId, status])
+  @@index([heroId, createdAt])
   @@index([dungeonId, status])
   @@index([groupId])
   @@map("dungeon_runs")
@@ -384,9 +386,9 @@ model BazarListing {
   status      ListingStatus   @default(active)
   views       Int             @default(0)
   createdAt   DateTime        @default(now())
-  heroItem    HeroItem        @relation(fields: [heroItemId], references: [id])
-  item        Item            @relation(fields: [itemId], references: [id])
-  seller      Hero            @relation(fields: [sellerId], references: [id])
+  heroItem    HeroItem        @relation(fields: [heroItemId], references: [id], onDelete: Cascade)
+  item        Item            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  seller      Hero            @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   purchases   BazarPurchase[]
 
   @@index([status, expiresAt])
@@ -400,8 +402,8 @@ model BazarPurchase {
   buyerId     String
   pricePaid   Int
   purchasedAt DateTime     @default(now())
-  buyer       Hero         @relation(fields: [buyerId], references: [id])
-  listing     BazarListing @relation(fields: [listingId], references: [id])
+  buyer       Hero         @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing     BazarListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@map("bazar_purchases")
 }
@@ -513,6 +515,7 @@ model WeeklyEvent {
   participations ClanEventParticipation[]
   heroParticipations HeroEventParticipation[]
 
+  @@index([isActive, startsAt, endsAt])
   @@map("weekly_events")
 }
 
@@ -522,8 +525,8 @@ model ClanEventParticipation {
   score     Int         @default(0)
   updatedAt DateTime    @updatedAt
   claimed   Boolean     @default(false)
-  clan      Clan        @relation(fields: [clanId], references: [id])
-  event     WeeklyEvent @relation(fields: [eventId], references: [id])
+  clan      Clan        @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  event     WeeklyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@id([clanId, eventId])
   @@map("clan_event_participations")
@@ -566,8 +569,8 @@ model TournamentParticipant {
   heroId       String
   seed         Int
   eliminated   Boolean    @default(false)
-  hero         Hero       @relation(fields: [heroId], references: [id])
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  hero         Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
 
   @@unique([tournamentId, heroId])
   @@map("tournament_participants")
@@ -583,7 +586,7 @@ model TournamentMatch {
   winnerId     String?
   log          Json?
   playedAt     DateTime?
-  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
 
   @@map("tournament_matches")
 }
@@ -616,10 +619,11 @@ model HeroQuest {
   progress    Json        @default("{}")
   startedAt   DateTime    @default(now())
   completedAt DateTime?
-  hero        Hero        @relation(fields: [heroId], references: [id])
-  quest       Quest       @relation(fields: [questId], references: [id])
+  hero        Hero        @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  quest       Quest       @relation(fields: [questId], references: [id], onDelete: Cascade)
 
   @@unique([heroId, questId])
+  @@index([heroId, status])
   @@map("hero_quests")
 }
 
@@ -680,7 +684,7 @@ model ForumTopic {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
   replies    ForumReply[]
-  author     Hero          @relation(fields: [authorId], references: [id])
+  author     Hero          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   category   ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@map("forum_topics")
@@ -692,7 +696,7 @@ model ForumReply {
   authorId  String
   content   String
   createdAt DateTime   @default(now())
-  author    Hero       @relation(fields: [authorId], references: [id])
+  author    Hero       @relation(fields: [authorId], references: [id], onDelete: Cascade)
   topic     ForumTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
   @@map("forum_replies")
