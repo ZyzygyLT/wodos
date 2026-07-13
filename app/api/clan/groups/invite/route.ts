@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { notify } from "@/lib/notifications/emitter"
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     type: "group_invite",
     title: "👥 Invitación a grupo",
     body: `Te invitaron a unirte a "${group.name}"`,
-  }).catch(() => {})
+  }).catch(e => logger.error("api", "Background operation failed", e))
 
   return NextResponse.json(invite, { status: 201 })
 }

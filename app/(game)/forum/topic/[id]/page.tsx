@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -27,8 +29,8 @@ export default function TopicPage() {
   }
 
   useEffect(() => {
-    fetch("/api/hero").then(r => r.json()).then(setHero).catch(() => {})
-    fetch("/api/clan").then(r => { if (r.ok) { return r.json(); } return null }).then(d => { if (d?.member) { setClanRole(d.member.role); } }).catch(() => {})
+    fetch("/api/hero").then(r => r.json()).then(setHero).catch(e => logger.error("game", "Failed to fetch data", e))
+    fetch("/api/clan").then(r => { if (r.ok) { return r.json(); } return null }).then(d => { if (d?.member) { setClanRole(d.member.role); } }).catch(e => logger.error("game", "Failed to fetch data", e))
     if (params.id) refresh()
   }, [params.id, router])
 

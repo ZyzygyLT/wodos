@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 
 interface SkillInfo { id: number; name: string; icon: string; class: { name: string }; defenseCategory?: string; attackCategory?: string; formula?: any }
@@ -36,8 +38,8 @@ export default function AdminEnemiesPage() {
   }
 
   const load = useCallback(() => {
-    fetch("/api/admin/enemies").then(r => r.json()).then(setEnemies).catch(() => {})
-    fetch("/api/admin/skills").then(r => r.json()).then(setAllSkills).catch(() => {})
+    fetch("/api/admin/enemies").then(r => r.json()).then(setEnemies).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
+    fetch("/api/admin/skills").then(r => r.json()).then(setAllSkills).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -59,7 +61,7 @@ export default function AdminEnemiesPage() {
 
   async function remove(id: number) {
     if (!confirm("¿Borrar este enemigo?")) return
-    await fetch(`/api/admin/enemies?id=${id}`, { method: "DELETE" }).catch(() => {})
+    await fetch(`/api/admin/enemies?id=${id}`, { method: "DELETE" }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
     load()
   }
 

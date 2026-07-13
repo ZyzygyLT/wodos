@@ -48,11 +48,11 @@ export async function POST(req: Request) {
     const result = await runArenaDuel(hero.id, hero2Id)
 
     if (result.won) {
-      updateQuestProgress(hero.id, { type: "arena_wins" }).catch(() => {})
-      checkAchievements(hero.id, { type: "arena_wins" }).catch(() => {})
-      trackHeroEventProgress(hero.id, "pvp", 1).catch(() => {})
-      adjustRep(hero.id, 1, 3).catch(() => {}) // Guardia +3
-      adjustRep(hero.id, 6, 2).catch(() => {}) // Sombra +2
+      updateQuestProgress(hero.id, { type: "arena_wins" }).catch(e => logger.error("api", "Background operation failed", e))
+      checkAchievements(hero.id, { type: "arena_wins" }).catch(e => logger.error("api", "Background operation failed", e))
+      trackHeroEventProgress(hero.id, "pvp", 1).catch(e => logger.error("api", "Background operation failed", e))
+      adjustRep(hero.id, 1, 3).catch(e => logger.error("api", "Background operation failed", e)) // Guardia +3
+      adjustRep(hero.id, 6, 2).catch(e => logger.error("api", "Background operation failed", e)) // Sombra +2
     }
 
     trackDuelCompleted(session.user.id, {

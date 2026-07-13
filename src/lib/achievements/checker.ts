@@ -1,5 +1,6 @@
 import db from "@/lib/db"
 import { notify } from "@/lib/notifications/emitter"
+import logger from "@/lib/logger"
 
 export async function checkAchievements(heroId: string, event: {
   type: "dungeon_complete" | "level" | "arena_wins" | "join_clan" | "craft_items" | "items_acquired" | "gold_accumulated" | "fame" | "enchant_level" | "socket_rune" | "skills_unlocked" | "skills_upgraded" | "login"
@@ -41,7 +42,7 @@ export async function checkAchievements(heroId: string, event: {
         title: `🏅 ¡Logro desbloqueado!`,
         body: ach.name,
         data: { achievementId: ach.id, achievementName: ach.name },
-      }).catch(() => {})
+      }).catch(e => logger.error("achievements", "Background achievement check failed", e))
     }
   }
 

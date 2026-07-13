@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 
 interface Achievement {
@@ -16,7 +18,7 @@ export default function AdminAchievementsPage() {
   const [message, setMessage] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    fetch("/api/admin/achievements").then(r => r.json()).then(d => setAchievements(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch("/api/admin/achievements").then(r => r.json()).then(d => setAchievements(Array.isArray(d) ? d : [])).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -41,7 +43,7 @@ export default function AdminAchievementsPage() {
 
   async function remove(id: string) {
     if (!confirm("¿Borrar logro?")) return
-    await fetch(`/api/admin/achievements?id=${id}`, { method: "DELETE" }).catch(() => {})
+    await fetch(`/api/admin/achievements?id=${id}`, { method: "DELETE" }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
     setMessage("🗑️ Logro borrado")
     load()
   }

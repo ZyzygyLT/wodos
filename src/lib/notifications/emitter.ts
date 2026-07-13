@@ -25,5 +25,5 @@ export async function notify(input: NotificationInput) {
     title: input.title,
     body: input.body,
     data: input.data,
-  }).catch(() => {})
+  }).catch(e => logger.error("notifications", "Failed to send notification", e))
 }

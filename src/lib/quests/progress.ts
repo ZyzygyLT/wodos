@@ -1,6 +1,7 @@
 import db from "@/lib/db"
 import { trackQuestCompleted } from "@/lib/analytics/events"
 import { checkLevelUp } from "@/lib/level-up"
+import logger from "@/lib/logger"
 import { notify } from "@/lib/notifications/emitter"
 import { adjustRep } from "@/services/faction.service"
 
@@ -73,9 +74,9 @@ async function handleQuestCompletion(heroId: string, hq: any, progress: Record<s
     title: "¡Quest completada!",
     body: `${hq.quest.name} — +${rewards.ep ?? 0} EP, +${rewards.gold ?? 0} oro`,
     data: { questName: hq.quest.name, rewards },
-  }).catch(() => {})
+  }).catch(e => logger.error("quests", "Background quest progress failed", e))
 
-  checkLevelUp(heroId).catch(() => {})
+  checkLevelUp(heroId).catch(e => logger.error("quests", "Background quest progress failed", e))
   await grantFactionRepForQuest(heroId, hq.quest.type)
   await chainNextQuest(heroId, hq.quest)
 }

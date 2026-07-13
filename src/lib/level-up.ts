@@ -69,8 +69,8 @@ export async function checkLevelUp(heroId: string): Promise<LevelUpResult> {
     }
   })
 
-  updateQuestProgress(heroId, { type: "level" }).catch(() => {})
-  checkAchievements(heroId, { type: "level" }).catch(() => {})
+  updateQuestProgress(heroId, { type: "level" }).catch(e => logger.error("level-up", "Background operation failed", e))
+  checkAchievements(heroId, { type: "level" }).catch(e => logger.error("level-up", "Background operation failed", e))
 
   notify({
     heroId,
@@ -78,7 +78,7 @@ export async function checkLevelUp(heroId: string): Promise<LevelUpResult> {
     title: `¡Subiste a nivel ${newLevel}!`,
     body: `Ganaste ${pointsAwarded} puntos de atributo. HP: ${newHpMax}, MP: ${newMpMax}`,
     data: { newLevel, levelsGained, pointsAwarded },
-  }).catch(() => {})
+  }).catch(e => logger.error("level-up", "Background operation failed", e))
 
   return {
     leveledUp: true,

@@ -5,7 +5,8 @@ import { checkLevelUp, LevelUpResult } from '@/lib/level-up'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
 import { grantMaterialDrops } from '@/lib/craft/material-drops'
-import { calcClanBonuses } from '@/lib/clan/upgrades'
+import { calcClanBonuses } from "@/lib/clan/upgrades"
+import logger from "@/lib/logger"
 
 export interface InstantRunParams {
   heroId: string
@@ -76,12 +77,12 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   const levelUp = await checkLevelUp(hero.id)
 
   for (const fs of result.heroesFinalState) {
-    await grantMaterialDrops(fs.id, dungeon.id).catch(() => {})
+    await grantMaterialDrops(fs.id, dungeon.id).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
     const kills = (result.log as any[])?.filter((l: any) => l.type === 'death').length ?? 0
-    await updateQuestProgress(fs.id, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills }).catch(() => {})
-    if (kills > 0) await updateQuestProgress(fs.id, { type: 'total_kills', kills }).catch(() => {})
-    await updateQuestProgress(fs.id, { type: 'ep_total', value: result.epGained / totalHeroes }).catch(() => {})
-    checkAchievements(fs.id, { type: 'dungeon_complete' }).catch(() => {})
+    await updateQuestProgress(fs.id, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+    if (kills > 0) await updateQuestProgress(fs.id, { type: 'total_kills', kills }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+    await updateQuestProgress(fs.id, { type: 'ep_total', value: result.epGained / totalHeroes }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+    checkAchievements(fs.id, { type: 'dungeon_complete' }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
   }
 
   return {

@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 
@@ -15,9 +17,9 @@ export default function CategoryPage() {
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch("/api/hero").then(r => r.json()).then(setHero).catch(() => {})
+    fetch("/api/hero").then(r => r.json()).then(setHero).catch(e => logger.error("game", "Failed to fetch data", e))
     if (params.id) {
-      fetch(`/api/forum/categories/${params.id}/topics`).then(r => { if (r.ok) return r.json(); else router.push("/forum") }).then(setData).catch(() => {})
+      fetch(`/api/forum/categories/${params.id}/topics`).then(r => { if (r.ok) return r.json(); else router.push("/forum") }).then(setData).catch(e => logger.error("game", "Failed to fetch data", e))
     }
   }, [params.id, router])
 

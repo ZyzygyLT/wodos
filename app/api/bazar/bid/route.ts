@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { trackItemPurchased } from "@/lib/analytics/events"
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       type: "outbid",
       title: "🟡 Superado en la puja",
       body: `Alguien te superó con ${bidAmount}💰`,
-    }).catch(() => {})
+    }).catch(e => logger.error("bazar-bid", "Background operation failed", e))
   }
 
   await db.hero.update({
@@ -124,14 +125,14 @@ async function finalizeSale(listingId: string) {
     type: "item_sold",
     title: "💰 Item vendido",
     body: `Vendiste "${listing.heroItem.item.name}" por ${winner.pricePaid}💰`,
-  }).catch(() => {})
+  }).catch(e => logger.error("bazar-bid", "Background operation failed", e))
 
   notify({
     heroId: winner.buyerId,
     type: "item_bought",
     title: "🛒 Compra exitosa",
     body: `Compraste "${listing.heroItem.item.name}" por ${winner.pricePaid}💰`,
-  }).catch(() => {})
+  }).catch(e => logger.error("bazar-bid", "Background operation failed", e))
 }
 
 export async function PUT(req: NextRequest) {

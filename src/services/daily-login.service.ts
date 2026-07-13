@@ -1,7 +1,8 @@
 import db from '@/lib/db'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
-import { notify } from '@/lib/notifications/emitter'
+import { notify } from "@/lib/notifications/emitter"
+import logger from "@/lib/logger"
 
 const DAY_REWARDS = [
   { gold: 50,  materials: [] },
@@ -138,8 +139,8 @@ export async function claimDailyLogin(
     }
   })
 
-  updateQuestProgress(hero.id, { type: 'login' }).catch(() => {})
-  checkAchievements(hero.id, { type: 'login' }).catch(() => {})
+  updateQuestProgress(hero.id, { type: 'login' }).catch(e => logger.error("daily-login", "Background operation failed", e))
+  checkAchievements(hero.id, { type: 'login' }).catch(e => logger.error("daily-login", "Background operation failed", e))
 
   notify({
     heroId: hero.id,
@@ -147,7 +148,7 @@ export async function claimDailyLogin(
     title: "📅 ¡Recompensa diaria!",
     body: `Día ${newStreak}: +${reward.gold}💰`,
     data: { streak: newStreak, gold: reward.gold },
-  }).catch(() => {})
+  }).catch(e => logger.error("daily-login", "Background operation failed", e))
 
   const resolvedMats = reward.materials.map(m => {
     const mat = allMaterials.find(x => x.id === m.materialId)

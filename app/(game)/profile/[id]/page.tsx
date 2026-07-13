@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 import { useParams } from "next/navigation"
 
@@ -28,7 +30,7 @@ export default function ProfilePage() {
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
   useEffect(() => {
-    fetch("/api/hero").then(r => r.json()).then(h => setMyId(h.id)).catch(() => {})
+    fetch("/api/hero").then(r => r.json()).then(h => setMyId(h.id)).catch(e => logger.error("game", "Failed to fetch data", e))
   }, [])
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export default function ProfilePage() {
     if (!params.id || !isMyProfile) return
     fetch("/api/achievements").then(r => r.ok ? r.json() : []).then(d => {
       setAchievements((d.achievements ?? []).filter((a: any) => a.completed).slice(0, 6))
-    }).catch(() => {})
+    }).catch(e => logger.error("game", "Failed to fetch data", e))
   }, [params.id, isMyProfile])
 
   const startEditing = useCallback(() => {

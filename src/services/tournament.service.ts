@@ -1,7 +1,8 @@
 import db from '@/lib/db'
 import { runDungeon, DungeonData } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData } from '@/lib/dungeon-helpers'
-import { notify } from '@/lib/notifications/emitter'
+import { notify } from "@/lib/notifications/emitter"
+import logger from "@/lib/logger"
 import { distributeRewards } from '@/lib/arena/tournament'
 
 export interface TournamentAdvanceResult {
@@ -105,9 +106,9 @@ async function executeSingleMatch(tournamentId: string, match: any) {
 
   const h1Name = h1.name
   const h2Name = h2.name
-  notify({ heroId: hero1Id, type: 'tournament_match', title: '⚔️ Combate en torneo', body: `${h1Name} vs ${h2Name}: ${result.victory ? 'Victoria' : 'Derrota'}` }).catch(() => {})
+  notify({ heroId: hero1Id, type: 'tournament_match', title: '⚔️ Combate en torneo', body: `${h1Name} vs ${h2Name}: ${result.victory ? 'Victoria' : 'Derrota'}` }).catch(e => logger.error("tournament", "Background operation failed", e))
   if (loserId !== hero1Id) {
-    notify({ heroId: loserId, type: 'tournament_match', title: '⚔️ Combate en torneo', body: `${h1Name} vs ${h2Name}: Derrota` }).catch(() => {})
+    notify({ heroId: loserId, type: 'tournament_match', title: '⚔️ Combate en torneo', body: `${h1Name} vs ${h2Name}: Derrota` }).catch(e => logger.error("tournament", "Background operation failed", e))
   }
 }
 
@@ -123,10 +124,10 @@ async function handleTournamentCompletion(tournament: any) {
       heroId: winner.heroId, type: 'tournament_win',
       title: '🏆 ¡Ganaste el torneo!',
       body: `Felicidades ${winner.hero.name}, sos el campeón del torneo ${tournament.name}`,
-    }).catch(() => {})
+    }).catch(e => logger.error("tournament", "Background operation failed", e))
   }
 
-  await distributeRewards(tournament.id).catch(() => {})
+  await distributeRewards(tournament.id).catch(e => logger.error("tournament", "Background operation failed", e))
   return { advanced: true, status: 'completed' }
 }
 

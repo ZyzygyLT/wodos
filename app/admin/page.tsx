@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState } from "react"
 import Link from "next/link"
 
@@ -23,7 +25,7 @@ export default function AdminDashboard() {
         skills: Array.isArray(skills) ? skills.length : 0,
         achievements: Array.isArray(achievements) ? achievements.length : 0,
       })
-    }).catch(() => {})
+    }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   const cards = [

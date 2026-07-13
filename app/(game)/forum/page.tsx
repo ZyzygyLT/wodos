@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -9,8 +11,8 @@ export default function ForumPage() {
   const [data, setData] = useState<{ public: any[]; clanCategory: any } | null>(null)
 
   useEffect(() => {
-    fetch("/api/hero").then(r => r.json()).then(h => setHero(h)).catch(() => {})
-    fetch("/api/forum/categories").then(r => r.json()).then(setData).catch(() => {})
+    fetch("/api/hero").then(r => r.json()).then(h => setHero(h)).catch(e => logger.error("game", "Failed to fetch data", e))
+    fetch("/api/forum/categories").then(r => r.json()).then(setData).catch(e => logger.error("game", "Failed to fetch data", e))
   }, [])
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>

@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 
 interface Item {
@@ -25,7 +27,7 @@ export default function AdminItemsPage() {
   const [message, setMessage] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    fetch("/api/admin/items").then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch("/api/admin/items").then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -50,7 +52,7 @@ export default function AdminItemsPage() {
 
   async function remove(id: number) {
     if (!confirm("¿Borrar item?")) return
-    await fetch(`/api/admin/items?id=${id}`, { method: "DELETE" }).catch(() => {})
+    await fetch(`/api/admin/items?id=${id}`, { method: "DELETE" }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
     setMessage("🗑️ Item borrado")
     load()
   }

@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useMemo } from "react"
 import { computeCombatStats, type HeroStats } from "@/lib/combat-report-stats"
 import { LevelAccordion, StatsTable } from "@/components/combat"
@@ -44,10 +46,10 @@ export default function TestDungeonPage() {
   }, [result?.levelReports])
 
   useEffect(() => {
-    fetch("/api/admin/test-groups").then(r => r.json()).then(setGroups).catch(() => {})
+    fetch("/api/admin/test-groups").then(r => r.json()).then(setGroups).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
     fetch("/api/admin/dungeons").then(r => r.json()).then(all => {
       setDungeons(Array.isArray(all) ? all : [])
-    }).catch(() => {})
+    }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   async function run() {

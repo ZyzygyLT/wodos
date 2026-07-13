@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { updateQuestProgress } from "@/lib/quests/progress"
@@ -63,8 +64,8 @@ export async function POST(req: NextRequest) {
     db.heroItem.delete({ where: { id: hi.id } }),
   ])
 
-  updateQuestProgress(hero.id, { type: "craft_items" }).catch(() => {})
-  checkAchievements(hero.id, { type: "craft_items" }).catch(() => {})
+  updateQuestProgress(hero.id, { type: "craft_items" }).catch(e => logger.error("api", "Background operation failed", e))
+  checkAchievements(hero.id, { type: "craft_items" }).catch(e => logger.error("api", "Background operation failed", e))
 
   return NextResponse.json({ success: true, effects: stats, hpCurrent: updateData.hpCurrent, mpCurrent: updateData.mpCurrent })
 }

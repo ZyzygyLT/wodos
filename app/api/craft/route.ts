@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { updateQuestProgress } from "@/lib/quests/progress"
@@ -119,11 +120,11 @@ export async function POST(req: NextRequest) {
     })
   })
 
-  updateQuestProgress(hero.id, { type: "craft_items" }).catch(() => {})
-  checkAchievements(hero.id, { type: "craft_items" }).catch(() => {})
-  trackHeroEventProgress(hero.id, "crafting", 1).catch(() => {})
-  adjustRep(hero.id, 3, 5).catch(() => {}) // Gremio +5
-  adjustRep(hero.id, 2, 2).catch(() => {}) // Mercaderes +2
+  updateQuestProgress(hero.id, { type: "craft_items" }).catch(e => logger.error("api", "Background operation failed", e))
+  checkAchievements(hero.id, { type: "craft_items" }).catch(e => logger.error("api", "Background operation failed", e))
+  trackHeroEventProgress(hero.id, "crafting", 1).catch(e => logger.error("api", "Background operation failed", e))
+  adjustRep(hero.id, 3, 5).catch(e => logger.error("api", "Background operation failed", e)) // Gremio +5
+  adjustRep(hero.id, 2, 2).catch(e => logger.error("api", "Background operation failed", e)) // Mercaderes +2
 
   notify({
     heroId: hero.id,
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
     title: "🔨 Item crafteado",
     body: `Creaste ${item.name}`,
     data: { itemId: item.id, itemName: item.name },
-  }).catch(() => {})
+  }).catch(e => logger.error("api", "Background operation failed", e))
 
   return NextResponse.json({ success: true, name: item.name })
 }

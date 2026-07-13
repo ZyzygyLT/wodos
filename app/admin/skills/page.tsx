@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 
 interface ClassInfo { id: number; name: string; slug: string }
@@ -30,8 +32,8 @@ export default function AdminSkillsPage() {
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(() => {
-    fetch("/api/admin/skills").then(r => r.json()).then(setSkills).catch(() => {})
-    fetch("/api/admin/classes").then(r => r.json()).then(setClasses).catch(() => {})
+    fetch("/api/admin/skills").then(r => r.json()).then(setSkills).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
+    fetch("/api/admin/classes").then(r => r.json()).then(setClasses).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -53,7 +55,7 @@ export default function AdminSkillsPage() {
 
   async function remove(id: number) {
     if (!confirm("¿Borrar esta skill?")) return
-    await fetch(`/api/admin/skills?id=${id}`, { method: "DELETE" }).catch(() => {})
+    await fetch(`/api/admin/skills?id=${id}`, { method: "DELETE" }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
     load()
   }
 

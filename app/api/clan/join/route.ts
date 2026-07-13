@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { notify } from "@/lib/notifications/emitter"
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       type: "clan_join",
       title: "👋 Nuevo miembro",
       body: `${hero.name} se unió al clan. Asignale un grupo desde la pestaña Grupos.`,
-    }).catch(() => {})
+    }).catch(e => logger.error("api", "Background operation failed", e))
   }
 
   return NextResponse.json(member, { status: 201 })

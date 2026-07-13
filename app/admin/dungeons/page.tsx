@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 
 interface EnemyInfo { id: number; name: string; icon: string; hp: number; level: number; position: string }
@@ -23,8 +25,8 @@ export default function AdminDungeonsPage() {
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(() => {
-    fetch("/api/admin/dungeons").then(r => r.json()).then(d => { setDungeons(Array.isArray(d) ? d : []) }).catch(() => {})
-    fetch("/api/admin/enemies").then(r => r.json()).then(setAllEnemies).catch(() => {})
+    fetch("/api/admin/dungeons").then(r => r.json()).then(d => { setDungeons(Array.isArray(d) ? d : []) }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
+    fetch("/api/admin/enemies").then(r => r.json()).then(setAllEnemies).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -129,7 +131,7 @@ export default function AdminDungeonsPage() {
 
   async function removeDungeon(id: number) {
     if (!confirm("¿Borrar dungeon?")) return
-    await fetch(`/api/admin/dungeons?id=${id}`, { method: "DELETE" }).catch(() => {})
+    await fetch(`/api/admin/dungeons?id=${id}`, { method: "DELETE" }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
     setMessage("🗑️ Dungeon borrado")
     setSelectedDungeon(null)
     load()

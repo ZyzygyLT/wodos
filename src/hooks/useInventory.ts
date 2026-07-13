@@ -31,7 +31,7 @@ export function useInventory() {
       setItems(await invRes.json())
       if (clanRes.ok) setClan(await clanRes.json())
     } catch { /* silently ignore network errors */ }
-    fetch("/api/hero/inventory/socket").then(r => r.json()).then(setRunes).catch(() => {})
+    fetch("/api/hero/inventory/socket").then(r => r.json()).then(setRunes).catch(e => logger.error("useInventory", "Failed to fetch inventory data", e))
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])

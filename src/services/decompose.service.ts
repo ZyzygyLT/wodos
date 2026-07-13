@@ -1,6 +1,7 @@
 import db from '@/lib/db'
 import { updateQuestProgress } from '@/lib/quests/progress'
-import { checkAchievements } from '@/lib/achievements/checker'
+import { checkAchievements } from "@/lib/achievements/checker"
+import logger from '@/lib/logger'
 
 const RARITY_MATERIAL_MAP: Record<string, { materialId: number; minQty: number; maxQty: number }[]> = {
   common:    [{ materialId: 8, minQty: 1, maxQty: 3 }],
@@ -61,8 +62,8 @@ export async function processDecompose(
     await tx.heroItem.delete({ where: { id: hi.id } })
   })
 
-  updateQuestProgress(hero.id, { type: 'craft_items' }).catch(() => {})
-  checkAchievements(hero.id, { type: 'craft_items' }).catch(() => {})
+  updateQuestProgress(hero.id, { type: 'craft_items' }).catch(e => logger.error("decompose", "Background operation failed", e))
+  checkAchievements(hero.id, { type: 'craft_items' }).catch(e => logger.error("decompose", "Background operation failed", e))
 
   return { ok: true, data: { materials: granted, gold: goldReward } }
 }

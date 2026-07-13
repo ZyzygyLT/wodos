@@ -81,8 +81,8 @@ export function useTactics() {
   useEffect(() => { fetchProfiles() }, [fetchProfiles])
 
   useEffect(() => {
-    fetch("/api/hero/skills").then(r => r.json()).then(setHeroSkills).catch(() => {})
-    fetch("/api/hero/consumables").then(r => r.json()).then(setConsumableItems).catch(() => {})
+    fetch("/api/hero/skills").then(r => r.json()).then(setHeroSkills).catch(e => logger.error("useTactics", "Failed to fetch data", e))
+    fetch("/api/hero/consumables").then(r => r.json()).then(setConsumableItems).catch(e => logger.error("useTactics", "Failed to fetch data", e))
   }, [])
 
   function updateProfile(field: string, value: any) {

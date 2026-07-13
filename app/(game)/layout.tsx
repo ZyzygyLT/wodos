@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useRef } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
@@ -68,14 +70,14 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch("/api/hero").then(r => r.json()).then(setHero).catch(() => {})
+    fetch("/api/hero").then(r => r.json()).then(setHero).catch(e => logger.error("game", "Failed to fetch data", e))
   }, [])
 
   useEffect(() => {
     fetch("/api/notifications").then(r => r.json()).then(d => {
       setNotifications(d.notifications ?? [])
       setUnreadCount(d.unreadCount ?? 0)
-    }).catch(() => {})
+    }).catch(e => logger.error("game", "Failed to fetch data", e))
   }, [])
 
   useEffect(() => {
@@ -83,7 +85,7 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
       fetch("/api/notifications").then(r => r.json()).then(d => {
         setNotifications(d.notifications ?? [])
         setUnreadCount(d.unreadCount ?? 0)
-      }).catch(() => {})
+      }).catch(e => logger.error("game", "Failed to fetch data", e))
     }, 15000)
     return () => clearInterval(interval)
   }, [])

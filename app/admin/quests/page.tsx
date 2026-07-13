@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 
 interface Quest {
@@ -18,7 +20,7 @@ export default function AdminQuestsPage() {
   const [message, setMessage] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    fetch("/api/admin/quests").then(r => r.json()).then(d => setQuests(Array.isArray(d) ? d : [])).catch(() => {})
+    fetch("/api/admin/quests").then(r => r.json()).then(d => setQuests(Array.isArray(d) ? d : [])).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -43,7 +45,7 @@ export default function AdminQuestsPage() {
 
   async function remove(id: string) {
     if (!confirm("¿Borrar quest?")) return
-    await fetch(`/api/admin/quests?id=${id}`, { method: "DELETE" }).catch(() => {})
+    await fetch(`/api/admin/quests?id=${id}`, { method: "DELETE" }).catch(e => logger.error("admin", "Failed to fetch or delete data", e))
     setMessage("🗑️ Quest borrada")
     load()
   }

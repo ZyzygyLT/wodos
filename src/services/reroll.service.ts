@@ -1,6 +1,7 @@
 import db from '@/lib/db'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
+import logger from '@/lib/logger'
 
 const STAT_RANGES: Record<string, { min: number; max: number }> = {
   str: { min: 1, max: 8 }, agi: { min: 1, max: 8 }, int: { min: 1, max: 8 },
@@ -83,8 +84,8 @@ export async function processReroll(
     }),
   ])
 
-  updateQuestProgress(hero.id, { type: 'craft_items' }).catch(() => {})
-  checkAchievements(hero.id, { type: 'craft_items' }).catch(() => {})
+  updateQuestProgress(hero.id, { type: 'craft_items' }).catch(e => logger.error('reroll', 'Failed to update quest progress for craft_items', e))
+  checkAchievements(hero.id, { type: 'craft_items' }).catch(e => logger.error('reroll', 'Failed to check achievements for craft_items', e))
 
   return { ok: true, data: { statKey, oldValue, newValue } }
 }

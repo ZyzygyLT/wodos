@@ -2,6 +2,7 @@ import db from '@/lib/db'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
 import { notify } from '@/lib/notifications/emitter'
+import logger from '@/lib/logger'
 
 const MAX_LEVEL = 10
 const SUCCESS_RATES = [1, 1, 0.9, 0.8, 0.7, 0.5, 0.4, 0.3, 0.2, 0.1]
@@ -51,15 +52,15 @@ export async function processEnchant(userId: string, heroItemId: string): Promis
         data: { quantity: { decrement: essenceCost } },
       }),
     ])
-    updateQuestProgress(hero.id, { type: 'enchant_item' }).catch(() => {})
-    checkAchievements(hero.id, { type: 'enchant_level' }).catch(() => {})
+    updateQuestProgress(hero.id, { type: 'enchant_item' }).catch(e => logger.error("enchant", "Background operation failed", e))
+    checkAchievements(hero.id, { type: 'enchant_level' }).catch(e => logger.error("enchant", "Background operation failed", e))
     notify({
       heroId: hero.id,
       type: "enchant_success",
       title: "✨ ¡Mejora exitosa!",
       body: `${hi.item.name} mejorado a +${newLevel}`,
       data: { heroItemId: hi.id, itemName: hi.item.name, newLevel },
-    }).catch(() => {})
+    }).catch(e => logger.error("enchant", "Background operation failed", e))
     return { ok: true, data: { success: true, newLevel, newMax: MAX_LEVEL } }
   }
 
@@ -77,7 +78,7 @@ export async function processEnchant(userId: string, heroItemId: string): Promis
     title: "💔 Mejora fallida",
     body: `${hi.item.name} no mejoró. Los materiales se perdieron.`,
     data: { heroItemId: hi.id, itemName: hi.item.name, currentLevel },
-  }).catch(() => {})
+  }).catch(e => logger.error("enchant", "Background operation failed", e))
 
   return { ok: true, data: { success: false, currentLevel } }
 }

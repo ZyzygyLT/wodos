@@ -5,7 +5,8 @@ import { grantMaterialDrops } from '@/lib/craft/material-drops'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
 import { notify } from '@/lib/notifications/emitter'
-import { trackDungeonCompleted } from '@/lib/analytics/events'
+import { trackDungeonCompleted } from "@/lib/analytics/events"
+import logger from "@/lib/logger"
 import { trackHeroEventProgress } from '@/services/event.service'
 import { adjustRep } from '@/services/faction.service'
 
@@ -141,11 +142,11 @@ async function contributeToEvent(heroId: string, dungeon: { id: number; name: st
 
 async function updateQuestProgressForHero(heroId: string, dungeon: { id: number; name: string; slug: string }, kills: number, result: RunResult, totalHeroes: number) {
   try {
-    await updateQuestProgress(heroId, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills }).catch(() => {})
+    await updateQuestProgress(heroId, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
     if (kills > 0) {
-      await updateQuestProgress(heroId, { type: 'total_kills', kills }).catch(() => {})
+      await updateQuestProgress(heroId, { type: 'total_kills', kills }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
     }
-    await updateQuestProgress(heroId, { type: 'ep_total', value: result.epGained / totalHeroes }).catch(() => {})
+    await updateQuestProgress(heroId, { type: 'ep_total', value: result.epGained / totalHeroes }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
   } catch (e) {
     console.error('[dungeon-service] Error en quest progress:', e)
   }

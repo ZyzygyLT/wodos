@@ -32,7 +32,7 @@ export async function tickEvents() {
           type: "event_ended",
           title: `📊 Evento finalizado: ${ev.name}`,
           body: `Tu clan quedó con ${p.score} puntos. Reclamá las recompensas en la página de eventos.`,
-        }).catch(() => {})
+        }).catch(e => logger.error("events-cron", "Background event processing failed", e))
       }
     }
   }

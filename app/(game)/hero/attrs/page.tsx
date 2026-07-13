@@ -1,5 +1,7 @@
 "use client"
 
+import logger from "@/lib/logger"
+
 import { useEffect, useState, useCallback } from "react"
 
 const VALID_ATTRS = [
@@ -32,7 +34,7 @@ export default function HeroAttrsPage() {
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
   useEffect(() => {
-    fetch("/api/hero").then(r => r.json()).then(setHero).catch(() => {})
+    fetch("/api/hero").then(r => r.json()).then(setHero).catch(e => logger.error("game", "Failed to fetch data", e))
   }, [])
 
   const spendPoint = useCallback(async (attr: string) => {
