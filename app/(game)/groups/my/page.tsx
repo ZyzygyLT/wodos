@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useToast } from "@/hooks/useToast"
 
 interface GroupItem {
   id: string
@@ -27,6 +28,7 @@ export default function MyGroupsPage() {
   const [loading, setLoading] = useState(true)
   const [newGroupName, setNewGroupName] = useState("")
   const [creating, setCreating] = useState(false)
+  const { show: toast } = useToast()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -64,7 +66,7 @@ export default function MyGroupsPage() {
         setNewGroupName("")
         fetchData()
       } else {
-        alert(data.error || "Error al crear grupo")
+        toast(data.error || "Error al crear grupo")
       }
     } finally {
       setCreating(false)

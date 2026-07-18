@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useToast } from "@/hooks/useToast"
 
 interface TournamentMatch {
   id: string; round: number; matchNumber: number
@@ -103,6 +104,7 @@ export default function ArenaPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [registering, setRegistering] = useState(false)
   const [duelHistory, setDuelHistory] = useState<any[]>([])
+  const { toast: message, show: setMessage, dismiss } = useToast()
 
   const fetchData = useCallback(async () => {
     try {
@@ -135,7 +137,7 @@ export default function ArenaPage() {
       })
       const data = await res.json()
       if (res.ok) { setDuelResult(data); fetchData() }
-      else alert(data.error || "Error en el duelo")
+      else setMessage(data.error || "Error en el duelo")
     } finally { setLoading(null) }
   }
 
@@ -145,7 +147,7 @@ export default function ArenaPage() {
       const res = await fetch("/api/arena/tournament", { method: "POST" })
       const data = await res.json()
       if (res.ok) fetchData()
-      else alert(data.error || "Error")
+      else setMessage(data.error || "Error")
     } finally { setRegistering(false) }
   }
 
@@ -156,6 +158,13 @@ export default function ArenaPage() {
 
   return (
     <>
+      {message && (
+        <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
+          onClick={() => dismiss()}>
+          {message}
+        </button>
+      )}
+
       {duelResult && <DuelResultModal duelResult={duelResult} hero={hero} onClose={() => setDuelResult(null)} />}
 
       <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-4">

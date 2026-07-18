@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useToast } from "@/hooks/useToast"
 
 export default function BazarPage() {
   const [hero, setHero] = useState<any>(null)
@@ -8,7 +9,7 @@ export default function BazarPage() {
   const [myItems, setMyItems] = useState<any[]>([])
   const [tab, setTab] = useState<"browse" | "sell">("browse")
   const [bidAmounts, setBidAmounts] = useState<Record<string, string>>({})
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [cleaning, setCleaning] = useState(false)
 
   const fetchData = useCallback(async () => {
@@ -106,7 +107,7 @@ export default function BazarPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg"
-          onClick={() => setMessage(null)}>
+          onClick={() => dismiss()}>
           {message}
         </button>
       )}

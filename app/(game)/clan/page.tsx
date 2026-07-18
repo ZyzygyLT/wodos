@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import { useToast } from "@/hooks/useToast"
 
 export default function ClanPage() {
   const [hero, setHero] = useState<any>(null)
@@ -12,7 +13,7 @@ export default function ClanPage() {
   const [createDesc, setCreateDesc] = useState("")
   const [joinId, setJoinId] = useState("")
   const [contributeAmount, setContributeAmount] = useState(0)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [loading, setLoading] = useState(false)
   const [clanTab, setClanTab] = useState<"members" | "groups" | "upgrades">("members")
   const [upgrading, setUpgrading] = useState<string | null>(null)
@@ -347,7 +348,7 @@ export default function ClanPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>
+          onClick={() => dismiss()}>
           {message}
         </button>
       )}

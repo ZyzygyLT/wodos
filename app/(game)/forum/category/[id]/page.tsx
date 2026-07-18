@@ -3,6 +3,7 @@
 import logger from "@/lib/logger"
 
 import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/useToast"
 import { useParams, useRouter } from "next/navigation"
 
 export default function CategoryPage() {
@@ -14,7 +15,7 @@ export default function CategoryPage() {
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [posting, setPosting] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
 
   useEffect(() => {
     fetch("/api/hero").then(r => r.json()).then(setHero).catch(e => logger.error("game", "Failed to fetch data", e))
@@ -53,7 +54,7 @@ export default function CategoryPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>{message}</button>
+          onClick={() => dismiss()}>{message}</button>
       )}
 
       <div className="max-w-3xl mx-auto p-4 sm:p-6">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
+import { useToast } from "@/hooks/useToast"
 
 interface ClanInfo {
   id: string; name: string; tag: string; icon: string
@@ -81,7 +82,7 @@ export default function EventsPage() {
   const [tab, setTab] = useState<"active" | "past">("active")
   const [contributing, setContributing] = useState<string | null>(null)
   const [claiming, setClaiming] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [now, setNow] = useState(Date.now())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -193,7 +194,7 @@ export default function EventsPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>
+          onClick={() => dismiss()}>
           {message}
         </button>
       )}

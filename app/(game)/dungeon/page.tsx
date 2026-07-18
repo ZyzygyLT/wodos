@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import DungeonMap from "@/components/game/DungeonMap"
+import { useToast } from "@/hooks/useToast"
 
 async function fetchGroups() {
   try {
@@ -22,6 +23,7 @@ export default function DungeonPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>(undefined)
   const [running, setRunning] = useState(false)
   const [questSlugs, setQuestSlugs] = useState<Set<string>>(new Set())
+  const { show: toast } = useToast()
 
   async function fetchHeroAndDungeons() {
     try {
@@ -118,9 +120,9 @@ export default function DungeonPage() {
         fetchData()
       } else {
         const data = await res.json()
-        alert(data.error || "Error al crear grupo")
+        toast(data.error || "Error al crear grupo")
       }
-    } catch { alert("Error de red") }
+    } catch { toast("Error de red") }
   }
 
   async function registerDungeon(dungeonId: number, isInstant: boolean, groupId?: string) {
@@ -134,7 +136,7 @@ export default function DungeonPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: "Error de conexión" }))
-        alert(data.error || "Error")
+        toast(data.error || "Error")
         setRunning(false)
         return
       }

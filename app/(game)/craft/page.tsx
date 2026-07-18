@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/useToast"
 
 const STAT_LABELS: Record<string, string> = {
   str: "STR", agi: "AGI", int: "INT", wis: "WIS", con: "CON", cha: "CHA",
@@ -23,7 +24,7 @@ export default function CraftPage() {
   const [heroItems, setHeroItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [crafting, setCrafting] = useState<number | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [decomposing, setDecomposing] = useState<string | null>(null)
   const [rerollTarget, setRerollTarget] = useState<any>(null)
   const [rerolling, setRerolling] = useState(false)
@@ -111,7 +112,7 @@ export default function CraftPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>
+          onClick={() => dismiss()}>
           {message}
         </button>
       )}

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useToast } from "@/hooks/useToast"
 
 interface GroupMember {
   id: string
@@ -38,6 +39,7 @@ export default function GroupDetailPage() {
   const [inviteName, setInviteName] = useState("")
   const [inviting, setInviting] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const { show: toast } = useToast()
 
   const groupId = params?.id as string | undefined
 
@@ -86,7 +88,7 @@ export default function GroupDetailPage() {
         setInviteName("")
         fetchGroup()
       } else {
-        alert(data.error || "Error al invitar")
+        toast(data.error || "Error al invitar")
       }
     } finally {
       setInviting(false)
@@ -105,7 +107,7 @@ export default function GroupDetailPage() {
       if (res.ok) fetchGroup()
       else {
         const data = await res.json().catch(() => ({}))
-        alert(data.error || "Error")
+        toast(data.error || "Error")
       }
     } finally {
       setActionLoading(null)
@@ -124,7 +126,7 @@ export default function GroupDetailPage() {
       if (res.ok) fetchGroup()
       else {
         const data = await res.json().catch(() => ({}))
-        alert(data.error || "Error")
+        toast(data.error || "Error")
       }
     } finally {
       setActionLoading(null)
@@ -139,7 +141,7 @@ export default function GroupDetailPage() {
       if (res.ok) router.push("/dungeon")
       else {
         const data = await res.json().catch(() => ({}))
-        alert(data.error || "Error")
+        toast(data.error || "Error")
       }
     } finally {
       setActionLoading(null)
@@ -154,7 +156,7 @@ export default function GroupDetailPage() {
       if (res.ok) router.push("/dungeon")
       else {
         const data = await res.json().catch(() => ({}))
-        alert(data.error || "Error")
+        toast(data.error || "Error")
       }
     } finally {
       setActionLoading(null)
