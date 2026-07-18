@@ -114,11 +114,11 @@ interface PostRunHeroContext {
 
 async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   const { result, heroesData, totalHeroes, dungeon, runId, clanMemberRec, kills } = ctx
-  await checkLevelUp(heroId).catch(e => console.error('[dungeon-service] Error en level up:', e))
-  await grantMaterialDrops(heroId, dungeon.id).catch(e => console.error('[dungeon-service] Error en material drops:', e))
+  await checkLevelUp(heroId).catch(e => logger.error('dungeon-service', 'Error en level up', e))
+  await grantMaterialDrops(heroId, dungeon.id).catch(e => logger.error('dungeon-service', 'Error en material drops', e))
   await contributeToEvent(heroId, dungeon, clanMemberRec, kills)
   await updateQuestProgressForHero(heroId, dungeon, kills, result, totalHeroes)
-  checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => console.error('[dungeon-service] Error en achievements:', e))
+  checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => logger.error('dungeon-service', 'Error en achievements', e))
   await trackEventProgressForHero(heroId, result)
   await adjustFactionRepForHero(heroId, result)
   await sendNotificationForHero(heroId, result, dungeon, runId, totalHeroes)
@@ -136,7 +136,7 @@ async function contributeToEvent(heroId: string, dungeon: { id: number; name: st
       body: JSON.stringify({ clanId: clanMemberRec.clanId, kills }),
     })
   } catch (e) {
-    console.error('[dungeon-service] Error en evento:', e)
+    logger.error('dungeon-service', 'Error en evento', e)
   }
 }
 
@@ -148,7 +148,7 @@ async function updateQuestProgressForHero(heroId: string, dungeon: { id: number;
     }
     await updateQuestProgress(heroId, { type: 'ep_total', value: result.epGained / totalHeroes }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
   } catch (e) {
-    console.error('[dungeon-service] Error en quest progress:', e)
+    logger.error('dungeon-service', 'Error en quest progress', e)
   }
 }
 
@@ -158,7 +158,7 @@ async function trackEventProgressForHero(heroId: string, result: RunResult) {
     await trackHeroEventProgress(heroId, 'dungeon', 1)
     if (result.victory) await trackHeroEventProgress(heroId, 'boss', 1)
   } catch (e) {
-    console.error('[dungeon-service] Error en hero event progress:', e)
+    logger.error('dungeon-service', 'Error en hero event progress', e)
   }
 }
 
@@ -168,7 +168,7 @@ async function adjustFactionRepForHero(heroId: string, result: RunResult) {
     await adjustRep(heroId, 1, repGain)
     if (result.victory) await adjustRep(heroId, 5, 2)
   } catch (e) {
-    console.error('[dungeon-service] Error en faction rep:', e)
+    logger.error('dungeon-service', 'Error en faction rep', e)
   }
 }
 
@@ -185,7 +185,7 @@ async function sendNotificationForHero(heroId: string, result: RunResult, dungeo
       data: { runId, dungeonId: dungeon.id },
     })
   } catch (e) {
-    console.error('[dungeon-service] Error en notificación in-app:', e)
+    logger.error('dungeon-service', 'Error en notificación in-app', e)
   }
 }
 
@@ -200,6 +200,6 @@ async function trackAnalytics(result: RunResult, heroesData: HeroData[], dungeon
       lootCount: (result.loot as any[])?.length ?? 0,
     })
   } catch (e) {
-    console.error('[dungeon-service] Error en analytics:', e)
+    logger.error('dungeon-service', 'Error en analytics', e)
   }
 }

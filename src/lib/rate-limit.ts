@@ -3,6 +3,13 @@ const store = new Map<string, { count: number; resetAt: number }>()
 const DEFAULT_MAX = 30
 const DEFAULT_WINDOW_MS = 60_000
 
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of store) {
+    if (now > entry.resetAt) store.delete(key)
+  }
+}, 120_000)
+
 export interface RateLimitResult {
   ok: boolean
   remaining: number

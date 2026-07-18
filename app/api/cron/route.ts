@@ -13,8 +13,17 @@ export async function GET(req: NextRequest) {
   }
 
   const header = req.headers.get("x-cron-secret")
-  if (header !== secret) {
+  if (!secret || !header) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  const a = Buffer.from(header)
+  const b = Buffer.from(secret)
+  if (a.length !== b.length || !require("crypto").timingSafeEqual(a, b)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  if (process.env.ENABLE_BACKGROUND_WORKERS === "true") {
+    return NextResponse.json({ ok: true, skipped: "in-process cron active" })
   }
 
   const start = Date.now()

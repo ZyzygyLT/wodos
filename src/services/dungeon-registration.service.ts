@@ -205,7 +205,7 @@ async function createRunTransaction(heroId: string, dungeon: any, profile: any, 
         data: {
           epTotal: { increment: result.epGained / totalHeroes },
           gold: { increment: result.goldGained / totalHeroes },
-          fame: { increment: result.fameGained },
+          fame: { increment: Math.ceil(result.fameGained / totalHeroes) },
           hpCurrent: hData.hpMax, mpCurrent: hData.mpMax,
         },
       })
