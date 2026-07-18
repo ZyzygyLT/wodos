@@ -142,21 +142,26 @@ export function useInventory() {
     } catch { setUsingItem(null); setMessage("❌ Error de red") }
   }
 
-  async function sellToBazar(heroItemId: string) {
-    setSellingItem(heroItemId)
-    const price = prompt("Precio de venta (oro):")
-    if (!price || Number.isNaN(Number.parseInt(price)) || Number.parseInt(price) < 1) { setSellingItem(null); return }
+  async function confirmSell(heroItemId: string, price: number) {
     try {
       const res = await fetch("/api/bazar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heroItemId, price: Number.parseInt(price), listingType: "fixed" }),
+        body: JSON.stringify({ heroItemId, price, listingType: "fixed" }),
       })
       setSellingItem(null)
       const data = await res.json()
       setMessage(res.ok ? "✅ Item listado en el bazar" : `❌ ${data.error}`)
       if (res.ok) fetchData()
     } catch { setSellingItem(null); setMessage("❌ Error de red") }
+  }
+
+  function startSell(heroItemId: string) {
+    setSellingItem(heroItemId)
+  }
+
+  function cancelSell() {
+    setSellingItem(null)
   }
 
   return {
@@ -181,6 +186,8 @@ export function useInventory() {
     unsocketRune,
     doEnchant,
     consumeItem,
-    sellToBazar,
+    startSell,
+    confirmSell,
+    cancelSell,
   }
 }

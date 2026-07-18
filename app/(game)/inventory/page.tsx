@@ -105,8 +105,9 @@ const STORAGE_BONUS: Record<number, number> = { 1: 500, 2: 1500, 3: 5000 }
 
 export default function InventoryPage() {
   const inv = useInventory()
-  const { hero, items, clan, message, dismiss, toggling, socketItem, setSocketItem, enchantItem, setEnchantItem, enchanting, runes, socketing, usingItem, toggleEquip, socketRune, unsocketRune, doEnchant, consumeItem, sellToBazar } = inv
+  const { hero, items, clan, message, dismiss, toggling, sellingItem, socketItem, setSocketItem, enchantItem, setEnchantItem, enchanting, runes, socketing, usingItem, toggleEquip, socketRune, unsocketRune, doEnchant, consumeItem, startSell, confirmSell, cancelSell } = inv
   const [hoveredItem, setHoveredItem] = useState<{ item: TooltipItem; equipped?: any } | null>(null)
+  const [sellPrice, setSellPrice] = useState("")
   const anchorRefs = useRef<Map<string, HTMLElement>>(new Map())
 
   function toTooltipItem(ei: any): TooltipItem {
@@ -298,7 +299,7 @@ export default function InventoryPage() {
                                 💎
                               </button>
                             )}
-                            <button onClick={() => sellToBazar(ei.id)}
+                            <button onClick={() => startSell(ei.id)}
                               className="text-xs px-2 py-1 rounded bg-green-800 hover:bg-green-700 transition">
                               Vender
                             </button>
@@ -349,6 +350,32 @@ export default function InventoryPage() {
 
       {hoveredItem && (
         <ItemTooltip item={hoveredItem.item} equipped={hoveredItem.equipped} />
+      )}
+
+      {sellingItem && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { cancelSell(); setSellPrice("") }} role="dialog" aria-modal="true">
+          <div className="bg-gray-900 rounded-2xl border border-gray-700 p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="font-bold text-lg mb-4">💰 Vender en bazar</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Precio de venta (oro):
+            </p>
+            <input type="number" min="1" autoFocus placeholder="Precio" value={sellPrice}
+              onChange={e => setSellPrice(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && Number(sellPrice) >= 1) { confirmSell(sellingItem, Number(sellPrice)); setSellPrice("") } }}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mb-4" />
+            <div className="flex gap-2">
+              <button onClick={() => { if (Number(sellPrice) >= 1) { confirmSell(sellingItem, Number(sellPrice)); setSellPrice("") } }}
+                disabled={!sellPrice || Number(sellPrice) < 1}
+                className="flex-1 px-4 py-2 rounded bg-green-700 hover:bg-green-600 disabled:opacity-50 text-sm transition">
+                Vender
+              </button>
+              <button onClick={() => { cancelSell(); setSellPrice("") }}
+                className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-sm transition">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
