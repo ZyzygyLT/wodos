@@ -208,7 +208,7 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 p-4">
+      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 p-4 pb-20 lg:pb-4">
         <main className="min-w-0">{children}</main>
         <aside className="hidden lg:block space-y-4">
           {hero && (
@@ -269,6 +269,28 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
           )}
         </aside>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 px-2 py-1.5 flex items-center justify-around safe-bottom">
+        {[
+          { href: "/dashboard", icon: "🏠", label: "Home" },
+          { href: "/dungeon", icon: "⚔️", label: "Dungeon" },
+          { href: "/inventory", icon: "🎒", label: "Items" },
+          { href: "/shop", icon: "🏪", label: "Tienda" },
+          { href: "/quests", icon: "📋", label: "Quests" },
+        ].map(item => {
+          const active = item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href)
+          return (
+            <Link key={item.href} href={item.href}
+              className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded text-[10px] transition min-w-[48px] ${
+                active ? "text-yellow-400" : "text-gray-500 active:text-gray-300"
+              }`}>
+              <span className="text-lg leading-none">{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
+      </nav>
     </div>
   )
 }
