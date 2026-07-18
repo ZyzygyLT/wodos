@@ -5,6 +5,7 @@ import { createHero } from "@/lib/hero-utils"
 import { trackHeroCreated } from "@/lib/analytics/events"
 import { z } from "zod"
 import { formatZodError } from "@/lib/zod-error"
+import logger from "@/lib/logger"
 
 const schema = z.object({
   name: z.string().min(2).max(30),
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: hero.id, name: hero.name }, { status: 201 })
   } catch (e: any) {
-    console.error("hero/create error:", e)
+    logger.error('hero-create', "Error al crear el héroe", e)
     return NextResponse.json({ error: e.message || "Error al crear el héroe" }, { status: 500 })
   }
 }

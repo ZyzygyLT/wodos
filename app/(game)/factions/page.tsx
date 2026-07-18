@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 interface FactionShop {
   id: number; name: string; icon: string; minRep: number; unlocked: boolean
@@ -50,7 +51,7 @@ export default function FactionsPage() {
     try {
       const res = await fetch(`/api/factions/${f.id}/shop`)
       if (res.ok) setShopData(await res.json())
-    } catch {}
+    } catch (e) { logger.error('factions', 'Error fetching data', e) }
   }
 
   async function buyItem(factionId: number, shopId: number, itemIndex: number, itemName: string) {

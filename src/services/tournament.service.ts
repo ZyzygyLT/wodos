@@ -82,13 +82,39 @@ async function executeSingleMatch(tournamentId: string, match: any) {
   const heroData1 = await buildHeroData(h1, profile1)
   const heroData2 = await buildHeroData(h2, profile2)
 
+  // Convert hero2 to EnemyData so they actually fight each other
+  const h2Attrs = h2.attrs as Record<string, number>
+  const hero2AsEnemy = {
+    id: -2,
+    name: heroData2.name,
+    icon: '⚔️',
+    hp: heroData2.hpMax,
+    mp: heroData2.mpMax,
+    atk: (h2Attrs.fuerza ?? 10) + (h2Attrs.agilidad ?? 5),
+    def: (h2Attrs.resistencia ?? 10) + (h2Attrs.agilidad ?? 5),
+    dx: h2Attrs.agilidad ?? 10,
+    ag: h2Attrs.agilidad ?? 10,
+    level: heroData2.level,
+    position: profile2?.position ?? 'front',
+    skills: heroData2.skills.map(s => ({
+      skillId: s.skillId,
+      name: s.name ?? `skill_${s.skillId}`,
+      icon: s.icon ?? '⚔️',
+      effect: s.effect,
+      multiplier: s.multiplier,
+      manaCost: s.manaCost,
+      cooldownRounds: s.cooldownRounds,
+      formula: s.formula,
+    })),
+  }
+
   const dungeonData: DungeonData = {
     id: -2, name: 'Torneo',
-    levels: [{ number: 1, enemies: [], epReward: 0, goldReward: 0 }],
+    levels: [{ number: 1, enemies: [hero2AsEnemy as any], epReward: 0, goldReward: 0 }],
     epReward: 0, goldReward: 0, fameReward: 0, lootTable: [],
   }
 
-  const result = await runDungeon([heroData1, heroData2], dungeonData)
+  const result = await runDungeon([heroData1], dungeonData)
   const hero1Alive = result.heroesFinalState.some((h: any) => h.id === heroData1.id && h.hp > 0)
   const winnerId = hero1Alive ? hero1Id : hero2Id
   const loserId = result.victory ? hero2Id : hero1Id

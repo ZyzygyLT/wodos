@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 interface TournamentMatch {
   id: string; round: number; matchNumber: number
@@ -122,7 +123,7 @@ export default function ArenaPage() {
         const histData = await histRes.json()
         setDuelHistory(histData.duels ?? [])
       }
-    } catch {}
+    } catch (e) { logger.error('arena', 'Error fetching data', e) }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import logger from "@/lib/logger"
+import { useToast } from "@/hooks/useToast"
 
 export interface RoundRule {
   priority: number
@@ -51,6 +52,7 @@ export interface DefenseSkillDef {
 
 export function useTactics() {
   const router = useRouter()
+  const { toast, show } = useToast()
   const [profiles, setProfiles] = useState<CombatProfile[]>([])
   const [selectedDungeonLevel, setSelectedDungeonLevel] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
@@ -170,12 +172,13 @@ export function useTactics() {
           }),
         })
       }
-      alert("✅ Tácticas guardadas")
-    } catch { alert("❌ Error de red") }
+      show("Tácticas guardadas")
+    } catch { show("Error de red") }
     setSaving(false)
   }
 
   return {
+    toast,
     profiles,
     selectedDungeonLevel,
     setSelectedDungeonLevel,

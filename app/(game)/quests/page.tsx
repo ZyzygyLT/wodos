@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { LevelUpCelebration } from "@/components/game/LevelUpCelebration"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 const QUEST_TYPE_BADGES: Record<string, { label: string; color: string }> = {
   main: { label: "📜 Principal", color: "border-amber-700/50 bg-amber-900/20 text-amber-400" },
@@ -51,7 +52,7 @@ export default function QuestsPage() {
       if (heroRes.status === 401 || heroRes.status === 404) return
       setHero(await heroRes.json())
       setQuests(await questsRes.json())
-    } catch {}
+    } catch (e) { logger.error('quests', 'Error fetching data', e) }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])

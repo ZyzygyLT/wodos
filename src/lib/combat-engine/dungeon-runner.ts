@@ -854,6 +854,7 @@ function handleHeroSkillMana(
   const baseMana = skill.manaCost ?? 0
   const mpCost = calcManaCost(baseMana, rank)
   if (baseMana > 0 && heroUnit.mp < mpCost) {
+    // Not enough mana — find a free skill (basic attack) to use instead
     const freeSkill = hero.skills.find(s => (s.manaCost ?? 0) === 0 && (s.effect === 'attack' || !s.effect))
     if (freeSkill) {
       const oldName = skill.name ?? `skill_${skill.skillId}`
@@ -862,9 +863,21 @@ function handleHeroSkillMana(
         { actor: heroUnit.name, skill: freeSkill.name })
       return { skill: freeSkill, mpCost: 0 }
     }
-  } else {
-    heroUnit.mp = Math.max(0, heroUnit.mp - mpCost)
+    // No free skill available — use basic attack with no mana cost
+    const basicFallback = hero.skills.find(s => (s.effect === 'attack' || !s.effect))
+    if (basicFallback) {
+      const oldName = skill.name ?? `skill_${skill.skillId}`
+      addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+        `${heroUnit.name} — sin maná ni ataque gratis para ${oldName}, usa ${basicFallback.name ?? 'Ataque básico'}`,
+        { actor: heroUnit.name, skill: basicFallback.name })
+      return { skill: basicFallback, mpCost: 0 }
+    }
+    // Last resort: force skill but deduct whatever MP is available (partial cost)
+    heroUnit.mp = 0
+    return { skill, mpCost: 0 }
   }
+  // Enough mana — deduct it
+  heroUnit.mp = Math.max(0, heroUnit.mp - mpCost)
   return { skill, mpCost }
 }
 
@@ -1449,7 +1462,7 @@ function processDotDamage(
   log: LogEntry[], round: number, level: number
 ): number {
   let doT = 0
-  if (!unit.statusEffects) return 0
+  if (!unit.statusEffects || unit.hp <= 0) return 0
   for (const effect of unit.statusEffects) {
     if (['poison', 'burn', 'bleed'].includes(effect.type)) {
       doT += effect.value

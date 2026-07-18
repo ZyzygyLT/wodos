@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 export default function BazarPage() {
   const [hero, setHero] = useState<any>(null)
@@ -22,7 +23,7 @@ export default function BazarPage() {
       const h = await heroRes.json()
       setHero(h)
       setListings(await bazarRes.json())
-    } catch {}
+    } catch (e) { logger.error('bazar', 'Error fetching data', e) }
   }, [])
 
   const fetchMyItems = useCallback(async () => {
@@ -32,7 +33,7 @@ export default function BazarPage() {
         const items = await res.json()
         setMyItems(items.filter((i: any) => i.item.category !== "consumable"))
       }
-    } catch {}
+    } catch (e) { logger.error('bazar', 'Error fetching data', e) }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])

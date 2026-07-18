@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { $Enums } from '@/generated/prisma'
+import logger from "@/lib/logger"
 
 export async function GET() {
   const session = await auth()
@@ -60,7 +61,7 @@ export async function PUT(req: NextRequest) {
     }
     return await handleUnequip(hero, heroItem)
   } catch (e) {
-    console.error('[inventory] Error equip/unequip:', e)
+    logger.error('inventory', 'Error equip/unequip:', e)
     return NextResponse.json({ error: 'Error al equipar/desequipar' }, { status: 500 })
   }
 }

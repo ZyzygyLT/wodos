@@ -166,41 +166,81 @@ export async function PUT(req: NextRequest) {
   }
 
   // Buy now for fixed price or auction buyNowPrice
-  const listing = await db.bazarListing.findUnique({
-    where: { id: listingId },
-    include: {
-      purchases: { orderBy: { pricePaid: "desc" }, take: 1 },
-    },
+  // Use a transaction to prevent race condition: two buyers can't both succeed
+  const result = await db.$transaction(async (tx) => {
+    const listing = await tx.bazarListing.findUnique({
+      where: { id: listingId },
+      include: {
+        purchases: { orderBy: { pricePaid: "desc" }, take: 1 },
+        heroItem: { include: { item: true } },
+      },
+    })
+    if (listing?.status !== "active") {
+      return { error: "Listing no activo", status: 404 }
+    }
+
+    if (listing.sellerId === hero.id) {
+      return { error: "No podés comprar tu propio item", status: 400 }
+    }
+
+    let price: number
+    if (listing.listingType === "fixed") {
+      price = listing.price
+    } else {
+      price = listing.buyNowPrice ?? listing.price
+    }
+
+    if (hero.gold < price) {
+      return { error: "No tenés suficiente oro", status: 400 }
+    }
+
+    // Atomically mark listing as sold to prevent double-buy
+    await tx.bazarListing.update({
+      where: { id: listingId, status: "active" },
+      data: { status: "sold" },
+    })
+
+    // Create purchase and transfer item
+    await tx.bazarPurchase.create({
+      data: {
+        listingId: listing.id,
+        buyerId: hero.id,
+        pricePaid: price,
+      },
+    })
+
+    await tx.heroItem.update({
+      where: { id: listing.heroItemId },
+      data: { heroId: hero.id, equipped: false },
+    })
+
+    await tx.hero.update({
+      where: { id: listing.sellerId },
+      data: { gold: { increment: price } },
+    })
+
+    return { success: true, pricePaid: price, listing }
   })
-  if (listing?.status !== "active") {
-    return NextResponse.json({ error: "Listing no activo" }, { status: 404 })
+
+  if ('error' in result) {
+    return NextResponse.json({ error: result.error }, { status: result.status })
   }
 
-  if (listing.sellerId === hero.id) {
-    return NextResponse.json({ error: "No podés comprar tu propio item" }, { status: 400 })
-  }
+  // Notifications outside transaction
+  const itemName = result.listing.heroItem?.item?.name ?? 'item'
+  notify({
+    heroId: result.listing.sellerId,
+    type: "item_sold",
+    title: "💰 Item vendido",
+    body: `Vendiste "${itemName}" por ${result.pricePaid}💰`,
+  }).catch(e => logger.error("bazar-bid", "Background operation failed", e))
 
-  let price: number
-  if (listing.listingType === "fixed") {
-    price = listing.price
-  } else {
-    price = listing.buyNowPrice ?? listing.price
-  }
+  notify({
+    heroId: hero.id,
+    type: "item_bought",
+    title: "🛒 Compra exitosa",
+    body: `Compraste "${itemName}" por ${result.pricePaid}💰`,
+  }).catch(e => logger.error("bazar-bid", "Background operation failed", e))
 
-  if (hero.gold < price) {
-    return NextResponse.json({ error: "No tenés suficiente oro" }, { status: 400 })
-  }
-
-  // Direct purchase - create a purchase record and finalize
-  await db.bazarPurchase.create({
-    data: {
-      listingId: listing.id,
-      buyerId: hero.id,
-      pricePaid: price,
-    },
-  })
-
-  await finalizeSale(listing.id)
-
-  return NextResponse.json({ success: true, pricePaid: price })
+  return NextResponse.json({ success: true, pricePaid: result.pricePaid })
 }

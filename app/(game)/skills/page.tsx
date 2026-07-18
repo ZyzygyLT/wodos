@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { skillUpgradeCost } from "@/lib/skill-cost"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 export default function SkillsPage() {
   const router = useRouter()
@@ -24,7 +25,7 @@ export default function SkillsPage() {
       if (heroRes.status === 404) return router.push("/onboarding")
       setHero(await heroRes.json())
       setSkills(await skillsRes.json())
-    } catch {}
+    } catch (e) { logger.error('skills', 'Error fetching data', e) }
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])

@@ -49,7 +49,7 @@ function getRoundCombinedId(rule: RoundRule): string {
 export default function TacticsEditor() {
   const t = useTactics()
   const {
-    profiles, selectedDungeonLevel, setSelectedDungeonLevel, saving,
+    toast, profiles, selectedDungeonLevel, setSelectedDungeonLevel, saving,
     heroSkills, consumableItems, heroAttrs, defenseSkillDetails,
     unlockedSkills, profile,
     updateProfile, updateRoundRule, addRoundRule, removeRoundRule,
@@ -85,6 +85,11 @@ export default function TacticsEditor() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg animate-in fade-in duration-200">
+          {toast}
+        </div>
+      )}
       <div className="flex items-center gap-2 text-sm">
         <button onClick={() => setSelectedDungeonLevel(null)}
           className={`px-3 py-1.5 rounded-lg transition ${selectedDungeonLevel === null ? 'bg-yellow-600 text-black font-bold' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>

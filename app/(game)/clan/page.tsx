@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 export default function ClanPage() {
   const [hero, setHero] = useState<any>(null)
@@ -214,7 +215,7 @@ export default function ClanPage() {
   const canChangeRoles = myMember?.role === "leader"
   const [groups, setGroups] = useState<any[]>([])
   const [newGroupName, setNewGroupName] = useState("")
-  const setJoiningGroup = (_v: string | null) => {}
+  const [joiningGroup, setJoiningGroup] = useState<string | null>(null)
   const [leavingGroup, setLeavingGroup] = useState<string | null>(null)
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [pendingInvites, setPendingInvites] = useState<any[]>([])
@@ -235,7 +236,7 @@ export default function ClanPage() {
         const invs = await invitesRes.json()
         setPendingInvites(invs)
       }
-    } catch {}
+    } catch (e) { logger.error('clan', 'Error fetching data', e) }
   }, [])
 
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 interface ClanInfo {
   id: string; name: string; tag: string; icon: string
@@ -97,14 +98,14 @@ export default function EventsPage() {
       setHero(await heroRes.json())
       setActiveEvents(await eventsRes.json())
       setClan(await clanRes.json())
-    } catch {}
+    } catch (e) { logger.error('events', 'Error fetching data', e) }
   }, [])
 
   const fetchPast = useCallback(async () => {
     try {
       const res = await fetch("/api/events?past=true")
       if (res.ok) setPastEvents(await res.json())
-    } catch {}
+    } catch (e) { logger.error('events', 'Error fetching data', e) }
   }, [])
 
   useEffect(() => {

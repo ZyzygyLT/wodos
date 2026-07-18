@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 const STAT_LABELS: Record<string, string> = {
   str: "STR", agi: "AGI", int: "INT", wis: "WIS", con: "CON", cha: "CHA",
@@ -40,7 +41,7 @@ export default function CraftPage() {
       setHeroMats(craftRes.recipes?.[0]?.heroMaterials ?? [])
       setHeroGold(craftRes.recipes?.[0]?.heroGold ?? 0)
       setHeroItems(invRes.items ?? [])
-    } catch {}
+    } catch (e) { logger.error('craft', 'Error fetching data', e) }
     setLoading(false)
   }
 

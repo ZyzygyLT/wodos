@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 const RARITY_COLORS: Record<string, string> = {
   common: "border-gray-500 text-gray-300",
@@ -38,7 +39,7 @@ export default function ShopPage() {
       const data = await res.json()
       setItems(data.items ?? [])
       setGold(data.gold ?? 0)
-    } catch {} finally { setLoading(false) }
+    } catch (e) { logger.error('shop', 'Error fetching data', e) } finally { setLoading(false) }
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])

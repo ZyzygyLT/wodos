@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import logger from "@/lib/logger"
 
 const MAX_GROUPS = 5
 const MAX_GROUP_SIZE = 10
@@ -18,7 +19,7 @@ export async function GET() {
     const groups = await loadUserGroups(hero.id)
     return NextResponse.json(groups)
   } catch (e) {
-    console.error("Error in GET /api/groups:", e)
+    logger.error('groups', "Error in GET /api/groups:", e)
     return fallbackGroups()
   }
 }

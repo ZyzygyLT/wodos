@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import DungeonMap from "@/components/game/DungeonMap"
 import { useToast } from "@/hooks/useToast"
+import logger from "@/lib/logger"
 
 async function fetchGroups() {
   try {
@@ -71,13 +72,13 @@ export default function DungeonPage() {
     const slugs = new Set<string>()
     for (const hq of questData.active ?? []) {
       for (const obj of hq.quest?.objectives ?? []) {
-        if (obj.dungeonSlug && !hq.progress?.[obj.id] >= (obj.required ?? 1)) {
+        if (obj.dungeonSlug && (hq.progress?.[obj.id] ?? 0) < (obj.required ?? 1)) {
           slugs.add(obj.dungeonSlug)
         }
       }
     }
     setQuestSlugs(slugs)
-    } catch {}
+    } catch (e) { logger.error('dungeon', 'Error fetching data', e) }
   }
 
   function autoSelectGroup(mergedGroups: any[], heroId: string) {
