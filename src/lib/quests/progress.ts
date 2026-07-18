@@ -92,7 +92,7 @@ async function grantFactionRepForQuest(heroId: string, questType: string) {
       await adjustRep(heroId, 1, 5)
     }
   } catch (e) {
-    console.error('[quest-progress] Error en faction rep:', e)
+    logger.error('quest-progress', 'Error en faction rep', e)
   }
 }
 

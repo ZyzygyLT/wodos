@@ -1,6 +1,7 @@
 import db from "@/lib/db"
 import { createWeeklyTournament } from "./tournament"
 import { advanceTournament } from "@/services/tournament.service"
+import logger from "@/lib/logger"
 
 const ROUND_INTERVAL_MS = 2 * 60 * 60 * 1000 // 2 hours between rounds
 
@@ -9,10 +10,10 @@ async function handleRegistrationPhase(active: any) {
   if (elapsed <= 24 * 60 * 60 * 1000 && active._count?.participants < active.maxPlayers) return
   const participants = await db.tournamentParticipant.count({ where: { tournamentId: active.id } })
   if (participants >= 2) {
-    console.log(`[tournament-cron] Cerrando registro y generando bracket (${participants} participantes)`)
+    logger.info('tournament-cron', `Cerrando registro y generando bracket (${participants} participantes)`)
     await advanceTournament()
   } else {
-    console.log(`[tournament-cron] Solo ${participants} participantes, extendiendo registro`)
+    logger.info('tournament-cron', `Solo ${participants} participantes, extendiendo registro`)
   }
 }
 
@@ -25,7 +26,7 @@ async function handleActivePhase(active: any) {
     where: { tournamentId: active.id, winnerId: null },
   })
   if (pending <= 0) return
-  console.log(`[tournament-cron] Avanzando ronda del torneo (${pending} matches pendientes)`)
+  logger.info('tournament-cron', `Avanzando ronda del torneo (${pending} matches pendientes)`)
   await advanceTournament()
 }
 
@@ -44,7 +45,7 @@ export async function tickTournament() {
 
     // Create new tournament if none exists and last one ended > 7 days ago
     if (!lastCompleted || Date.now() - new Date(lastCompleted.endsAt).getTime() > 7 * 24 * 60 * 60 * 1000) {
-      console.log("[tournament-cron] Creando nuevo torneo semanal")
+      logger.info('tournament-cron', 'Creando nuevo torneo semanal')
       await createWeeklyTournament()
     }
     return

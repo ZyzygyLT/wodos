@@ -4,6 +4,7 @@ import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDu
 import { calcClanBonuses } from '@/lib/clan/upgrades'
 import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
 import { tickTournament } from '@/lib/arena/tournament-cron'
+import logger from '@/lib/logger'
 
 function getNextScheduledTime(times: string[]): Date | null {
   if (!times || times.length === 0) return null
@@ -55,7 +56,7 @@ export async function tick() {
       await processScheduledRun(run)
     }
   } catch (err) {
-    console.error('[dungeon-cron] Error en tick:', err)
+    logger.error('dungeon-cron', 'Error en tick', err)
   }
 }
 
@@ -161,7 +162,7 @@ export async function resetDailyQuests() {
 
     return { reset: repeatableQuests.length }
   } catch (e) {
-    console.error("[dungeon-cron] Error en resetDailyQuests:", e)
+    logger.error('dungeon-cron', 'Error en resetDailyQuests', e)
     return { reset: 0, error: String(e) }
   }
 }
@@ -170,12 +171,12 @@ let interval: ReturnType<typeof setInterval> | null = null
 
 export function startDungeonCron() {
   if (interval) return
-  console.log('[dungeon-cron] Iniciado — revisa cada 30s')
+  logger.info('dungeon-cron', 'Iniciado — revisa cada 30s')
   tick()
-  tickTournament().catch(e => console.error('[dungeon-cron] Error en tournament tick:', e))
+  tickTournament().catch(e => logger.error('dungeon-cron', 'Error en tournament tick', e))
   interval = setInterval(() => {
     tick()
-    tickTournament().catch(e => console.error('[dungeon-cron] Error en tournament tick:', e))
+    tickTournament().catch(e => logger.error('dungeon-cron', 'Error en tournament tick', e))
   }, 30_000)
 }
 

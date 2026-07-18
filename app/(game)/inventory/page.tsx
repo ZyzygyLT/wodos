@@ -105,7 +105,7 @@ const STORAGE_BONUS: Record<number, number> = { 1: 500, 2: 1500, 3: 5000 }
 
 export default function InventoryPage() {
   const inv = useInventory()
-  const { hero, items, clan, message, setMessage, toggling, socketItem, setSocketItem, enchantItem, setEnchantItem, enchanting, runes, socketing, usingItem, toggleEquip, socketRune, unsocketRune, doEnchant, consumeItem, sellToBazar } = inv
+  const { hero, items, clan, message, dismiss, toggling, socketItem, setSocketItem, enchantItem, setEnchantItem, enchanting, runes, socketing, usingItem, toggleEquip, socketRune, unsocketRune, doEnchant, consumeItem, sellToBazar } = inv
   const [hoveredItem, setHoveredItem] = useState<{ item: TooltipItem; equipped?: any } | null>(null)
   const anchorRefs = useRef<Map<string, HTMLElement>>(new Map())
 
@@ -179,7 +179,7 @@ export default function InventoryPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>{message}</button>
+          onClick={() => dismiss()}>{message}</button>
       )}
 
       <div className="max-w-6xl mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">

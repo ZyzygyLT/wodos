@@ -1,3 +1,5 @@
+import logger from "@/lib/logger"
+
 const ONESIGNAL_URL = "https://onesignal.com/api/v1/notifications"
 
 interface PushPayload {
@@ -33,9 +35,9 @@ export async function sendPush({ heroId, title, body, url, data }: PushPayload) 
     })
 
     if (!response.ok) {
-      console.error("OneSignal error:", await response.text())
+      logger.error('push', 'OneSignal error', await response.text())
     }
   } catch (e) {
-    console.error("OneSignal send failed:", e)
+    logger.error('push', 'OneSignal send failed', e)
   }
 }

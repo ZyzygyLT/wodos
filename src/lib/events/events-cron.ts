@@ -78,6 +78,6 @@ export async function tickEvents() {
 }
 
 export function startEventsCron() {
-  tickEvents().catch(e => console.error('[events-cron] Error:', e))
-  setInterval(() => tickEvents().catch(e => console.error('[events-cron] Error:', e)), 5 * 60 * 1000)
+  tickEvents().catch(e => logger.error('events-cron', 'Error en tick', e))
+  setInterval(() => tickEvents().catch(e => logger.error('events-cron', 'Error en tick', e)), 5 * 60 * 1000)
 }

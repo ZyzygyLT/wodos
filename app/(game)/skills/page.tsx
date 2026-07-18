@@ -3,12 +3,13 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { skillUpgradeCost } from "@/lib/skill-cost"
+import { useToast } from "@/hooks/useToast"
 
 export default function SkillsPage() {
   const router = useRouter()
   const [hero, setHero] = useState<any>(null)
   const [skills, setSkills] = useState<any[]>([])
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [loading, setLoading] = useState<number | null>(null)
   const [actionType, setActionType] = useState<"buy" | "upgrade" | null>(null)
   const [tab, setTab] = useState<"learned" | "available">("learned")
@@ -88,7 +89,7 @@ export default function SkillsPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>
+          onClick={() => dismiss()}>
           {message}
         </button>
       )}

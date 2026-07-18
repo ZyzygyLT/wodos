@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { LevelUpCelebration } from "@/components/game/LevelUpCelebration"
+import { useToast } from "@/hooks/useToast"
 
 const QUEST_TYPE_BADGES: Record<string, { label: string; color: string }> = {
   main: { label: "📜 Principal", color: "border-amber-700/50 bg-amber-900/20 text-amber-400" },
@@ -36,7 +37,7 @@ function getQuestPct(quest: any, hq: any) {
 export default function QuestsPage() {
   const [hero, setHero] = useState<any>(null)
   const [quests, setQuests] = useState<{ active: any[]; available: any[] }>({ active: [], available: [] })
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [accepting, setAccepting] = useState<string | null>(null)
   const [claiming, setClaiming] = useState<string | null>(null)
   const [levelUp, setLevelUp] = useState<any>(null)
@@ -103,7 +104,7 @@ export default function QuestsPage() {
       )}
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>
+          onClick={() => dismiss()}>
           {message}
         </button>
       )}

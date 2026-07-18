@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import logger from "@/lib/logger"
+import { useToast } from "@/hooks/useToast"
 
 export function useInventory() {
   const router = useRouter()
   const [hero, setHero] = useState<any>(null)
   const [items, setItems] = useState<any[]>([])
   const [clan, setClan] = useState<any>(null)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [toggling, setToggling] = useState<string | null>(null)
   const [socketItem, setSocketItem] = useState<any>(null)
   const [enchantItem, setEnchantItem] = useState<any>(null)
@@ -26,7 +27,7 @@ export function useInventory() {
         fetch("/api/hero/inventory"),
         fetch("/api/clan"),
       ])
-      if (heroRes.status === 401) return router.push("/auth/login")
+      if (heroRes.status === 401) return router.push("/login")
       if (heroRes.status === 404) return router.push("/onboarding")
       setHero(await heroRes.json())
       setItems(await invRes.json())
@@ -164,6 +165,7 @@ export function useInventory() {
     clan,
     message,
     setMessage,
+    dismiss,
     toggling,
     socketItem,
     setSocketItem,

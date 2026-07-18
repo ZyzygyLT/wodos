@@ -5,6 +5,7 @@ import { runDungeon, HeroData } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday } from '@/lib/dungeon-helpers'
 import { calcClanBonuses } from '@/lib/clan/upgrades'
 import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
+import logger from '@/lib/logger'
 
 let connection: Redis | null = null
 let queue: Queue | null = null
@@ -95,7 +96,7 @@ export async function enqueueDungeonRun(runId: string, heroId: string, dungeonId
 
 export function startWorker() {
   if (!connection || !queue) {
-    console.log('⚠️ Redis no disponible — cola de dungeons deshabilitada')
+    logger.info('dungeon-queue', 'Redis no disponible — cola de dungeons deshabilitada')
     return
   }
 
@@ -104,12 +105,12 @@ export function startWorker() {
   }, { connection: connection as any })
 
   worker.on('completed', (job) => {
-    console.log(`✅ Dungeon run ${job.id} completado`)
+    logger.info('dungeon-queue', `Dungeon run ${job.id} completado`)
   })
 
   worker.on('failed', (job, err) => {
-    console.error(`❌ Dungeon run ${job?.id} falló:`, err.message)
+    logger.error('dungeon-queue', `Dungeon run ${job?.id} falló`, err)
   })
 
-  console.log('🏁 Worker de dungeons iniciado')
+  logger.info('dungeon-queue', 'Worker de dungeons iniciado')
 }

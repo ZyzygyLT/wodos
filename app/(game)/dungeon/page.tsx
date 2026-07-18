@@ -24,6 +24,9 @@ export default function DungeonPage() {
   const [running, setRunning] = useState(false)
   const [questSlugs, setQuestSlugs] = useState<Set<string>>(new Set())
   const { show: toast } = useToast()
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState("")
+  const [creatingGroup, setCreatingGroup] = useState(false)
 
   async function fetchHeroAndDungeons() {
     try {
@@ -106,23 +109,26 @@ export default function DungeonPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   async function createGroup() {
-    const name = prompt("Nombre del nuevo grupo:")
-    if (!name || name.length < 2) return
+    if (!newGroupName.trim() || newGroupName.length < 2) return
+    setCreatingGroup(true)
     try {
       const res = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: newGroupName.trim() }),
       })
       if (res.ok) {
         const group = await res.json()
         setSelectedGroupId(group.id)
+        setNewGroupName("")
+        setShowCreateGroup(false)
         fetchData()
       } else {
         const data = await res.json()
         toast(data.error || "Error al crear grupo")
       }
     } catch { toast("Error de red") }
+    setCreatingGroup(false)
   }
 
   async function registerDungeon(dungeonId: number, isInstant: boolean, groupId?: string) {
@@ -174,6 +180,28 @@ export default function DungeonPage() {
 
   return (
       <div className="max-w-5xl mx-auto p-4 sm:p-6">
+        {showCreateGroup && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateGroup(false)}>
+            <div className="bg-gray-900 rounded-2xl border border-gray-700 p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg mb-4">Crear grupo</h3>
+              <input type="text" placeholder="Nombre del grupo" autoFocus value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") createGroup() }}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mb-4" />
+              <div className="flex gap-2">
+                <button onClick={createGroup} disabled={creatingGroup || newGroupName.length < 2}
+                  className="flex-1 px-4 py-2 rounded bg-green-700 hover:bg-green-600 disabled:opacity-50 text-sm transition">
+                  {creatingGroup ? "..." : "Crear"}
+                </button>
+                <button onClick={() => setShowCreateGroup(false)}
+                  className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-sm transition">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <DungeonMap
           dungeons={dungeons}
           heroLevel={hero.level}
@@ -185,7 +213,7 @@ export default function DungeonPage() {
           groups={allGroups}
           selectedGroupId={selectedGroupId}
           onSelectGroup={setSelectedGroupId}
-          onCreateGroup={createGroup}
+          onCreateGroup={() => setShowCreateGroup(true)}
           questSlugs={questSlugs}
         />
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/useToast"
 
 const RARITY_COLORS: Record<string, string> = {
   common: "border-gray-500 text-gray-300",
@@ -25,7 +26,7 @@ export default function ShopPage() {
   const [gold, setGold] = useState(0)
   const [loading, setLoading] = useState(true)
   const [buying, setBuying] = useState<number | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [filter, setFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("rarity")
 
@@ -80,7 +81,7 @@ export default function ShopPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>
+          onClick={() => dismiss()}>
           {message}
         </button>
       )}

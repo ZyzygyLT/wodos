@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/useToast"
 
 interface FactionShop {
   id: number; name: string; icon: string; minRep: number; unlocked: boolean
@@ -34,7 +35,7 @@ export default function FactionsPage() {
   const [selected, setSelected] = useState<Faction | null>(null)
   const [shopData, setShopData] = useState<any>(null)
   const [buying, setBuying] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export default function FactionsPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>{message}</button>
+          onClick={() => dismiss()}>{message}</button>
       )}
 
       <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">

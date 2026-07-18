@@ -4,6 +4,7 @@ import logger from "@/lib/logger"
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { useToast } from "@/hooks/useToast"
 
 export default function TopicPage() {
   const params = useParams()
@@ -12,7 +13,7 @@ export default function TopicPage() {
   const [data, setData] = useState<{ topic: any; replies: any[] } | null>(null)
   const [content, setContent] = useState("")
   const [posting, setPosting] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const { toast: message, show: setMessage, dismiss } = useToast()
   const [clanRole, setClanRole] = useState<string | null>(null)
   const [editingTopic, setEditingTopic] = useState(false)
   const [editTitle, setEditTitle] = useState("")
@@ -121,7 +122,7 @@ export default function TopicPage() {
     <>
       {message && (
         <button type="button" className="fixed top-4 right-4 z-50 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm shadow-lg cursor-pointer"
-          onClick={() => setMessage(null)}>{message}</button>
+          onClick={() => dismiss()}>{message}</button>
       )}
 
       <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-4">
