@@ -45,7 +45,7 @@ export default function LeaderboardPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Cargando...</div>
+          <div className="text-center py-12 text-gray-400"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.2s]" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.4s]" /></div></div>
         ) : (
           <div className="space-y-2">
             {heroes.map((h, i) => (

@@ -174,7 +174,7 @@ export default function InventoryPage() {
   const unequipped = items.filter(i => !i.equipped)
   const rarityOrder: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, unique: 4 }
 
-  if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
+  if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.2s]" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.4s]" /></div></div>
 
   return (
     <>

@@ -154,7 +154,7 @@ export default function ArenaPage() {
   const tMaxRound = tournament ? Math.max(0, ...tournament.matches.map(m => m.round)) : 0
   const isParticipant = tournament?.participants.some(p => p.heroId === hero?.id)
 
-  if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
+  if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.2s]" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.4s]" /></div></div>
 
   return (
     <>

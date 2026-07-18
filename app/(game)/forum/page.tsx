@@ -15,7 +15,7 @@ export default function ForumPage() {
     fetch("/api/forum/categories").then(r => r.json()).then(setData).catch(e => logger.error("game", "Failed to fetch data", e))
   }, [])
 
-  if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
+  if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.2s]" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.4s]" /></div></div>
 
   return (
       <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">

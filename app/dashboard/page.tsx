@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import DailyLoginModal from "@/components/game/DailyLoginModal"
+import { DashboardSkeleton } from "@/components/game/Skeleton"
 
 interface HeroData {
   id: string; name: string; level: number; classId: number; raceId: number
@@ -162,7 +163,7 @@ export default function Dashboard() {
     } catch {}
   }
 
-  if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
+  if (!hero) return <div className="min-h-screen bg-gray-950"><DashboardSkeleton /></div>
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
