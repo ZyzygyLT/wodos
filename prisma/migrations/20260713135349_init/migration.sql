@@ -945,19 +945,19 @@ ALTER TABLE "heroes" ADD CONSTRAINT "heroes_userId_fkey" FOREIGN KEY ("userId") 
 ALTER TABLE "hero_skills" ADD CONSTRAINT "hero_skills_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "hero_skills" ADD CONSTRAINT "hero_skills_skillId_fkey" FOREIGN KEY ("skillId") REFERENCES "skills"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hero_skills" ADD CONSTRAINT "hero_skills_skillId_fkey" FOREIGN KEY ("skillId") REFERENCES "skills"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "hero_items" ADD CONSTRAINT "hero_items_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "hero_items" ADD CONSTRAINT "hero_items_itemId_fkey" FOREIGN KEY ("itemId") REFERENCES "items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hero_items" ADD CONSTRAINT "hero_items_itemId_fkey" FOREIGN KEY ("itemId") REFERENCES "items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "hero_materials" ADD CONSTRAINT "hero_materials_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "hero_materials" ADD CONSTRAINT "hero_materials_materialId_fkey" FOREIGN KEY ("materialId") REFERENCES "materials"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hero_materials" ADD CONSTRAINT "hero_materials_materialId_fkey" FOREIGN KEY ("materialId") REFERENCES "materials"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "combat_profiles" ADD CONSTRAINT "combat_profiles_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -969,22 +969,22 @@ ALTER TABLE "dungeon_runs" ADD CONSTRAINT "dungeon_runs_dungeonId_fkey" FOREIGN 
 ALTER TABLE "dungeon_runs" ADD CONSTRAINT "dungeon_runs_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "clan_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "dungeon_runs" ADD CONSTRAINT "dungeon_runs_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "dungeon_runs" ADD CONSTRAINT "dungeon_runs_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bazar_listings" ADD CONSTRAINT "bazar_listings_heroItemId_fkey" FOREIGN KEY ("heroItemId") REFERENCES "hero_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "bazar_listings" ADD CONSTRAINT "bazar_listings_heroItemId_fkey" FOREIGN KEY ("heroItemId") REFERENCES "hero_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bazar_listings" ADD CONSTRAINT "bazar_listings_itemId_fkey" FOREIGN KEY ("itemId") REFERENCES "items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "bazar_listings" ADD CONSTRAINT "bazar_listings_itemId_fkey" FOREIGN KEY ("itemId") REFERENCES "items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bazar_listings" ADD CONSTRAINT "bazar_listings_sellerId_fkey" FOREIGN KEY ("sellerId") REFERENCES "heroes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "bazar_listings" ADD CONSTRAINT "bazar_listings_sellerId_fkey" FOREIGN KEY ("sellerId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bazar_purchases" ADD CONSTRAINT "bazar_purchases_buyerId_fkey" FOREIGN KEY ("buyerId") REFERENCES "heroes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "bazar_purchases" ADD CONSTRAINT "bazar_purchases_buyerId_fkey" FOREIGN KEY ("buyerId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bazar_purchases" ADD CONSTRAINT "bazar_purchases_listingId_fkey" FOREIGN KEY ("listingId") REFERENCES "bazar_listings"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "bazar_purchases" ADD CONSTRAINT "bazar_purchases_listingId_fkey" FOREIGN KEY ("listingId") REFERENCES "bazar_listings"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "clan_members" ADD CONSTRAINT "clan_members_clanId_fkey" FOREIGN KEY ("clanId") REFERENCES "clans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1014,10 +1014,10 @@ ALTER TABLE "group_invites" ADD CONSTRAINT "group_invites_heroId_fkey" FOREIGN K
 ALTER TABLE "clan_upgrades" ADD CONSTRAINT "clan_upgrades_clanId_fkey" FOREIGN KEY ("clanId") REFERENCES "clans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "clan_event_participations" ADD CONSTRAINT "clan_event_participations_clanId_fkey" FOREIGN KEY ("clanId") REFERENCES "clans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "clan_event_participations" ADD CONSTRAINT "clan_event_participations_clanId_fkey" FOREIGN KEY ("clanId") REFERENCES "clans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "clan_event_participations" ADD CONSTRAINT "clan_event_participations_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "weekly_events"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "clan_event_participations" ADD CONSTRAINT "clan_event_participations_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "weekly_events"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "hero_event_participations" ADD CONSTRAINT "hero_event_participations_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1026,19 +1026,19 @@ ALTER TABLE "hero_event_participations" ADD CONSTRAINT "hero_event_participation
 ALTER TABLE "hero_event_participations" ADD CONSTRAINT "hero_event_participations_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "weekly_events"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "tournament_participants" ADD CONSTRAINT "tournament_participants_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tournament_participants" ADD CONSTRAINT "tournament_participants_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "tournament_participants" ADD CONSTRAINT "tournament_participants_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "tournaments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tournament_participants" ADD CONSTRAINT "tournament_participants_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "tournaments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "tournament_matches" ADD CONSTRAINT "tournament_matches_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "tournaments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "tournament_matches" ADD CONSTRAINT "tournament_matches_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "tournaments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "hero_quests" ADD CONSTRAINT "hero_quests_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hero_quests" ADD CONSTRAINT "hero_quests_heroId_fkey" FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "hero_quests" ADD CONSTRAINT "hero_quests_questId_fkey" FOREIGN KEY ("questId") REFERENCES "quests"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "hero_quests" ADD CONSTRAINT "hero_quests_questId_fkey" FOREIGN KEY ("questId") REFERENCES "quests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "hero_achievements" ADD CONSTRAINT "hero_achievements_achievementId_fkey" FOREIGN KEY ("achievementId") REFERENCES "achievements"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1050,13 +1050,13 @@ ALTER TABLE "hero_achievements" ADD CONSTRAINT "hero_achievements_heroId_fkey" F
 ALTER TABLE "forum_categories" ADD CONSTRAINT "forum_categories_clanId_fkey" FOREIGN KEY ("clanId") REFERENCES "clans"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "forum_topics" ADD CONSTRAINT "forum_topics_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "heroes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "forum_topics" ADD CONSTRAINT "forum_topics_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "forum_topics" ADD CONSTRAINT "forum_topics_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "forum_categories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "forum_replies" ADD CONSTRAINT "forum_replies_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "heroes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "forum_replies" ADD CONSTRAINT "forum_replies_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "forum_replies" ADD CONSTRAINT "forum_replies_topicId_fkey" FOREIGN KEY ("topicId") REFERENCES "forum_topics"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1090,3 +1090,12 @@ ALTER TABLE "hero_faction_reps" ADD CONSTRAINT "hero_faction_reps_heroId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "hero_faction_reps" ADD CONSTRAINT "hero_faction_reps_factionId_fkey" FOREIGN KEY ("factionId") REFERENCES "factions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreateIndex
+CREATE INDEX "dungeon_runs_heroId_createdAt_idx" ON "dungeon_runs"("heroId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "hero_quests_heroId_status_idx" ON "hero_quests"("heroId", "status");
+
+-- CreateIndex
+CREATE INDEX "weekly_events_isActive_startsAt_endsAt_idx" ON "weekly_events"("isActive", "startsAt", "endsAt");
