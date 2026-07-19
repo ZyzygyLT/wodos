@@ -101,7 +101,7 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
   }, [showNotif, openMenu])
 
   async function markAllRead() {
-    try { await fetch("/api/notifications", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) }) } catch {}
+    try { await fetch("/api/notifications", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) }) } catch (e) { logger.error('layout', 'Failed to mark notifications read', e) }
     setNotifications(notifications.map((n: any) => ({ ...n, readAt: new Date().toISOString() })))
     setUnreadCount(0)
   }

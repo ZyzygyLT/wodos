@@ -1,4 +1,5 @@
 'use client'
+import logger from "@/lib/logger"
 import { useRouter } from 'next/navigation'
 import type { AttributeDefinition } from '@/generated/prisma'
 
@@ -10,12 +11,12 @@ export default function AttributeList({ attributes }: Readonly<AttributeListProp
   const router = useRouter()
 
   const handleArchive = async (id: string) => {
-    try { await fetch(`/api/attributes/${id}/archive`, { method: 'POST' }) } catch {}
+    try { await fetch(`/api/attributes/${id}/archive`, { method: 'POST' }) } catch (e) { logger.error('attributes', 'Failed to update attribute', e) }
     router.refresh()
   }
 
   const handleReactivate = async (id: string) => {
-    try { await fetch(`/api/attributes/${id}/reactivate`, { method: 'POST' }) } catch {}
+    try { await fetch(`/api/attributes/${id}/reactivate`, { method: 'POST' }) } catch (e) { logger.error('attributes', 'Failed to update attribute', e) }
     router.refresh()
   }
 

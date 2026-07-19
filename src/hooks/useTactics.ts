@@ -78,7 +78,7 @@ export function useTactics() {
         setHeroLevel(data.heroLevel ?? 1)
         setDefenseSkillDetails(data.skills ?? [])
       }
-    } catch {}
+    } catch (e) { logger.error('tactics', 'Failed to load data', e) }
   }, [router])
 
   useEffect(() => { fetchProfiles() }, [fetchProfiles])

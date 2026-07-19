@@ -1,5 +1,6 @@
 "use client"
 
+import logger from "@/lib/logger"
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -63,7 +64,7 @@ export default function Dashboard() {
       if (heroRes.status === 401) return router.push("/login")
       if (heroRes.status === 404) return router.push("/onboarding")
       setHero(await heroRes.json())
-    } catch {}
+    } catch (e) { logger.error('dashboard', 'Failed to load data', e) }
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -131,7 +132,7 @@ export default function Dashboard() {
         setRenamingProfile(null)
         fetchData()
       }
-    } catch {}
+    } catch (e) { logger.error('dashboard', 'Failed to load data', e) }
   }
 
   async function deleteProfile(profileId: string) {
@@ -160,7 +161,7 @@ export default function Dashboard() {
         setNewProfilePosition("front")
         fetchData()
       }
-    } catch {}
+    } catch (e) { logger.error('dashboard', 'Failed to load data', e) }
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950"><DashboardSkeleton /></div>

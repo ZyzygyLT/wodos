@@ -49,7 +49,7 @@ export default function AdminSkillsPage() {
         body: JSON.stringify(editing),
       })
       if (res.ok) { setEditing(null); load() }
-    } catch {}
+    } catch (e) { logger.error('admin-skills', 'Failed to delete skill', e) }
     setSaving(false)
   }
 

@@ -1,5 +1,6 @@
 "use client"
 
+import logger from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -29,7 +30,7 @@ export default function AdventuresPage() {
         const h = await res.json()
         setHistory(h.history ?? [])
       }
-    } catch {}
+    } catch (e) { logger.error('adventures', 'Failed to fetch adventures', e) }
   }
 
   useEffect(() => { fetchAdventures(); fetchHistory() }, [])

@@ -1,5 +1,6 @@
 "use client"
 
+import logger from "@/lib/logger"
 import { useEffect, useState, useCallback } from "react"
 import { useToast } from "@/hooks/useToast"
 
@@ -19,7 +20,7 @@ export default function TournamentPage() {
       if (heroRes.status === 401 || heroRes.status === 404) return
       setHero(await heroRes.json())
       setTournament(await tourRes.json())
-    } catch {}
+    } catch (e) { logger.error('tournament', 'Failed to fetch tournament', e) }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])

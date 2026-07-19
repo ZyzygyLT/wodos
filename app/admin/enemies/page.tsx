@@ -55,7 +55,7 @@ export default function AdminEnemiesPage() {
         body: JSON.stringify(editing),
       })
       if (res.ok) { setEditing(null); load() }
-    } catch {}
+    } catch (e) { logger.error('admin-enemies', 'Failed to delete enemy', e) }
     setSaving(false)
   }
 

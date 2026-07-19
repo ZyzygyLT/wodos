@@ -1,5 +1,6 @@
 "use client"
 
+import logger from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -117,7 +118,7 @@ export default function ActiveAdventurePage() {
         body: JSON.stringify({ heroAdventureId: active.id }),
       })
       router.push("/adventures")
-    } catch {}
+    } catch (e) { logger.error('adventures', 'Failed to fetch active adventure', e) }
   }
 
   if (loading) return <div className="p-6 text-center text-gray-400">Cargando aventura...</div>

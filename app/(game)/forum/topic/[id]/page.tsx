@@ -26,7 +26,7 @@ export default function TopicPage() {
     try {
       const r = await fetch(`/api/forum/topics/${params.id}/replies`)
       if (r.ok) setData(await r.json()); else router.push("/forum")
-    } catch {}
+    } catch (e) { logger.error('forum', 'Failed to fetch topic', e) }
   }
 
   useEffect(() => {

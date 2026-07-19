@@ -1,5 +1,6 @@
 "use client"
 
+import logger from "@/lib/logger"
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -77,14 +78,14 @@ export default function MyGroupsPage() {
     try {
       const res = await fetch(`/api/groups/invites/${inviteId}/accept`, { method: "POST" })
       if (res.ok) fetchData()
-    } catch {}
+    } catch (e) { logger.error('groups', 'Failed to fetch group data', e) }
   }
 
   async function rejectInvite(inviteId: string) {
     try {
       const res = await fetch(`/api/groups/invites/${inviteId}/reject`, { method: "POST" })
       if (res.ok) fetchData()
-    } catch {}
+    } catch (e) { logger.error('groups', 'Failed to fetch group data', e) }
   }
 
   if (loading) {
