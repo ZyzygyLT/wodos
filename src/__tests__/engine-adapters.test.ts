@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toActiveEngineAttributes, toEngineAttributeDefinition, itemStatsToModifiers } from '@/engine/adapters'
+import { toActiveEngineAttributes, toEngineAttributeDefinition, itemStatsToModifiers, equippedItemsToModifiers } from '@/engine/adapters'
 import { applyStatModifiers } from '@/engine/core'
 
 describe('Prisma engine adapters', () => {
@@ -19,6 +19,14 @@ describe('Prisma engine adapters', () => {
       { name: 'Legacy', abbreviation: 'old', minValue: 0, maxValue: 10, archivedAt: new Date('2020-01-01') },
     ]
     expect(toActiveEngineAttributes(attributes).map(attribute => attribute.key)).toEqual(['st'])
+  })
+
+  it('collects modifiers only from equipped inventory rows', () => {
+    const modifiers = equippedItemsToModifiers([
+      { id: 'equipped-1', equipped: true, item: { stats: { strength: 2 } } },
+      { id: 'bag-1', equipped: false, item: { stats: { strength: 99 } } },
+    ])
+    expect(modifiers.map(modifier => modifier.value)).toEqual([2])
   })
 
   it('converts finite item stats into flat modifiers and omits healing fields', () => {
