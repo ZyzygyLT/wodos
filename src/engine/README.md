@@ -70,3 +70,10 @@ Unit tests are added for core contracts and adapter mapping. They must be run in
 ## Pure stat pipeline
 
 `core/stats/stat-pipeline.ts` composes base stats, explicit modifiers (for example equipped items), and modifiers from non-expired effects targeting the requested entity. It returns final values plus a per-stat breakdown and the IDs of applied/expired effects. The pipeline intentionally does not decide effect stacking, duration ticking, caps, or rounding: those are game/domain policies and must be supplied by the calling service. No Prisma or application imports are allowed in this module.
+
+
+## First hero integration seam
+
+`adapters/prisma/hero-stat-adapter.ts` provides a compatibility entry point for already-loaded hero read models: it takes base stats, equipped `HeroItem` rows and optional engine effects, then delegates to the generic pipeline. It does not query Prisma and does not replace `computeDefenseForHero`.
+
+Scope limitation: this first adapter currently reads only `item.stats` from equipped rows. It intentionally does not interpret `statOverrides`, rune slots, `upgradeLevel`, class/race requirements, or combat-profile formulas. Those rules must be mapped explicitly and tested against current Wodos behavior before any production cutover.
