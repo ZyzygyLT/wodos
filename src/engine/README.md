@@ -50,3 +50,17 @@ The engine must never import from `app`, `services`, `generated/prisma`, or infr
 2. Extract equipment and effect aggregation into a pure stat pipeline.
 3. Inject randomness into combat formulas without changing default outcomes.
 4. Extract requirements, domain events, progression, inventory, quests, and AI in separate increments.
+
+## Prisma adapters (compatibility boundary)
+
+The engine must not import generated Prisma types or query the database. The first adapters live in `adapters/prisma` and accept small structural data contracts:
+
+- `toEngineAttributeDefinition` maps persisted `AttributeDefinition` records to the configurable engine catalogue. The current schema has no default-value column, so the adapter uses `minValue` as the compatibility default; callers may provide an explicit default resolver.
+- `toActiveEngineAttributes` excludes archived records before building the active catalogue.
+- `itemStatsToModifiers` converts finite numeric item stats into flat modifiers. Healing keys (`healHp`, `healMp`) are excluded by default because they are consumable effects, not persistent character stats.
+
+These adapters are deliberately one-way and do not change current Prisma models or combat calculations. The next migration should compare old and new stat totals on representative heroes before routing production combat through the engine.
+
+## Validation status
+
+Unit tests are added for core contracts and adapter mapping. They must be run in the repository environment with `npm test -- --run src/__tests__/engine-core.test.ts src/__tests__/engine-adapters.test.ts` and `npx tsc --noEmit` before treating the migration as verified.
