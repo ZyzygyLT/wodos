@@ -18,3 +18,20 @@ export function itemStatsToModifiers(
       source: `item:${itemId}`,
     }))
 }
+
+
+export interface PersistedHeroItem {
+  readonly id: string
+  readonly equipped: boolean
+  readonly item: { readonly stats: Readonly<Record<string, unknown>> | null }
+}
+
+/** Collects modifiers from equipped inventory rows; unequipped items never affect stats. */
+export function equippedItemsToModifiers(
+  items: readonly PersistedHeroItem[] | null | undefined,
+  options: { excludedStats?: readonly string[] } = {}
+): StatModifier[] {
+  return (items ?? [])
+    .filter(heroItem => heroItem.equipped)
+    .flatMap(heroItem => itemStatsToModifiers(heroItem.id, heroItem.item.stats, options))
+}
