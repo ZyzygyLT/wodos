@@ -46,10 +46,11 @@ The engine must never import from `app`, `services`, `generated/prisma`, or infr
 
 ## Next milestones
 
-1. Integrate the current dynamic attribute definitions through an adapter.
-2. Extract equipment and effect aggregation into a pure stat pipeline.
-3. Inject randomness into combat formulas without changing default outcomes.
-4. Extract requirements, domain events, progression, inventory, quests, and AI in separate increments.
+1. Connect the adapters to existing read services while keeping persistence outside the engine.
+2. Compare legacy and engine-derived equipment/stat totals on representative heroes.
+3. Introduce effect aggregation and explicit stacking/expiration policies.
+4. Inject randomness into combat formulas without changing default outcomes.
+5. Extract requirements, domain events, progression, inventory, quests, and AI in separate increments.
 
 ## Prisma adapters (compatibility boundary)
 
