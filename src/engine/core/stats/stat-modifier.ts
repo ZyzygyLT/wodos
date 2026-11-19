@@ -11,8 +11,8 @@ export interface StatModifier {
 }
 
 /**
- * Applies modifiers in deterministic order: ascending priority, then id.
- * Flat modifiers are applied before percentage modifiers, regardless of input order.
+ * Applies flat additions, then percentage points, in deterministic order.
+ * Priority and id provide stable ordering for future non-commutative operations.
  */
 export function applyStatModifiers(baseValue: number, modifiers: readonly StatModifier[]): number {
   const ordered = [...modifiers].sort((a, b) =>
@@ -25,7 +25,7 @@ export function applyStatModifiers(baseValue: number, modifiers: readonly StatMo
     .filter(modifier => modifier.operation === 'percent')
     .reduce((total, modifier) => total + modifier.value, 0)
 
-  return baseValue === 0 ? flat : (baseValue + flat) * (1 + percentage / 100)
+  return (baseValue + flat) * (1 + percentage / 100)
 }
 
 export function modifiersForStat(
