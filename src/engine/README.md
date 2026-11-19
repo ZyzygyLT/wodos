@@ -65,3 +65,8 @@ These adapters are deliberately one-way and do not change current Prisma models 
 ## Validation status
 
 Unit tests are added for core contracts and adapter mapping. They must be run in the repository environment with `npm test -- --run src/__tests__/engine-core.test.ts src/__tests__/engine-adapters.test.ts` and `npx tsc --noEmit` before treating the migration as verified.
+
+
+## Pure stat pipeline
+
+`core/stats/stat-pipeline.ts` composes base stats, explicit modifiers (for example equipped items), and modifiers from non-expired effects targeting the requested entity. It returns final values plus a per-stat breakdown and the IDs of applied/expired effects. The pipeline intentionally does not decide effect stacking, duration ticking, caps, or rounding: those are game/domain policies and must be supplied by the calling service. No Prisma or application imports are allowed in this module.
