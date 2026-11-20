@@ -5,6 +5,8 @@ export type CombatEvent =
   | { readonly type: 'healing_applied'; readonly sourceId: string; readonly targetId: string; readonly healing: number; readonly actionId?: string }
   | { readonly type: 'on_death'; readonly sourceId: string; readonly targetId: string; readonly attackerId?: string }
   | { readonly type: 'on_round_start'; readonly round: number; readonly unitId: string }
+  | { readonly type: 'unit_state_changed'; readonly unitId: string; readonly changes: Readonly<{ hp?: number; mp?: number; condition?: string; defeated?: boolean; statusEffects?: readonly Readonly<{ type: string; remainingRounds: number; value: number; source: string; sourceName: string }>[] }> }
+  | { readonly type: 'combat_state_changed'; readonly changes: Readonly<{ level?: number; round?: number; buffs?: readonly Readonly<{ type: string; value: number; remainingRounds: number | null; sourceName: string; side: string; icon?: string }>[]; cooldowns?: Readonly<Record<string, Readonly<Record<number, number>>>> }> }
 
 export type CombatEventType = CombatEvent['type']
 export type LegacyPassiveTrigger = 'on_damage' | 'on_death' | 'on_round_start'
