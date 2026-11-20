@@ -221,9 +221,9 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2">
             <span className="text-green-400 font-bold text-sm">{hero.hpCurrent ?? "?"}</span>
             <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div className="h-full bg-green-500 rounded-full" style={{ width: `${((hero.hpCurrent ?? 1) / (hero.hpMax ?? 1)) * 100}%` }} />
+              <div className="h-full bg-green-500 rounded-full" style={{ width: `${((hero.hpCurrent ?? 1) / (hero.computedHpMax ?? hero.hpMax ?? 1)) * 100}%` }} />
             </div>
-            <span className="text-gray-500 text-xs">{hero.hpMax ?? "?"}</span>
+            <span className="text-gray-500 text-xs">{hero.computedHpMax ?? hero.hpMax ?? "?"}</span>
           </div>
         </div>
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
@@ -231,9 +231,9 @@ export default function ProfilePage() {
           <div className="flex items-center gap-2">
             <span className="text-blue-400 font-bold text-sm">{hero.mpCurrent ?? "?"}</span>
             <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${((hero.mpCurrent ?? 1) / (hero.mpMax ?? 1)) * 100}%` }} />
+              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${((hero.mpCurrent ?? 1) / (hero.computedMpMax ?? hero.mpMax ?? 1)) * 100}%` }} />
             </div>
-            <span className="text-gray-500 text-xs">{hero.mpMax ?? "?"}</span>
+            <span className="text-gray-500 text-xs">{hero.computedMpMax ?? hero.mpMax ?? "?"}</span>
           </div>
         </div>
       </div>
