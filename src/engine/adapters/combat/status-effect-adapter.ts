@@ -1,6 +1,7 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
 import type { StatModifier } from '../../core/stats/stat-modifier'
+import { applyStatModifiers } from '../../core/stats/stat-modifier'
 import { advanceEffects } from '../../core/effects/effect-lifecycle'
 import { mergeStatusByMaximum } from '../../core/effects/status-stacking'
 import { selectStatusEffectsForPhase } from '../../core/effects/status-timing'
@@ -28,6 +29,22 @@ export function legacyStatusToStatModifiers(status: LegacyCombatStatusEffect): r
     value: status.value,
     source: 'legacy-status',
   }]
+}
+
+/**
+ * Resolves active individual status modifiers for one statistic.
+ * Expired statuses are ignored; party buffs remain a separate combat mechanic.
+ */
+export function applyLegacyStatusStatModifiers(
+  baseValue: number,
+  statuses: readonly LegacyCombatStatusEffect[],
+  stat: string,
+): number {
+  const modifiers = statuses
+    .filter(status => status.remainingRounds > 0)
+    .flatMap(legacyStatusToStatModifiers)
+    .filter(modifier => modifier.stat === stat)
+  return applyStatModifiers(baseValue, modifiers)
 }
 
 interface LegacyStatusMetadata extends Readonly<Record<string, unknown>> {
