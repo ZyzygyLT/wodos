@@ -1078,12 +1078,14 @@ function processAoeTarget(
   const defEff = enemy.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
+  const hpBefore = enemy.hp
   applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName, allHeroUnits, allEnemyUnits, heroUnit, actionId)
+  const appliedDamage = Math.max(0, hpBefore - enemy.hp)
   if (enemy.hp > 0 && !resolved.dodged && dt !== 'physical') {
     applyStatusEffectFromDamage(dt, statusBase, enemy, heroUnit.name, ctx)
   }
   applyCritEffects(critRoll, enemy, finalDmg, ctx, heroUnit.name)
-  applyVampireHeal(heroUnit, finalDmg, ctx)
+  applyVampireHeal(heroUnit, appliedDamage, ctx)
   const tr: TargetResult = {
     targetId: enemy.id, targetName: enemy.name,
     defenseValue: defVal, defenseRoll: defDice, defenseSkill: enemy.defenseSkillNames?.[aCat],
@@ -1182,7 +1184,7 @@ function executeHeroSingleTargetAttack(
   }
 
   applyCritEffects(critRoll, target, finalDmg, ctx, heroUnit.name)
-  applyVampireHeal(heroUnit, finalDmg, ctx)
+  applyVampireHeal(heroUnit, appliedDamage, ctx)
   if (appliedDamage > 0) {
     processPassiveEffects('on_damage', target, allHeroUnits, allEnemyUnits, heroUnit, ctx)
   }
@@ -1329,7 +1331,8 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, enemyUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'enemy').atk, applyLegacyStatusStatModifiers(hero.def ?? 5, hero.statusEffects ?? [], 'defense'), isArmorPen, dt, hero.resistances, groupBuffBonusesForSide(state, 'hero').def)
   const defEff = hero.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random, ctx)
-  const finalDmg = resolved.damage
+  const shield = applyManaShieldAbsorption(hero, state, resolved.damage, ctx)
+  const finalDmg = shield.finalDmg
   applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit, actionId)
   if (hero.hp > 0 && !resolved.dodged && dt !== 'physical') {
     applyStatusEffectFromDamage(dt, enemy.atk, hero, enemyUnit.name, ctx)
@@ -1342,7 +1345,8 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
     resultType: critRoll ? 'critical_success' : 'success',
     damageBreakdown: [{ type: dt, value: finalDmg }],
   }
-  if (resolved.absorbed > 0) tr.absorbed = resolved.absorbed
+  const totalAbsorbed = resolved.absorbed + shield.absorbed
+  if (totalAbsorbed > 0) tr.absorbed = totalAbsorbed
   return tr
 }
 
