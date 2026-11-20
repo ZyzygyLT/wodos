@@ -42,6 +42,7 @@ import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/
 import { advanceSkillCooldowns, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
 import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
+import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -2390,29 +2391,27 @@ export async function runDungeon(
       const roundActions: DetailedAction[] = []
       const totalActors = queue.length
 
-      for (let ai = 0; ai < queue.length; ai++) {
-        const actor = queue[ai]
-        if (allHeroesDead(heroUnits)) break
-        if (enemyUnits.filter(e => e.hp > 0).length === 0) break
-
-        const actorUnit = resolveActorUnit(actor, heroUnits, enemyUnits)
-        if (!actorUnit || actorUnit.hp <= 0) continue
-
-        if (isUnitStunned(actorUnit)) {
+      executeCombatTurnQueue({
+        actors: queue,
+        shouldStop: () => allHeroesDead(heroUnits) || enemyUnits.every(enemy => enemy.hp <= 0),
+        resolveUnit: actor => resolveActorUnit(actor, heroUnits, enemyUnits),
+        isAlive: actorUnit => actorUnit.hp > 0,
+        isDisabled: isUnitStunned,
+        onDisabled: actorUnit => {
           addLog(log, 'condition_change', round, lvl.number, 'combat',
             `${actorUnit.name} está ${actorUnit.statusEffects?.find(se => se.type === 'stun') ? 'aturdido' : 'congelado'} — salta turno`,
             { target: actorUnit.name })
-          continue
-        }
-
-        if (actor.isHero) {
-          const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions, random, roundCtx)
-          if (detail) roundActions.push(detail)
-        } else {
-          const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, totalActors, random, roundCtx)
-          if (detail) roundActions.push(detail)
-        }
-      }
+        },
+        execute: (actorUnit, actor, ai, actorCount) => {
+          if (actor.isHero) {
+            const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, actorCount, roundActions, random, roundCtx)
+            if (detail) roundActions.push(detail)
+          } else {
+            const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, actorCount, random, roundCtx)
+            if (detail) roundActions.push(detail)
+          }
+        },
+      })
 
       totalRounds++
 
