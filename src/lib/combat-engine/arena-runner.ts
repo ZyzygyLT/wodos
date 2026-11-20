@@ -5,13 +5,14 @@ import { buildHeroData } from "@/lib/dungeon-helpers"
 import { computeCombatStats } from "@/lib/combat-report-stats"
 import { mergeHeroAttrs } from "@/lib/dungeon-helpers"
 import { calcDefenseBase, type HeroAttrs } from "@/lib/combat-engine/formulas"
+import { applyInitiativeSkillModifiers } from "@/engine/core/stats/derived-stats"
 
 const DUEL_GOLD_COST = 10
 const DUEL_COOLDOWN_MS = 5 * 60 * 1000
 
 /** Build the arena opponent from the same resolved attributes and equipment as its hero loadout. */
 export function heroDataToArenaOpponent(hero: HeroData, position: string): EnemyData {
-  const attrs = mergeHeroAttrs(hero)
+  const attrs = applyInitiativeSkillModifiers(mergeHeroAttrs(hero), hero.skills.map(skill => skill.effect))
   return {
     id: -1,
     name: hero.name,
