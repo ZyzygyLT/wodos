@@ -46,6 +46,7 @@ export async function GET() {
         type: s.type,
         timing: s.timing,
         tier: s.tier,
+        maxRank: s.maxRank,
         description: s.description,
         effect: s.effect,
         goldCost: s.goldCost,
