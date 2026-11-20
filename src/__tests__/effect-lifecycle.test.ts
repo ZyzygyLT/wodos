@@ -22,6 +22,10 @@ describe('effect lifecycle', () => {
     expect(result.removedEffectIds).toEqual([])
   })
 
+  it('rejects duplicate IDs when stacking independent instances', () => {
+    expect(() => applyEffect([attack('same-id', 2)], attack('same-id', 3))).toThrow('Duplicate effect id')
+  })
+
   it('refreshes the existing instance duration without duplicating its modifiers', () => {
     const first = attack('might-1', 1, 'stack', 5)
     const refresh = attack('might-2', 4, 'refresh', 99)
