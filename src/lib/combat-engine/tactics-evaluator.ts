@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { RandomSource } from '@/engine/core/random/random-source'
+import { buildInitiativeQueue } from '@/engine/core/combat/initiative'
 import { getTargetPositionPriority, selectCombatTarget } from '@/engine/core/skills/target-selection'
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
@@ -232,22 +233,27 @@ export const buildTurnQueue = (
   enemies: CombatUnit[],
   random: RandomSource = { next: () => Math.random() }
 ): TurnActor[] => {
-  const actors: TurnActor[] = []
-
-  for (const hero of heroes) {
-    if (hero.hp > 0) {
-      const base = hero.attrs ? calcInitiativeBase(hero.attrs as any) : 12
-      actors.push({ unit: hero, initiative: rollInitiative(base, random), isHero: true, attrs: hero.attrs })
-    }
-  }
-
-  for (const enemy of enemies) {
-    if (enemy.hp > 0 && !enemy.trap) {
-      actors.push({ unit: enemy, initiative: rollInitiative(10, random), isHero: false })
-    }
-  }
-
-  return actors.sort((a, b) => b.initiative - a.initiative)
+  return buildInitiativeQueue({
+    heroes,
+    enemies,
+    isHeroAlive: hero => hero.hp > 0,
+    isEnemyAlive: enemy => enemy.hp > 0,
+    isEnemyExcluded: enemy => !!enemy.trap,
+    getHeroInitiativeBase: hero => hero.attrs ? calcInitiativeBase(hero.attrs as any) : 12,
+    getEnemyInitiativeBase: () => 10,
+    rollInitiative: base => rollInitiative(base, random),
+    createHeroActor: (hero, initiative): TurnActor => ({
+      unit: hero,
+      initiative,
+      isHero: true,
+      attrs: hero.attrs,
+    }),
+    createEnemyActor: (enemy, initiative): TurnActor => ({
+      unit: enemy,
+      initiative,
+      isHero: false,
+    }),
+  })
 }
 
-import { rollInitiative, calcInitiativeBase, DamageType } from './formulas'
+import { rollInitiative, calcInitiativeBase, type DamageType } from './formulas'
