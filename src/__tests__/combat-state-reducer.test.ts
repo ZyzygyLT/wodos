@@ -49,6 +49,26 @@ describe('combat state reducer', () => {
     })
   })
 
+  it('replaces the active level with a full checkpoint and clones nested state', () => {
+    const initial: CombatStateSnapshot = {
+      schemaVersion: 1, level: 0, round: 0, units: [], buffs: [], cooldowns: {},
+    }
+    const checkpointUnits = [{
+      id: 'hero-1', hp: 75, mp: 22, condition: 'wounded', defeated: false,
+      statusEffects: [{ type: 'poison', remainingRounds: 2, value: 3, source: 'enemy-1', sourceName: 'Poison' }],
+    }]
+    const next = reduceCombatEvent(initial, {
+      type: 'combat_state_changed',
+      changes: { level: 2, round: 1, units: checkpointUnits, buffs: [], cooldowns: {} },
+    })
+    checkpointUnits[0].statusEffects[0].value = 99
+    expect(next).toMatchObject({
+      level: 2, round: 1,
+      units: [{ id: 'hero-1', hp: 75, mp: 22, statusEffects: [{ value: 3 }] }],
+    })
+    expect(initial.units).toEqual([])
+  })
+
   it('keeps semantic-only events as state-neutral observations', () => {
     const initial = fixture()
     const next = reduceCombatEvent(initial, {
