@@ -33,6 +33,7 @@ import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passiv
 import { planPassiveExecution } from '../../engine/core/combat/passive-execution'
 import { CombatEventDispatcher, CombatEventRecorder, type CombatEvent, type CombatEventHandler, type CombatEventJournal } from '../../engine/core/events/combat-events'
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
+import { calculateEffectiveHealing, calculateThornsDamage, resolveManaShield } from '../../engine/core/combat/effect-resolution'
 import { createCombatActionResult, type CombatActionKind, type CombatActionOutcome, type CombatActionTargetResult } from '../../engine/core/combat/action-result'
 import { markUnitDefeated } from '../../engine/core/combat/defeat'
 import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
@@ -1005,7 +1006,7 @@ function executeHeroHealAction(
     return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: `${heroUnit.name} usa ${skillName} — sin objetivo para curar`, mpCost: meta.mpCost })
   }
   const healed = calcHeal(target.maxHp, skill.healPct!)
-  const actual = Math.min(healed, target.maxHp - target.hp)
+  const actual = calculateEffectiveHealing(target.hp, target.maxHp, healed)
   applyHealingWithEvent(target, actual, heroUnit.id, ctx)
   target.condition = getCondition(target.hp, target.maxHp)
   emitUnitStateChanged(ctx, target, { condition: target.condition })
@@ -1466,23 +1467,30 @@ function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | nu
 }
 
 function applyManaShieldAbsorption(target: CombatUnit, state: CombatState, dmg: number, ctx: CombatCtx): { absorbed: number; finalDmg: number } {
-  if (state.manaShield && target.mp > 0 && dmg > 0) {
-    const absorbed = Math.min(target.mp, dmg)
-    target.mp -= absorbed
+  const result = resolveManaShield({
+    enabled: state.manaShield,
+    currentMp: target.mp,
+    incomingDamage: dmg,
+  })
+  if (result.mpRemaining !== target.mp) {
+    target.mp = result.mpRemaining
     emitUnitStateChanged(ctx, target, { mp: target.mp })
-    const finalDmg = dmg - absorbed
-    if (absorbed > 0) {
-      addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat',
-        `🛡️ Escudo de maná absorbe ${absorbed} daño`, { actor: target.name, value: absorbed })
-    }
-    return { absorbed, finalDmg }
   }
-  return { absorbed: 0, finalDmg: dmg }
+  if (result.absorbed > 0) {
+    addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat',
+      `🛡️ Escudo de maná absorbe ${result.absorbed} daño`, { actor: target.name, value: result.absorbed })
+  }
+  return { absorbed: result.absorbed, finalDmg: result.remainingDamage }
 }
 
 function applyThornsReflect(target: CombatUnit, enemyUnit: CombatUnit, finalDmg: number, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
-  if (!target.thornsPct || finalDmg <= 0 || enemyUnit.hp <= 0) return
-  const reflected = Math.max(1, Math.round(finalDmg * target.thornsPct / 100))
+  const reflected = calculateThornsDamage({
+    enabled: !!target.thornsPct,
+    incomingDamage: finalDmg,
+    reflectionPercent: target.thornsPct ?? 0,
+    attackerAlive: enemyUnit.hp > 0,
+  })
+  if (reflected <= 0) return
   applyDamageWithEvent(enemyUnit, reflected, target.id, ctx)
   enemyUnit.condition = getCondition(enemyUnit.hp, enemyUnit.maxHp)
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
