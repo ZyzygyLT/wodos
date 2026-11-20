@@ -407,6 +407,7 @@ interface HeroAoeProcessConfig {
   isArmorPen: boolean
   isCritAuto: boolean
   formula: SkillFormula | undefined
+  statusBase: number
 }
 
 interface EnemyAoeProcessConfig {
@@ -1053,7 +1054,7 @@ function processAoeTarget(
   cfg: HeroAoeProcessConfig,
   ctx: CombatCtx,
 ): TargetResult {
-  const { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula } = cfg
+  const { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula, statusBase } = cfg
   const state = ctx.state!
   const { total: defVal, dice: defDice } = getDefenseValue(enemy, aCat, ctx.random)
   const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
@@ -1078,6 +1079,9 @@ function processAoeTarget(
   const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
   applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName, allHeroUnits, allEnemyUnits, heroUnit, actionId)
+  if (enemy.hp > 0 && !resolved.dodged && dt !== 'physical') {
+    applyStatusEffectFromDamage(dt, statusBase, enemy, heroUnit.name, ctx)
+  }
   applyCritEffects(critRoll, enemy, finalDmg, ctx, heroUnit.name)
   applyVampireHeal(heroUnit, finalDmg, ctx)
   const tr: TargetResult = {
@@ -1097,6 +1101,7 @@ function executeHeroAoeAttack(
   ctx: CombatCtx,
   meta: ActionMeta,
   atkValues: AttackValues,
+  statusBase: number,
   targets: readonly CombatUnit[],
 ): DetailedAction {
   const { skill, skillName, formula } = skillInfo
@@ -1107,7 +1112,7 @@ function executeHeroAoeAttack(
   const actionId = targets.length > 0 ? startAttack(ctx, heroUnit.id, targets.map(target => target.id)) : undefined
   const targetResults: TargetResult[] = []
   for (const enemy of targets) {
-    const aoeCfg: HeroAoeProcessConfig = { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula }
+    const aoeCfg: HeroAoeProcessConfig = { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula, statusBase }
     const tr = processAoeTarget(enemy, heroUnit, aoeCfg, ctx)
     targetResults.push(tr)
   }
@@ -1241,7 +1246,7 @@ function executeHeroAction(
       const resolvedFormula = fResult!
       const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
       const atkValues: AttackValues = { adjAttack, isArmorPen: armorPenetration, isCritAuto: critical }
-      return executeHeroAoeAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, targets)
+      return executeHeroAoeAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, resolvedFormula.base, targets)
     },
     single_attack: (target, armorPenetration, critical) => {
       const resolvedFormula = fResult!
@@ -1326,6 +1331,9 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
   applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit, actionId)
+  if (hero.hp > 0 && !resolved.dodged && dt !== 'physical') {
+    applyStatusEffectFromDamage(dt, enemy.atk, hero, enemyUnit.name, ctx)
+  }
   applyCritEffects(critRoll, hero, finalDmg, ctx, enemyUnit.name)
   const tr: TargetResult = {
     targetId: hero.id, targetName: hero.name,
