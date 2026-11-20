@@ -303,6 +303,8 @@ interface CombatCtx {
   state?: CombatState
   random?: RandomSource
   processedDeaths?: Set<string>
+  events?: CombatEventDispatcher
+  eventSequence?: { value: number }
 }
 
 interface ActionMeta {
@@ -1686,8 +1688,13 @@ function processPassiveEffects(
   const event: CombatEvent = trigger === 'on_round_start'
     ? { type: trigger, unitId: source.id, round: ctx?.round ?? 0 }
     : trigger === 'on_death'
-      ? { type: trigger, sourceId: source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
-      : { type: trigger, sourceId: source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
+      ? { type: trigger, sourceId: attacker?.id ?? source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
+      : { type: trigger, sourceId: attacker?.id ?? source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
+
+  if (ctx?.events) {
+    const sequence = ctx.eventSequence ?? (ctx.eventSequence = { value: 0 })
+    ctx.events.dispatch(event, `combat:${ctx.level}:${ctx.round}:${sequence.value++}`)
+  }
 
   const handler: CombatEventHandler = {
     eventType: trigger,
@@ -2012,6 +2019,7 @@ function runHeroTurn(
   fallbackSkillId: number, ai: number, totalActors: number,
   roundActions: DetailedAction[],
   random: RandomSource,
+  combatCtx: CombatCtx,
 ): DetailedAction | null {
   const heroIndex = heroUnits.indexOf(actorUnit)
   const hero = heroes[heroIndex]
@@ -2024,7 +2032,7 @@ function runHeroTurn(
   let finalAction = resolveCooldownOverride(hero, action, state, actorUnit, log, round, levelNum)
   finalAction = resolveBuffOverride(hero, finalAction, state, actorUnit, log, round, levelNum)
 
-  const detail = executeHeroAction(actorUnit, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { log, round, level: levelNum, state: perHeroState, random }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
+  const detail = executeHeroAction(actorUnit, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { ...combatCtx, state: perHeroState }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
   if (detail) applySkillCooldown(state, actorUnit, hero, finalAction.skillId)
   return detail
 }
@@ -2047,13 +2055,13 @@ function buildPerHeroState(actorUnit: CombatUnit, heroUnits: CombatUnit[], enemy
 function runEnemyTurn(
   actorUnit: CombatUnit, lvl: DungeonLevel, heroUnits: CombatUnit[],
   state: CombatState, log: LogEntry[], round: number, levelNum: number,
-  ai: number, totalActors: number, random: RandomSource
+  ai: number, totalActors: number, random: RandomSource, combatCtx: CombatCtx
 ): DetailedAction | null {
   const enemyIndex = lvl.enemies.findIndex((e: any, i: number) => actorUnit.id === `enemy_${e.id}_${i}`)
   if (enemyIndex < 0) return null
   const enemyData = lvl.enemies[enemyIndex]
   if (!enemyData || actorUnit.hp <= 0) return null
-  return executeEnemyAction(enemyData, actorUnit, heroUnits, { log, round, level: levelNum, state, random }, 0, ai + 1, totalActors)
+  return executeEnemyAction(enemyData, actorUnit, heroUnits, { ...combatCtx, state }, 0, ai + 1, totalActors)
 }
 
 function cloneHeroForSimulation(hero: HeroData): HeroData {
@@ -2107,7 +2115,7 @@ function cloneDungeonForSimulation(dungeon: DungeonData): DungeonData {
 export async function runDungeon(
   inputHeroes: HeroData[],
   inputDungeon: DungeonData,
-  options: { firstOfDay?: boolean; groupBonus?: boolean; clanBonuses?: Record<string, number>; random?: RandomSource } = {}
+  options: { firstOfDay?: boolean; groupBonus?: boolean; clanBonuses?: Record<string, number>; random?: RandomSource; combatEventHandlers?: readonly CombatEventHandler[] } = {}
 ): Promise<RunResult> {
   // Clone mutable inputs, including nested arrays consumed or transformed during a run.
   const heroes = inputHeroes.map(cloneHeroForSimulation)
@@ -2115,6 +2123,8 @@ export async function runDungeon(
   const random = options.random ?? { next: () => Math.random() }
   const clan = options.clanBonuses ?? {}
   const log: LogEntry[] = []
+  const events = new CombatEventDispatcher(options.combatEventHandlers ?? [])
+  const eventSequence = { value: 0 }
   const levelResults: RunResult['levelResults'] = []
   let totalRounds = 0
   let epGained = 0
@@ -2195,7 +2205,7 @@ export async function runDungeon(
       decayBuffs(state)
 
       // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
-      const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths, random }
+      const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths, random, events, eventSequence }
 
       // DoT al inicio de ronda
       for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
@@ -2242,10 +2252,10 @@ export async function runDungeon(
         }
 
         if (actor.isHero) {
-          const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions, random)
+          const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions, random, roundCtx)
           if (detail) roundActions.push(detail)
         } else {
-          const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, totalActors, random)
+          const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, totalActors, random, roundCtx)
           if (detail) roundActions.push(detail)
         }
       }
