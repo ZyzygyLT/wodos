@@ -347,7 +347,7 @@ function applyDamageWithEvent(unit: CombatUnit, amount: number, sourceId: string
   unit.hp = result.currentHp
   if (result.applied > 0) {
     dispatchCombatEvent(ctx, { type: 'on_damage', sourceId, targetId: unit.id, damage: result.applied, ...(actionId ? { actionId } : {}) })
-    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, defeated: result.defeated })
+    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, condition: getCondition(result.currentHp, unit.maxHp), defeated: result.defeated })
   }
   return result.applied
 }
