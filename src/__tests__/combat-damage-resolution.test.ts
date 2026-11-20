@@ -47,6 +47,38 @@ describe('shared damage resolution strategies', () => {
     })
   })
 
+  it('applies the attacker group bonus to enemy fallback damage', () => {
+    const withoutBonus = resolveEnemyFallbackDamage({
+      enemyAttack: 100,
+      skillMultiplier: 1,
+      critical: false,
+      targetDefense: 0,
+      groupDefenseBonus: 0,
+    })
+    const withBonus = resolveEnemyFallbackDamage({
+      enemyAttack: 100,
+      skillMultiplier: 1,
+      critical: false,
+      targetDefense: 0,
+      groupDefenseBonus: 0,
+      groupAttackBonus: 25,
+    })
+
+    expect(withoutBonus.finalDamage).toBe(100)
+    expect(withBonus.rawDamage).toBe(125)
+    expect(withBonus.finalDamage).toBe(125)
+  })
+
+  it('keeps enemy fallback damage unchanged when no attacker group bonus is supplied', () => {
+    expect(resolveEnemyFallbackDamage({
+      enemyAttack: 100,
+      skillMultiplier: 1,
+      critical: false,
+      targetDefense: 0,
+      groupDefenseBonus: 0,
+    }).finalDamage).toBe(100)
+  })
+
   it('retains the legacy minimum of one damage even with full resistance', () => {
     expect(resolveFormulaDamage({
       adjustedBase: 1, groupAttackBonus: 0, targetDefense: 100,
