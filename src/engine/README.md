@@ -291,10 +291,10 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 
 ### Combat event journal and timeline reconstruction
 
-- Every \`runDungeon\` result now includes an additive, JSON-serializable \`eventJournal\` (schema version 1). It records the dispatcher’s actual processing order, not merely the order in which nested handlers enqueue events.
+- Every `runDungeon` result now includes an additive, JSON-serializable `eventJournal` (schema version 1). It records the dispatcher’s actual processing order, not merely the order in which nested handlers enqueue events.
 - Each envelope contains a contiguous 1-based sequence, a unique event ID, and a copied event payload. Explicit IDs retain the dispatcher's duplicate-suppression semantics; events without an explicit ID receive a recorder-local ID.
-- \`CombatEventRecorder\` captures immutable event snapshots without changing handler order or gameplay state. \`validateCombatEventJournal\` checks sequence continuity, duplicate IDs, unique action starts, action references, and target membership.
-- \`reconstructCombatTimeline\` preserves the full ordered stream and additionally groups events by their parent \`actionId\`. This is a diagnostic projection; it does not re-run formulas, random rolls, AI decisions, or mutate combat state.
+- `CombatEventRecorder` captures immutable event snapshots without changing handler order or gameplay state. `validateCombatEventJournal` checks sequence continuity, duplicate IDs, unique action starts, action references, and target membership.
+- `reconstructCombatTimeline` preserves the full ordered stream and additionally groups events by their parent `actionId`. This is a diagnostic projection; it does not re-run formulas, random rolls, AI decisions, or mutate combat state.
 - The journal is deterministic for the same seeded run and is included in replay-result comparison. It is suitable for JSON persistence and later viewer/debugger tooling.
 - Schema version 1 records the current event vocabulary only. It is not yet a command-sourced state snapshot: reconstructing every HP/status/resource value from events alone is not guaranteed because the existing vocabulary does not emit every state mutation. Do not use the journal alone as an authoritative save-game state.
 
