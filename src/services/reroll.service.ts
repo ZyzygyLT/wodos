@@ -69,21 +69,35 @@ export async function processReroll(
 
   const newOverrides = { ...overrides, [statKey]: newValue }
 
-  await db.$transaction([
-    db.heroItem.update({
-      where: { id: hi.id },
-      data: { statOverrides: newOverrides },
-    }),
-    db.hero.update({ where: { id: hero.id }, data: { gold: { decrement: GOLD_COST } } }),
-    db.heroMaterial.update({
-      where: { heroId_materialId: { heroId: hero.id, materialId: ESSENCE_MATERIAL_ID } },
-      data: { quantity: { decrement: 2 } },
-    }),
-    db.heroMaterial.update({
-      where: { heroId_materialId: { heroId: hero.id, materialId: GEM_MATERIAL_ID } },
-      data: { quantity: { decrement: 1 } },
-    }),
-  ])
+  try {
+    await db.$transaction(async tx => {
+      await assertHeroItemNotListed(tx, hi.id, hero.id)
+      await tx.heroItem.update({
+        where: { id: hi.id, heroId: hero.id },
+        data: { statOverrides: newOverrides },
+      })
+      await tx.hero.update({
+        where: { id: hero.id },
+        data: { gold: { decrement: GOLD_COST } },
+      })
+      await tx.heroMaterial.update({
+        where: { heroId_materialId: { heroId: hero.id, materialId: ESSENCE_MATERIAL_ID } },
+        data: { quantity: { decrement: 2 } },
+      })
+      await tx.heroMaterial.update({
+        where: { heroId_materialId: { heroId: hero.id, materialId: GEM_MATERIAL_ID } },
+        data: { quantity: { decrement: 1 } },
+      })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'ITEM_LISTED') {
+      return { ok: false, error: 'No podés cambiar las estadísticas de un objeto mientras esté publicado en el bazar.', status: 409 }
+    }
+    if (error instanceof Error && error.message === 'ITEM_NOT_FOUND') {
+      return { ok: false, error: 'Item no encontrado', status: 404 }
+    }
+    throw error
+  }
 
   updateQuestProgress(hero.id, { type: 'craft_items' }).catch(e => logger.error('reroll', 'Failed to update quest progress for craft_items', e))
   checkAchievements(hero.id, { type: 'craft_items' }).catch(e => logger.error('reroll', 'Failed to check achievements for craft_items', e))
