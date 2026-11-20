@@ -747,7 +747,7 @@ function applyPrelimItem(
   if (!item) return
   if (item.healHp) {
     const actual = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
-    applyHealingWithEvent(heroUnit, actual, heroUnit.id, ctx)
+    heroUnit.hp = applyHpHealing(heroUnit.hp, heroUnit.maxHp, actual).currentHp
     addLog(log, 'heal', 0, level, 'prelim', `${heroUnit.name} usa item_${item.itemId} → recupera ${actual} HP`, { actor: heroUnit.name, skill: `item_${item.itemId}`, value: actual })
   }
   if (item.healMp) {
@@ -870,7 +870,7 @@ function executeHeroItemAction(
   const itemName = `item_${item.itemId}`
   if (item.healHp) {
     const actual = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
-    heroUnit.hp = applyHpHealing(heroUnit.hp, heroUnit.maxHp, actual).currentHp
+    applyHealingWithEvent(heroUnit, actual, heroUnit.id, ctx)
     const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} HP`
     addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
     consumeItem(consumables, itemId)
@@ -1949,12 +1949,12 @@ function decaySkillCooldowns(state: CombatState): void {
   state.skillCooldowns = advanceSkillCooldowns(state.skillCooldowns)
 }
 
-function applyDarknessHeal(enemyUnits: CombatUnit[], state: CombatState, log: LogEntry[], round: number, levelNum: number): void {
+function applyDarknessHeal(enemyUnits: CombatUnit[], state: CombatState, log: LogEntry[], round: number, levelNum: number, ctx: CombatCtx): void {
   if (!state.factionBonuses?.darknessHeal) return
   for (const u of enemyUnits) {
     if (u.hp > 0 && u.faction === 'darkness') {
       const healed = Math.max(1, Math.round(u.maxHp * 0.08))
-      u.hp = applyHpHealing(u.hp, u.maxHp, healed).currentHp
+      applyHealingWithEvent(u, healed, u.id, ctx)
       addLog(log, 'heal', round, levelNum, 'combat',
         `🌑 ${u.name} recupera ${healed} HP (sombra vital)`,
         { target: u.name, value: healed })
@@ -2240,7 +2240,7 @@ export async function runDungeon(
       // ─── Bonificaciones de facción ─────────────────
       applyFactionBonusesWrapper()
 
-      applyDarknessHeal(enemyUnits, state, log, round, lvl.number)
+      applyDarknessHeal(enemyUnits, state, log, round, lvl.number, roundCtx)
 
       // ─── Pasivos de inicio de ronda ─────────────────
       processRoundStartPassives(heroUnits, enemyUnits, roundCtx)
