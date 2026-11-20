@@ -1,4 +1,5 @@
-import { randomIntInclusive, type RandomSource } from '@/engine/core/random/random-source'
+import { type RandomSource } from '@/engine/core/random/random-source'
+import { rollCombatInitiative } from '@/engine/core/combat/initiative'
 import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage } from '@/engine/core'
 import { applySkillDiceMultiplier, evaluateSkillFormula } from '@/engine/core/skills/skill-definition'
 
@@ -122,8 +123,7 @@ export const CRIT_MULTIPLIER = 1.5
  * Iniciativa final con componente aleatoria (+0 a +20).
  * Se recalcula cada ronda — el orden cambia ronda a ronda.
  */
-export const rollInitiative = (base: number, random: RandomSource = { next: () => Math.random() }): number =>
-  base + randomIntInclusive(random, 0, 19)
+export const rollInitiative = rollCombatInitiative
 
 // ─── HEALING ─────────────────────────────────────────────────────────────────
 
