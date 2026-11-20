@@ -33,6 +33,7 @@ import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passiv
 import { dispatchCombatEvent, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
 import { markUnitDefeated } from '../../engine/core/combat/defeat'
+import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -761,21 +762,14 @@ function resolveDefenseEffect(
   damage: number,
   defenseEffect: string | undefined,
 ): { damage: number; absorbed: number; dodged: boolean } {
-  if (!defenseEffect || damage <= 0) return { damage, absorbed: 0, dodged: false }
-  if (defenseEffect === 'dodge') {
-    const dodgeRoll = Math.floor(Math.random() * 6) + 1
-    if (dodgeRoll >= 5) return { damage: 0, absorbed: 0, dodged: true }
-    return { damage, absorbed: 0, dodged: false }
-  }
-  if (defenseEffect === 'block') {
-    return { damage: Math.floor(damage * 0.5), absorbed: 0, dodged: false }
-  }
-  if (defenseEffect === 'barrier') {
-    const absorbed = Math.min(target.mp, damage)
-    target.mp -= absorbed
-    return { damage: damage - absorbed, absorbed, dodged: false }
-  }
-  return { damage, absorbed: 0, dodged: false }
+  const result = resolveIncomingDamage({
+    damage,
+    defense: defenseEffect,
+    currentMp: target.mp,
+    random: { next: () => Math.random() },
+  })
+  target.mp -= result.mpSpent
+  return { damage: result.finalDamage, absorbed: result.absorbedByBarrier, dodged: result.dodged }
 }
 
 function actionResultType(hit: boolean | null, crit: boolean | null): 'failed' | 'success' | 'critical_success' | undefined {
