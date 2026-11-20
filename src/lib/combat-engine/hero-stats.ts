@@ -1,6 +1,6 @@
 import { asEntityId, calculateDefense, calculateStats } from '@/engine/core'
 import { equippedItemsToModifiers, type PersistedHeroItem } from '@/engine/adapters'
-import { evaluateFormula, type SkillFormula } from '@/lib/combat-engine/formulas'
+import type { SkillFormula } from '@/lib/combat-engine/formulas'
 
 export function computeDefenseFromFormula(
   formula: SkillFormula | null | undefined,
