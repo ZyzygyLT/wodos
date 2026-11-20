@@ -268,3 +268,14 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - Legacy status application still preserves Wodos' one-per-type, max-value/max-duration/source-retention rule. Legacy buff application still preserves its source/type/side identity and max-value/max-duration rule. These are not replaced by generic `applyEffect` stacking policies because those policies are not semantically identical.
 - The shared lifecycle owns duration decrement and expiry; combat adapters continue to own legacy application semantics, damage ticks, crowd-control behavior, buff aggregation, logs and combat timing.
 - Tests cover prerequisite evaluation and graph validation, plus status/buff duration advancement, expiry, permanence, metadata preservation and immutability. Test execution and TypeScript validation remain pending.
+
+
+## Combat event dispatch
+
+`core/events/combat-events.ts` defines the engine event vocabulary for attack start/resolution, damage, healing, defeat, and round start. Existing Wodos passive triggers remain explicitly limited to `on_damage`, `on_death`, and `on_round_start`; adding event types does not silently activate new passive catalogue behavior.
+
+- `CombatEventDispatcher` invokes matching handlers synchronously in registration order and queues nested events FIFO, avoiding recursive handler stacks.
+- Explicit event IDs provide opt-in at-most-once dispatch within one dispatcher instance. Events without IDs are never deduplicated, because two identical damage events may be legitimate separate hits.
+- A configurable per-drain event limit stops runaway reactive chains. If a handler throws, pending events are discarded and the error propagates to the caller.
+- The one-shot `dispatchCombatEvent` helper remains available for compatibility. Stateful combat flows should use one dispatcher instance scoped to the desired combat/round lifecycle when they need cross-event deduplication and nested-event control.
+- The event layer is an orchestration contract only. It does not apply damage/healing, mutate units, determine defeat, or decide when the runner emits events. Those call sites remain incremental migration work.
