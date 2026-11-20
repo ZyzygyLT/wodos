@@ -33,6 +33,7 @@ import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passiv
 import { planPassiveExecution } from '../../engine/core/combat/passive-execution'
 import { CombatEventDispatcher, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
+import { createCombatActionResult, type CombatActionKind, type CombatActionOutcome, type CombatActionTargetResult } from '../../engine/core/combat/action-result'
 import { markUnitDefeated } from '../../engine/core/combat/defeat'
 import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
@@ -184,6 +185,7 @@ export interface TargetResult {
 }
 
 export interface DetailedAction {
+  combatResult?: import('../../engine/core/combat/action-result').CombatActionResult
   initiative: number
   actionNumber: number
   totalActions: number
@@ -847,10 +849,42 @@ function makeDetail(o: DetailOptions): DetailedAction {
   const sname = o.skill?.name ?? `skill_${o.skill?.skillId ?? 0}`
   const dt = o.skill?.formula?.damageType ?? 'physical'
   const breakdown: DamageBreakdown[] = o.dmg != null && o.dmg > 0 ? [{ type: dt, value: o.dmg }] : []
+  const skillId = o.skill?.skillId ?? (o.action?.skillId ?? 0)
+  const kind: CombatActionKind = o.itemN ? 'item' : o.hit !== null ? 'attack' : o.healA !== null ? 'heal' : o.buffN ? 'buff' : 'other'
+  const outcome: CombatActionOutcome = o.hit === false ? 'miss' : o.hit === true && o.crit === true ? 'critical' : o.hit === true ? 'hit' : (o.healA !== null || o.buffN) ? 'support' : 'unknown'
+  const targets: CombatActionTargetResult[] = (o.targetResults ?? []).map(result => ({
+    targetId: result.targetId,
+    targetName: result.targetName,
+    outcome: result.resultType === 'failed' ? 'miss' : result.resultType === 'critical_success' ? 'critical' : result.resultType ? 'hit' : 'unknown',
+    ...(result.damageBreakdown ? { damageBreakdown: result.damageBreakdown } : {}),
+    ...(result.absorbed !== undefined ? { absorbed: result.absorbed } : {}),
+    ...(result.statusEffect ? { statusEffect: result.statusEffect } : {}),
+  }))
+  if (targets.length === 0 && o.target?.id) {
+    targets.push({
+      targetId: o.target.id,
+      targetName: o.target.name,
+      outcome,
+      ...(breakdown.length ? { damageBreakdown: breakdown } : {}),
+    })
+  }
+  const combatResult = createCombatActionResult({
+    actorId: o.heroUnit.id,
+    skillId,
+    kind,
+    outcome,
+    targets,
+    ...(breakdown.length ? { damageBreakdown: breakdown } : {}),
+    ...(o.healA !== null ? { healing: { amount: o.healA, resource: o.healT ?? 'hp' } } : {}),
+    ...(o.buffN ? { buff: { name: o.buffN, ...(o.buffV !== null ? { value: o.buffV } : {}) } } : {}),
+    ...(o.itemN ? { itemName: o.itemN } : {}),
+    ...(o.mpCost !== undefined ? { mpCost: o.mpCost } : {}),
+  })
   return {
+    combatResult,
     initiative: o.initiative, actionNumber: o.actionNum, totalActions: o.total,
     actorId: o.heroUnit.id, actorName: o.heroUnit.name, actorIcon: o.heroUnit.icon,
-    skillId: o.skill?.skillId ?? (o.action?.skillId ?? 0),
+    skillId,
     skillName: sname, skillIcon: o.skill?.icon,
     mpCost: o.mpCost,
     targetId: o.target?.id, targetName: o.target?.name,
