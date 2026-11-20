@@ -362,3 +362,12 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - Queue indices and total actor count are preserved, including skipped actors, so legacy action numbering and reporting remain stable. Callback errors propagate; the scheduler does not catch or reinterpret domain failures.
 - The dungeon runner now delegates its actor loop to this scheduler. Wodos-specific initiative rolls and queue construction remain in `lib/combat-engine/tactics-evaluator.ts`; hero/enemy action rules, logs, state mutations and reports remain in the legacy runner.
 - Tests cover queue order, skipped/dead actors, stop conditions, empty queues, error propagation and input immutability. This is an execution-loop extraction, not yet a complete initiative or combat-action extraction.
+
+
+## Initiative and turn queue extraction
+
+- `core/combat/initiative.ts` now owns the generic initiative roll (base + uniform integer bonus 0..19), stable descending ordering, and queue assembly.
+- Queue construction receives explicit callbacks for hero/enemy liveness, enemy exclusion, initiative bases and actor creation. The engine therefore does not import Wodos combat units or encode game-specific trap policy.
+- The Wodos adapter in `lib/combat-engine/tactics-evaluator.ts` preserves the legacy policy: living heroes first (attribute-derived base, or 12 when attributes are absent), then living non-trap enemies (base 10). Hero attributes remain on hero actors; enemy traps and defeated units are excluded.
+- Randomness is injected and consumed in the same sequence as before: eligible heroes in input order, then eligible enemies in input order. The legacy `rollInitiative` export remains as a compatibility alias to the engine implementation.
+- Equal initiative values retain insertion order, and input arrays are not mutated. This phase does not change turn execution, actor action rules, or the dungeon runner's scheduling boundary.
