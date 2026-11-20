@@ -289,6 +289,16 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - The one-shot `dispatchCombatEvent` helper remains available for compatibility. The current dungeon runner routes each existing passive trigger through `CombatEventDispatcher`; it still creates a local dispatcher per trigger because passive execution is synchronous and does not yet emit chained engine events. Stateful combat flows should retain one dispatcher instance across the desired combat/round lifecycle when they need cross-event deduplication and nested-event control.
 - The event layer is an orchestration contract only. It does not apply damage/healing, mutate units, determine defeat, or decide when the runner emits events. Those call sites remain incremental migration work.
 
+### Normalized combat action results
+
+- The engine exports `CombatActionResult`, `CombatActionTargetResult`, and `createCombatActionResult` as a pure, immutable result contract.
+- Every `DetailedAction` produced by the dungeon runner now includes an additive `combatResult` field. Existing report fields remain intact for UI/API compatibility.
+- The normalized result groups actor, skill, action kind/outcome, target-level outcomes, legacy damage breakdowns, absorbed amount, status effect, healing resource/amount, buff metadata, item name, and MP cost where those values exist in the legacy action.
+- Area actions retain one result per target, including mixed hit/miss/critical outcomes. Single-target actions receive a normalized target entry when the legacy report identifies a target.
+- The current `damageBreakdown` values are copied from the legacy report and should not be interpreted as effective HP removed. Effective HP loss remains available through `on_damage` event payloads; absorption is retained separately where the legacy target result exposes it.
+- The result contract deliberately does not invent missing action IDs, source IDs, or targets. Event/action correlation remains represented by the event stream's `actionId`; linking that ID into every legacy report shape is a separate migration step.
+- The new field is additive. Consumers can migrate gradually from legacy `DetailedAction` properties to `combatResult` without changing combat resolution.
+
 ### Dungeon runner event integration
 
 `runDungeon` accepts optional `combatEventHandlers`. One dispatcher is created for the entire dungeon run and shared by round, hero-action, and enemy-action contexts. Handlers observe `on_round_start`, `attack_started`, `attack_resolved`, `on_damage`, `healing_applied`, and `on_death` notifications across the run.
