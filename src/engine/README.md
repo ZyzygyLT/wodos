@@ -121,3 +121,12 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - The resolver is pure: it reports final damage, absorbed damage, dodge state, and MP expenditure without mutating a combat unit.
 - Dodge requires an injected `RandomSource`; the current dungeon runner supplies its existing `Math.random` behavior through an adapter. This preserves runtime behavior while allowing deterministic engine tests and future seeded combat.
 - The dungeon runner delegates its shared defense-reaction path to this resolver. Damage formulas, critical calculations, enemy hit rules, and attack selection are intentionally unchanged in this incremental extraction.
+
+
+### Shared attack hit and critical resolution
+
+- `core/combat/attack-resolution.ts` centralizes the hit threshold (attack total greater than or equal to defense) and Wodos' critical chance (5% + 0.5% per attacker DX, capped at 75%).
+- Critical resolution accepts an injected `RandomSource` and supports explicitly forced critical attacks. Forced criticals do not consume a random value.
+- The legacy `rollCrit` export remains available and delegates to the engine resolver through the existing runtime random source.
+- The dungeon runner now uses the shared hit resolver for hero single-target attacks, hero/enemy area attacks, and enemy formula/fallback hit checks. Hero and enemy critical rolls use the shared critical resolver; automatic critical skills remain guaranteed.
+- This phase deliberately does not merge hero and enemy damage formulas. In particular, the enemy no-formula fallback still rolls its legacy d10 attack bonus, and its damage calculation remains separate. Damage multipliers, armor penetration, resistances, defense dice and status-effect timing are unchanged.
