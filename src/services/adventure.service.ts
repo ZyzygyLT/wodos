@@ -252,27 +252,28 @@ export async function makeChoice(
 }
 
 export async function claimRewards(heroId: string, heroAdventureId: string) {
-  const ha = await db.heroAdventure.findUnique({
-    where: { id: heroAdventureId },
-    include: { adventure: { select: { factionId: true, factionRep: true } } },
-  })
-  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
-  if (ha.status === 'claimed') throw new Error('Recompensas ya reclamadas')
-  if (ha.status === 'active') throw new Error('Aventura no completada')
+  return await db.$transaction(async tx => {
+    // Serialize reward claims for this adventure before reading its current state.
+    await tx.$queryRaw`SELECT id FROM hero_adventures WHERE id = ${heroAdventureId} FOR UPDATE`
+    const ha = await tx.heroAdventure.findUnique({
+      where: { id: heroAdventureId },
+      include: { adventure: { select: { factionId: true, factionRep: true } } },
+    })
+    if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
+    if (ha.status === 'claimed') throw new Error('Recompensas ya reclamadas')
+    if (ha.status === 'active') throw new Error('Aventura no completada')
 
-  const result = ha.result as any
-  const rewards = result?.rewards
-
-  return await db.$transaction(async (tx) => {
+    const result = ha.result as any
+    const rewards = result?.rewards
     if (rewards) {
       const stepRewards = (result?.steps ?? [])
-        .filter((s: any) => s.type === 'reward' && s.rewards)
-        .reduce((acc: any, s: any) => {
-          if (s.rewards.gold) acc.gold = (acc.gold ?? 0) + s.rewards.gold
-          if (s.rewards.ep) acc.ep = (acc.ep ?? 0) + s.rewards.ep
-          if (s.rewards.fame) acc.fame = (acc.fame ?? 0) + s.rewards.fame
-          if (s.rewards.items) acc.items = [...(acc.items ?? []), ...s.rewards.items]
-          if (s.rewards.materials) acc.materials = [...(acc.materials ?? []), ...s.rewards.materials]
+        .filter((step: any) => step.type === 'reward' && step.rewards)
+        .reduce((acc: any, step: any) => {
+          if (step.rewards.gold) acc.gold = (acc.gold ?? 0) + step.rewards.gold
+          if (step.rewards.ep) acc.ep = (acc.ep ?? 0) + step.rewards.ep
+          if (step.rewards.fame) acc.fame = (acc.fame ?? 0) + step.rewards.fame
+          if (step.rewards.items) acc.items = [...(acc.items ?? []), ...step.rewards.items]
+          if (step.rewards.materials) acc.materials = [...(acc.materials ?? []), ...step.rewards.materials]
           return acc
         }, {})
 
@@ -316,10 +317,11 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
       }
     }
 
-    await tx.heroAdventure.update({
-      where: { id: heroAdventureId },
+    const claimed = await tx.heroAdventure.updateMany({
+      where: { id: heroAdventureId, heroId, status: ha.status },
       data: { status: 'claimed' },
     })
+    if (claimed.count !== 1) throw new Error('AVENTURA_CLAIM_STALE')
 
     return { claimed: true, rewards: result?.rewards }
   })
