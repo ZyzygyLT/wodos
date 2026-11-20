@@ -1,6 +1,6 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
-import { advanceEffects } from '../../core/effects/effect-lifecycle'
+import { advanceEffects, applyEffect } from '../../core/effects/effect-lifecycle'
 
 export type LegacyCombatStatusType =
   | 'poison' | 'burn' | 'bleed' | 'stun' | 'freeze'
@@ -71,13 +71,27 @@ export function applyLegacyStatusEffect(
     throw new RangeError('Status duration must be a non-negative safe integer')
   }
   if (!Number.isFinite(incoming.value)) throw new RangeError('Status value must be finite')
-  const index = current.findIndex(effect => effect.type === incoming.type)
-  if (index < 0) return [...current, incoming]
-  return current.map((effect, i) => i === index ? {
-    ...effect,
-    remainingRounds: Math.max(effect.remainingRounds, incoming.remainingRounds),
-    value: Math.max(effect.value, incoming.value),
-  } : effect)
+  const matching = current.find(effect => effect.type === incoming.type)
+  const currentEffects = current.map((status, index) => ({
+    ...legacyStatusToGameEffect('legacy-combat-unit', status),
+    id: `legacy-status:${status.type}:${index}`,
+  }))
+  const incomingEffect = {
+    ...legacyStatusToGameEffect('legacy-combat-unit', incoming),
+    id: `legacy-status:${incoming.type}:incoming`,
+    stacking: 'replace' as const,
+  }
+  const lifecycle = applyEffect(currentEffects, incomingEffect)
+  const merged: LegacyCombatStatusEffect = matching
+    ? {
+        ...matching,
+        remainingRounds: Math.max(matching.remainingRounds, incoming.remainingRounds),
+        value: Math.max(matching.value, incoming.value),
+      }
+    : incoming
+  return lifecycle.effects.map(effect =>
+    effect.id === incomingEffect.id ? merged : gameEffectToLegacyStatus(effect)
+  )
 }
 
 /** Wodos applies poison, burn and bleed damage at round start. */
