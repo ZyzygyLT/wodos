@@ -100,6 +100,8 @@ export async function runArenaDuel(hero1Id: string, hero2Id: string) {
       lootTable: [],
     }
 
+    // Arena fights are simulations: consumables must not provide free healing or be consumed.
+    heroData1.consumables = []
     const result = await runDungeon([heroData1], dungeonData)
     const hero1Alive = result.heroesFinalState.some(h => h.id === heroData1.id && h.hp > 0)
     const h1Won = hero1Alive
