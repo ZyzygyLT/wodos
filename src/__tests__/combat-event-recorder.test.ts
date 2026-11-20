@@ -74,6 +74,29 @@ describe('combat event recorder', () => {
     ])
   })
 
+  it('deep-clones nested state deltas when recording and snapshotting', () => {
+    const recorder = new CombatEventRecorder()
+    const statuses = [{ type: 'poison', remainingRounds: 2, value: 4, source: 'enemy-1', sourceName: 'Poison' }]
+    const buffs = [{ type: 'atk', value: 10, remainingRounds: 2, sourceName: 'Warcry', side: 'hero' }]
+    const dispatcher = new CombatEventDispatcher([], 1000, envelope => recorder.record(envelope))
+    dispatcher.dispatch({ type: 'unit_state_changed', unitId: 'hero-1', changes: { statusEffects: statuses } })
+    dispatcher.dispatch({ type: 'combat_state_changed', changes: { buffs, cooldowns: { 'hero-1': { 7: 2 } } } })
+
+    statuses[0].value = 99
+    buffs[0].value = 99
+    const snapshot = recorder.snapshot()
+    expect(snapshot.events[0].event).toMatchObject({
+      changes: { statusEffects: [{ value: 4 }] },
+    })
+    expect(snapshot.events[1].event).toMatchObject({
+      changes: { buffs: [{ value: 10 }], cooldowns: { 'hero-1': { 7: 2 } } },
+    })
+    ;(snapshot.events[0].event as any).changes.statusEffects[0].value = 55
+    expect(recorder.snapshot().events[0].event).toMatchObject({
+      changes: { statusEffects: [{ value: 4 }] },
+    })
+  })
+
   it('does not expose mutable references to the recorder internal event list', () => {
     const recorder = new CombatEventRecorder()
     const targets = ['enemy-1']
