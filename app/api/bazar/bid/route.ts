@@ -232,7 +232,6 @@ export async function PUT(req: NextRequest) {
       const listing = await tx.bazarListing.findUnique({
         where: { id: listingId },
         include: {
-          purchases: { orderBy: { pricePaid: "desc" }, take: 1 },
           heroItem: { include: { item: true } },
           seller: { select: { userId: true } },
         },
