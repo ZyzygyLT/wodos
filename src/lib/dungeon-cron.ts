@@ -73,6 +73,22 @@ async function processScheduledRun(run: any) {
   const totalHeroes = heroesData.length
   const isGroup = totalHeroes > 1
 
+  // Scheduled runs must enforce the same downed-hero rule as instant runs.
+  // Do this before claiming the run so invalid registrations remain unexecuted.
+  if (heroesData.some(hero => hero.hpCurrent !== undefined && hero.hpCurrent <= 0)) {
+    await db.$transaction(async tx => {
+      await tx.dungeonRun.updateMany({
+        where: { id: run.id, status: 'registered' },
+        data: { status: 'failed', result: 'defeat', executedAt: new Date(), completesAt: new Date() },
+      })
+      await tx.hero.updateMany({
+        where: { id: run.heroId, dungeonRegisteredId: run.id },
+        data: { dungeonRegisteredId: null },
+      })
+    })
+    return
+  }
+
   const clanInfo = await loadClanInfo(allHeroIds[0])
   const clanBonuses = clanInfo?.bonuses ?? {}
   const clanMemberRec = clanInfo?.memberRec ?? null
