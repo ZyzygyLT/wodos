@@ -83,3 +83,11 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - `adapters/combat/status-effect-adapter.ts` maps Wodos' legacy `StatusEffect` shape to/from the neutral `GameEffect` contract without importing the combat runner.
 - The adapter preserves current behavior: one instance per status type and target, refresh by maximum value/duration while retaining original source, poison/burn/bleed damage at round start, stun/freeze turn skipping, and end-of-round duration decay.
 - This is a compatibility boundary, not a combat-runner migration. Existing battle execution remains unchanged until differential integration tests can verify the complete turn sequence.
+
+
+### Legacy group buff compatibility
+
+- `adapters/combat/buff-effect-adapter.ts` maps Wodos' group `BuffEntry` values to neutral `GameEffect` records and back. Group buffs target a combat-side identity because they affect a whole side rather than an individual unit.
+- The adapter preserves the existing identity key (source name + buff type + side), stronger-value replacement, longer finite-duration refresh, and the legacy permanent-to-finite refresh edge case.
+- Finite group buffs tick at the beginning of each round, matching the current runner order. Group ATK/DEF bonuses remain the maximum active value, not a sum.
+- The dungeon runner now delegates buff application, ticking and group-bonus aggregation to this adapter. Passive-effect trigger execution remains in the legacy runner for a later, separately characterized migration.
