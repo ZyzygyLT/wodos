@@ -31,7 +31,7 @@ import {
 
 import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passive-effect-adapter'
 import { planPassiveExecution } from '../../engine/core/combat/passive-execution'
-import { dispatchCombatEvent, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
+import { CombatEventDispatcher, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
 import { markUnitDefeated } from '../../engine/core/combat/defeat'
 import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
@@ -1725,7 +1725,7 @@ function processPassiveEffects(
       }
     },
   }
-  dispatchCombatEvent(event, [handler])
+  new CombatEventDispatcher([handler]).dispatch(event)
 }
 
 /** Processes a unit's transition to defeated exactly once per combat context. */
