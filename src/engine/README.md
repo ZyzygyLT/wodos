@@ -41,7 +41,7 @@ The engine must never import from `app`, `services`, `generated/prisma`, or infr
 - Attribute keys are data, not a hard-coded enum.
 - Unknown attributes are rejected by default; callers can explicitly allow them during controlled migration.
 - Stat modifiers are deterministic: flat additions, then percentage points.
-- Effects describe state; the combat/application layer owns ticking and stacking policy execution.
+- Effects describe state; `core/effects/effect-lifecycle.ts` applies explicit stack/refresh/replace policies, advances finite durations and removes expired effects. The caller chooses when a turn/round advances.
 - Randomness is injected. Seeded randomness is for repeatable simulations, tests, and replay tooling; production callers may provide a secure or runtime-specific source.
 
 ## Prisma adapters (compatibility boundary)
@@ -67,7 +67,7 @@ These adapters are deliberately one-way and do not query Prisma. The dungeon/are
 
 ## Pure stat pipeline
 
-`core/stats/stat-pipeline.ts` composes base stats, explicit modifiers (for example equipped items), and modifiers from non-expired effects targeting the requested entity. It returns final values plus a per-stat breakdown and the IDs of applied/expired effects. The pipeline intentionally does not decide effect stacking, duration ticking, caps, or rounding: those are game/domain policies and must be supplied by the calling service. No Prisma or application imports are allowed in this module.
+`core/stats/stat-pipeline.ts` composes base stats, explicit modifiers (for example equipped items), and modifiers from non-expired effects targeting the requested entity. It returns final values plus a per-stat breakdown and the IDs of applied/expired effects. The pipeline intentionally does not decide effect stacking, duration ticking, caps, or rounding. `core/effects/effect-lifecycle.ts` now provides pure lifecycle operations: `stack` preserves independent instances, `refresh` keeps the existing instance/modifiers and resets its duration, and `replace` removes same-target/same-kind instances before installing the incoming one. Finite durations advance only when the caller explicitly invokes `advanceEffects`; permanent effects remain unchanged. The combat/application layer still decides when to tick and which policy each effect should use. No Prisma or application imports are allowed in this module.
 
 ## First hero integration seam
 
