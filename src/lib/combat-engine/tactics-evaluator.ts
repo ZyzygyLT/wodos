@@ -225,7 +225,8 @@ export const resolveTarget = (
   action: TacticAction,
   state: CombatState,
   actorPosition?: string,
-  skillTags?: string[]
+  skillTags?: string[],
+  random: RandomSource = { next: () => Math.random() }
 ): CombatUnit | null => {
   const aliveEnemies = state.enemies.filter(e => e.hp > 0)
   const aliveAllies = state.allies.filter(a => a.hp > 0)
@@ -238,13 +239,13 @@ export const resolveTarget = (
 
   // Prioritize traps — heroes target them first
   const traps = aliveEnemies.filter(e => e.trap)
-  if (traps.length > 0) return pickByType(traps, action.targetType)
+  if (traps.length > 0) return pickByType(traps, action.targetType, random)
 
   // If targetPos is not 'auto', use exact position filter (legacy behavior)
   if (action.targetPos !== 'auto') {
     const posFiltered = aliveEnemies.filter(e => e.position === action.targetPos)
     const pool = posFiltered.length > 0 ? posFiltered : aliveEnemies
-    return pickByType(pool, action.targetType)
+    return pickByType(pool, action.targetType, random)
   }
 
   // Use position priority when targetPos is 'auto'
