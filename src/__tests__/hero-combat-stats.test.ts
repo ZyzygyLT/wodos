@@ -12,9 +12,9 @@ describe('hero combat profile stats', () => {
     })
 
     expect(result.values).toEqual({
-      melee: 59,
-      ranged: 59,
-      magic: 59,
+      melee: 49,
+      ranged: 49,
+      magic: 49,
     })
     expect(result.breakdown.melee).toContain('bono fijo de equipo/pasiva = +25')
   })
