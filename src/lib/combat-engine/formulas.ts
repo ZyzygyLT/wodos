@@ -1,3 +1,4 @@
+import type { RandomSource } from '@/engine/core/random/random-source'
 import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage } from '@/engine/core'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,7 +48,8 @@ export interface SkillFormula {
 export function evaluateFormula(
   formula: SkillFormula | undefined | null,
   attrs: Record<string, number>,
-  skillRank: number
+  skillRank: number,
+  random: RandomSource = { next: () => Math.random() }
 ): { base: number; diceTotal: number } {
   if (!formula) return { base: 0, diceTotal: 0 }
   let base = formula.flatBonus ?? 0
@@ -60,7 +62,7 @@ export function evaluateFormula(
   const count = formula.diceCount ?? 0
   const sides = formula.diceSides ?? 0
   for (let i = 0; i < count; i++) {
-    diceTotal += Math.floor(Math.random() * Math.max(1, sides)) + 1
+    diceTotal += Math.floor(random.next() * Math.max(1, sides)) + 1
   }
 
   return { base: Math.max(0, base), diceTotal }
@@ -128,8 +130,8 @@ export const calcActualDamage = (
  * Roll de crítico. Base 5%, +0.5% por punto de destreza.
  * Cap de 75%. Crítico aplica ×1.5 al daño calculado.
  */
-export const rollCrit = (attackerDx: number): boolean =>
-  resolveCritical({ attackerDexterity: attackerDx, random: { next: () => Math.random() } }).critical
+export const rollCrit = (attackerDx: number, random: RandomSource = { next: () => Math.random() }): boolean =>
+  resolveCritical({ attackerDexterity: attackerDx, random }).critical
 
 export const CRIT_MULTIPLIER = 1.5
 
@@ -137,8 +139,8 @@ export const CRIT_MULTIPLIER = 1.5
  * Iniciativa final con componente aleatoria (+0 a +20).
  * Se recalcula cada ronda — el orden cambia ronda a ronda.
  */
-export const rollInitiative = (base: number): number =>
-  base + Math.floor(Math.random() * 20)
+export const rollInitiative = (base: number, random: RandomSource = { next: () => Math.random() }): number =>
+  base + Math.floor(random.next() * 20)
 
 // ─── HEALING ─────────────────────────────────────────────────────────────────
 
