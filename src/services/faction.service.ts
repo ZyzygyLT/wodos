@@ -102,7 +102,7 @@ export async function adjustRep(
   reason?: string,
   grantSource?: FactionRepGrantSource,
 ) {
-  let result: { rep: Awaited<ReturnType<typeof db.heroFactionRep.upsert>>; newTitle: string | null; factionName: string | null } | null
+  let result: { rep: Awaited<ReturnType<typeof db.heroFactionRep.upsert>>; newTitle: string | null; factionName: string | null }
 
   try {
     result = await db.$transaction(async tx => {
