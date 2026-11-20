@@ -114,11 +114,14 @@ export const calcActualDamage = (
   damageType: DamageType = 'physical',
   resistances: Partial<Record<DamageType, number>> = {},
 ): number => {
-  const effectiveDef = armorPen ? Math.floor(targetDef * 0.3) : targetDef
-  const raw = adjustedBase * (1 + groupAtkBonus / 100)
-  const afterDef = Math.max(1, Math.round(raw - effectiveDef * 0.8))
-  const resistPct = (resistances[damageType] ?? 0) / 100
-  return Math.max(1, Math.round(afterDef * (1 - resistPct)))
+  return resolveFormulaDamage({
+    adjustedBase,
+    groupAttackBonus: groupAtkBonus,
+    targetDefense: targetDef,
+    armorPenetration: armorPen,
+    damageType,
+    resistances,
+  }).finalDamage
 }
 
 /**
