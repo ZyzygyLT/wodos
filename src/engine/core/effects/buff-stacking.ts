@@ -35,10 +35,10 @@ export function mergeBuffByMaximum<T extends BuffStackingEntry>(
         ...matching,
         value: incoming.value,
         remainingRounds: incoming.remainingRounds,
-      }
+      } as T
     } else if (incoming.remainingRounds !== null &&
       (matching.remainingRounds === null || matching.remainingRounds < incoming.remainingRounds)) {
-      merged = { ...matching, remainingRounds: incoming.remainingRounds }
+      merged = { ...matching, remainingRounds: incoming.remainingRounds } as T
     }
   }
 
