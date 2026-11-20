@@ -214,6 +214,48 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Effective defense and resistances */}
+      {(hero.computedDefense || hero.computedResistances) && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+          <h3 className="font-bold text-sm mb-3">🛡️ Defensa y resistencias</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(hero.computedDefense ?? {}).map(([category, value]) => (
+              <div key={category} className="bg-gray-800 rounded-lg p-2 text-center">
+                <p className="text-[10px] text-gray-500 uppercase">{category === "melee" ? "Cuerpo a cuerpo" : category === "ranged" ? "A distancia" : "Magia"}</p>
+                <p className="text-sm font-bold text-amber-400">{String(value)}</p>
+              </div>
+            ))}
+          </div>
+          {Object.keys(hero.computedResistances ?? {}).length > 0 && (
+            <div className="mt-3 border-t border-gray-800 pt-3">
+              <p className="text-[10px] text-gray-500 mb-2 uppercase">Reducción por armadura / resistencia</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(hero.computedResistances).map(([type, value]) => (
+                  <span key={type} className="rounded-md bg-gray-800 px-2 py-1 text-xs text-cyan-300">
+                    {type}: +{String(value)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {hero.computedDefenseBreakdown && (
+            <details className="mt-3 border-t border-gray-800 pt-3">
+              <summary className="cursor-pointer text-xs text-gray-400">Ver desglose de defensa</summary>
+              <div className="mt-2 grid gap-2">
+                {Object.entries(hero.computedDefenseBreakdown).map(([category, lines]: [string, any]) => (
+                  <div key={category}>
+                    <p className="text-xs font-semibold text-gray-300 capitalize">{category}</p>
+                    {(lines as string[]).map((line, index) => (
+                      <p key={index} className="text-[10px] text-gray-500">{line}</p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
       {/* HP/MP + Arena */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
