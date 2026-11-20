@@ -120,9 +120,13 @@ export async function POST(req: NextRequest) {
       const walletIds = [...new Set([buyerId, listing.sellerId, ...(previousBid ? [previousBid.buyerId] : [])])].sort()
       await tx.$queryRaw`SELECT id FROM heroes WHERE id = ANY(${walletIds}::text[]) ORDER BY id FOR UPDATE`
 
+      const autoSold = listing.buyNowPrice !== null && bidAmount >= listing.buyNowPrice
+      // A bid that reaches or exceeds buy-now settles at the advertised buy-now
+      // price, never at an arbitrary amount supplied above that threshold.
+      const acceptedBidAmount = autoSold ? listing.buyNowPrice! : bidAmount
       const charge = previousBid?.buyerId === buyerId
-        ? bidAmount - previousBid.pricePaid
-        : bidAmount
+        ? acceptedBidAmount - previousBid.pricePaid
+        : acceptedBidAmount
 
       if (previousBid && previousBid.buyerId !== buyerId) {
         await tx.hero.update({
@@ -142,10 +146,9 @@ export async function POST(req: NextRequest) {
       }
 
       await tx.bazarPurchase.create({
-        data: { listingId: listing.id, buyerId, pricePaid: bidAmount, cycle: listing.cycle },
+        data: { listingId: listing.id, buyerId, pricePaid: acceptedBidAmount, cycle: listing.cycle },
       })
 
-      const autoSold = listing.buyNowPrice !== null && bidAmount >= listing.buyNowPrice
       if (autoSold) {
         const itemTransfer = await tx.heroItem.updateMany({
           where: { id: listing.heroItemId, heroId: listing.sellerId },
@@ -155,7 +158,7 @@ export async function POST(req: NextRequest) {
 
         await tx.hero.update({
           where: { id: listing.sellerId },
-          data: { gold: { increment: bidAmount } },
+          data: { gold: { increment: acceptedBidAmount } },
         })
 
         const closed = await tx.bazarListing.updateMany({
@@ -167,7 +170,7 @@ export async function POST(req: NextRequest) {
 
       return {
         success: true,
-        pricePaid: bidAmount,
+        pricePaid: acceptedBidAmount,
         itemName: listing.heroItem.item.name,
         sellerId: listing.sellerId,
         buyerId,
