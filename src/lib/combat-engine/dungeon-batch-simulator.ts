@@ -138,7 +138,6 @@ export async function simulateDungeonBatch(
       random: createSeededRandom(seed),
     })
 
-    const runHeroIds = new Set(result.heroesFinalState.map(hero => hero.id))
     const actions = collectActions(result)
     let runHeroDamage = 0
     let runEnemyDamage = 0
@@ -197,10 +196,6 @@ export async function simulateDungeonBatch(
     }
 
     const deaths = result.log.filter(entry => entry.type === 'death').length
-    const heroDeaths = result.log.filter(entry =>
-      entry.type === 'death' && entry.targetId !== undefined && runHeroIds.has(entry.targetId),
-    ).length
-
     wins += result.victory ? 1 : 0
     totalRounds += result.totalRounds
     totalLevelsCleared += result.levelsCleared
@@ -218,9 +213,6 @@ export async function simulateDungeonBatch(
       deaths,
     })
 
-    // Keep the final-state IDs referenced in the analysis contract explicit:
-    // death classification is based on the original party, not surviving units.
-    void heroDeaths
   }
 
   const count = options.iterations
