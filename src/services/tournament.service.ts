@@ -71,71 +71,111 @@ async function executeSingleMatch(tournamentId: string, match: any) {
   const hero1Id = match.hero1Id!
   const hero2Id = match.hero2Id!
 
-  const [h1, h2] = await Promise.all([
-    fetchHeroForTournament(hero1Id),
-    fetchHeroForTournament(hero2Id),
-  ])
-  if (!h1 || !h2) return
+  const outcome = await db.$transaction(async tx => {
+    // The match row is the idempotency lock: a second scheduler waits and then
+    // observes the committed winner instead of simulating the same fight again.
+    await tx.$queryRaw`SELECT "id" FROM "tournament_matches" WHERE "id" = ${match.id} FOR UPDATE`
+    const currentMatch = await tx.tournamentMatch.findUnique({ where: { id: match.id } })
+    if (!currentMatch || currentMatch.tournamentId !== tournamentId || currentMatch.winnerId) return null
+    if (currentMatch.hero1Id !== hero1Id || currentMatch.hero2Id !== hero2Id) return null
 
-  const profile1 = h1.combatProfiles.find((p: any) => p.dungeonLevel === null) ?? h1.combatProfiles[0]
-  const profile2 = h2.combatProfiles.find((p: any) => p.dungeonLevel === null) ?? h2.combatProfiles[0]
-  const heroData1 = await buildHeroData(h1, profile1)
-  const heroData2 = await buildHeroData(h2, profile2)
+    // Lock both heroes in a stable order to serialize against arena and resource operations.
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" IN (${hero1Id}, ${hero2Id}) ORDER BY "id" FOR UPDATE`
+    const [h1, h2] = await Promise.all([
+      tx.hero.findUnique({
+        where: { id: hero1Id },
+        include: {
+          class: true,
+          skills: { include: { skill: true } },
+          combatProfiles: { orderBy: { createdAt: 'asc' } },
+          items: { include: { item: true } },
+        },
+      }),
+      tx.hero.findUnique({
+        where: { id: hero2Id },
+        include: {
+          class: true,
+          skills: { include: { skill: true } },
+          combatProfiles: { orderBy: { createdAt: 'asc' } },
+          items: { include: { item: true } },
+        },
+      }),
+    ])
+    if (!h1 || !h2) return null
 
-  // Convert hero2 to EnemyData so they actually fight each other
-  const h2Attrs = h2.attrs as Record<string, number>
-  const hero2AsEnemy = {
-    id: -2,
-    name: heroData2.name,
-    icon: '⚔️',
-    hp: heroData2.hpMax,
-    mp: heroData2.mpMax,
-    atk: (h2Attrs.fuerza ?? 10) + (h2Attrs.agilidad ?? 5),
-    def: (h2Attrs.resistencia ?? 10) + (h2Attrs.agilidad ?? 5),
-    dx: h2Attrs.agilidad ?? 10,
-    ag: h2Attrs.agilidad ?? 10,
-    level: heroData2.level,
-    position: profile2?.position ?? 'front',
-    skills: heroData2.skills.map(s => ({
-      skillId: s.skillId,
-      name: s.name ?? `skill_${s.skillId}`,
-      icon: s.icon ?? '⚔️',
-      effect: s.effect,
-      multiplier: s.multiplier,
-      manaCost: s.manaCost,
-      cooldownRounds: s.cooldownRounds,
-      formula: s.formula,
-    })),
-  }
+    const profile1 = h1.combatProfiles.find((p: any) => p.dungeonLevel === null) ?? h1.combatProfiles[0]
+    const profile2 = h2.combatProfiles.find((p: any) => p.dungeonLevel === null) ?? h2.combatProfiles[0]
+    const heroData1 = await buildHeroData(h1, profile1)
+    const heroData2 = await buildHeroData(h2, profile2)
 
-  const dungeonData: DungeonData = {
-    id: -2, name: 'Torneo',
-    levels: [{ number: 1, enemies: [hero2AsEnemy as any], epReward: 0, goldReward: 0 }],
-    epReward: 0, goldReward: 0, fameReward: 0, lootTable: [],
-  }
+    const h2Attrs = h2.attrs as Record<string, number>
+    const hero2AsEnemy = {
+      id: -2,
+      name: heroData2.name,
+      icon: '⚔️',
+      hp: heroData2.hpMax,
+      mp: heroData2.mpMax,
+      atk: (h2Attrs.fuerza ?? 10) + (h2Attrs.agilidad ?? 5),
+      def: (h2Attrs.resistencia ?? 10) + (h2Attrs.agilidad ?? 5),
+      dx: h2Attrs.agilidad ?? 10,
+      ag: h2Attrs.agilidad ?? 10,
+      level: heroData2.level,
+      position: profile2?.position ?? 'front',
+      skills: heroData2.skills.map(s => ({
+        skillId: s.skillId,
+        name: s.name ?? `skill_${s.skillId}`,
+        icon: s.icon ?? '⚔️',
+        effect: s.effect,
+        multiplier: s.multiplier,
+        manaCost: s.manaCost,
+        cooldownRounds: s.cooldownRounds,
+        formula: s.formula,
+      })),
+    }
 
-  const result = await runDungeon([heroData1], dungeonData)
-  const hero1Alive = result.heroesFinalState.some((h: any) => h.id === heroData1.id && h.hp > 0)
-  const winnerId = hero1Alive ? hero1Id : hero2Id
-  const loserId = result.victory ? hero2Id : hero1Id
+    const dungeonData: DungeonData = {
+      id: -2,
+      name: 'Torneo',
+      levels: [{ number: 1, enemies: [hero2AsEnemy as any], epReward: 0, goldReward: 0 }],
+      epReward: 0,
+      goldReward: 0,
+      fameReward: 0,
+      lootTable: [],
+    }
 
-  await db.$transaction([
-    db.tournamentMatch.update({
-      where: { id: match.id },
-      data: { winnerId, log: result.log.slice(-10).map((l: any) => l.message) },
-    }),
-    db.tournamentParticipant.update({
-      where: { tournamentId_heroId: { tournamentId, heroId: loserId } },
+    const result = await runDungeon([heroData1], dungeonData)
+    const hero1Alive = result.heroesFinalState.some((h: any) => h.id === heroData1.id && h.hp > 0)
+    const winnerId = hero1Alive ? hero1Id : hero2Id
+    const loserId = winnerId === hero1Id ? hero2Id : hero1Id
+
+    const updated = await tx.tournamentMatch.updateMany({
+      where: { id: match.id, winnerId: null },
+      data: { winnerId, log: result.log.slice(-10).map((l: any) => l.message), playedAt: new Date() },
+    })
+    if (updated.count !== 1) return null
+
+    await tx.tournamentParticipant.updateMany({
+      where: { tournamentId, heroId: loserId, eliminated: false },
       data: { eliminated: true },
-    }),
-  ])
+    })
 
-  const h1Name = h1.name
-  const h2Name = h2.name
-  notify({ heroId: hero1Id, type: 'tournament_match', title: '⚔️ Combate en torneo', body: `${h1Name} vs ${h2Name}: ${result.victory ? 'Victoria' : 'Derrota'}` }).catch(e => logger.error("tournament", "Background operation failed", e))
-  if (loserId !== hero1Id) {
-    notify({ heroId: loserId, type: 'tournament_match', title: '⚔️ Combate en torneo', body: `${h1Name} vs ${h2Name}: Derrota` }).catch(e => logger.error("tournament", "Background operation failed", e))
-  }
+    return { winnerId, loserId, h1Name: h1.name, h2Name: h2.name, hero1Won: winnerId === hero1Id }
+  }, { maxWait: 10_000, timeout: 30_000 })
+
+  if (!outcome) return
+
+  notify({
+    heroId: hero1Id,
+    type: 'tournament_match',
+    title: '⚔️ Combate en torneo',
+    body: `${outcome.h1Name} vs ${outcome.h2Name}: ${outcome.hero1Won ? 'Victoria' : 'Derrota'}`,
+  }).catch(e => logger.error("tournament", "Background operation failed", e))
+  notify({
+    heroId: hero2Id,
+    type: 'tournament_match',
+    title: '⚔️ Combate en torneo',
+    body: `${outcome.h1Name} vs ${outcome.h2Name}: ${outcome.hero1Won ? 'Derrota' : 'Victoria'}`,
+  }).catch(e => logger.error("tournament", "Background operation failed", e))
 }
 
 async function handleTournamentCompletion(tournament: any) {
