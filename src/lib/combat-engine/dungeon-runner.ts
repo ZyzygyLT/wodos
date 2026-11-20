@@ -1431,6 +1431,7 @@ function executeEnemyAction(
       : enemy.ai?.type === 'strongest'
         ? 'strongest' as const
         : 'random' as const,
+    globalTargeting: true,
   }
   const executionInput = {
     skill: executionSkill,
