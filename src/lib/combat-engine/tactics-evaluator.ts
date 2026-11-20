@@ -3,7 +3,8 @@
 // lib/combat-engine/tactics-evaluator.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { randomIntInclusive, type RandomSource } from '@/engine/core/random/random-source'
+import type { RandomSource } from '@/engine/core/random/random-source'
+import { getTargetPositionPriority, selectCombatTarget } from '@/engine/core/skills/target-selection'
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 
@@ -116,42 +117,7 @@ export interface CombatState {
 // ─── POSITION PRIORITY TABLE ──────────────────────────────────────────────
 
 export function getPositionPriority(attackerPosition: string, isRanged: boolean): string[] {
-  const base: Record<string, string[][]> = {
-    front: [
-      ['front', 'center', 'rear', 'left_flank', 'right_flank'],
-    ],
-    left_flank: [
-      ['left_flank', 'right_flank', 'front', 'center', 'rear'],
-    ],
-    right_flank: [
-      ['left_flank', 'right_flank', 'front', 'center', 'rear'],
-    ],
-    center: [
-      ['center', 'rear', 'front', 'left_flank', 'right_flank'],
-      ['front', 'center', 'rear', 'left_flank', 'right_flank'],
-    ],
-    rear: [
-      ['rear', 'center', 'front', 'left_flank', 'right_flank'],
-      ['front', 'center', 'rear', 'left_flank', 'right_flank'],
-    ],
-  }
-
-  const variants = base[attackerPosition]
-  if (!variants) return ['front', 'center', 'rear', 'left_flank', 'right_flank']
-
-  // Index 0 = ranged/magic, index 1 = melee/CC
-  let idx: number
-  if (attackerPosition === 'center' || attackerPosition === 'rear') {
-    idx = isRanged ? 0 : 1
-  } else {
-    idx = 0
-  }
-  return variants[idx] ?? variants[0]
-}
-
-function isRangedAttack(tags?: string[]): boolean {
-  if (!tags || tags.length === 0) return false
-  return tags.includes('magic') || tags.includes('ranged')
+  return getTargetPositionPriority(attackerPosition, isRanged)
 }
 
 // ─── EVALUADOR ───────────────────────────────────────────────────────────────
@@ -230,54 +196,18 @@ export const resolveTarget = (
   skillTags?: string[],
   random: RandomSource = { next: () => Math.random() }
 ): CombatUnit | null => {
-  const aliveEnemies = state.enemies.filter(e => e.hp > 0)
-  const aliveAllies = state.allies.filter(a => a.hp > 0)
-
-  if (action.targetType === 'most_injured_ally') {
-    return getMostInjured([state.hero, ...aliveAllies])
-  }
-
-  if (aliveEnemies.length === 0) return null
-
-  // Prioritize traps — heroes target them first
-  const traps = aliveEnemies.filter(e => e.trap)
-  if (traps.length > 0) return pickByType(traps, action.targetType, random)
-
-  // If targetPos is not 'auto', use exact position filter (legacy behavior)
-  if (action.targetPos !== 'auto') {
-    const posFiltered = aliveEnemies.filter(e => e.position === action.targetPos)
-    const pool = posFiltered.length > 0 ? posFiltered : aliveEnemies
-    return pickByType(pool, action.targetType, random)
-  }
-
-  // Use position priority when targetPos is 'auto'
-  const pos = actorPosition ?? state.hero.position
-  const ranged = isRangedAttack(skillTags)
-  const priority = getPositionPriority(pos, ranged)
-
-  for (const p of priority) {
-    const matches = aliveEnemies.filter(e => e.position === p)
-    if (matches.length > 0) {
-      return pickByType(matches, action.targetType, random)
-    }
-  }
-
-  // Fallback: any alive enemy
-  return pickByType(aliveEnemies, action.targetType, random)
-}
-
-function pickByType(pool: CombatUnit[], targetType: string, random: RandomSource = { next: () => Math.random() }): CombatUnit | null {
-  switch (targetType) {
-    case 'weakest':
-    case 'auto':
-      return getWeakest(pool)
-    case 'strongest':
-      return getStrongest(pool)
-    case 'random':
-      return pool[randomIntInclusive(random, 0, pool.length - 1)] ?? null
-    default:
-      return getWeakest(pool)
-  }
+  const actor = actorPosition
+    ? { ...state.hero, position: actorPosition }
+    : state.hero
+  return selectCombatTarget({
+    actor,
+    allies: state.allies,
+    enemies: state.enemies,
+    targetPosition: action.targetPos,
+    targetType: action.targetType,
+    skillTags,
+    random,
+  }).target
 }
 
 // ─── UTILIDADES ──────────────────────────────────────────────────────────────
