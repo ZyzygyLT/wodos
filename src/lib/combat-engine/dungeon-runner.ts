@@ -305,6 +305,7 @@ interface CombatCtx {
   processedDeaths?: Set<string>
   events?: CombatEventDispatcher
   eventSequence?: { value: number }
+  actionSequence?: { value: number }
 }
 
 
@@ -312,6 +313,24 @@ function dispatchCombatEvent(ctx: CombatCtx, event: CombatEvent): void {
   if (!ctx.events) return
   const sequence = ctx.eventSequence ?? (ctx.eventSequence = { value: 0 })
   ctx.events.dispatch(event, `combat:${ctx.level}:${ctx.round}:${sequence.value++}`)
+}
+
+function startAttack(ctx: CombatCtx, actorId: string, targetIds: readonly string[]): string {
+  const sequence = ctx.actionSequence ?? (ctx.actionSequence = { value: 0 })
+  const actionId = `action:${ctx.level}:${ctx.round}:${sequence.value++}`
+  dispatchCombatEvent(ctx, { type: 'attack_started', actorId, targetIds: [...targetIds], actionId })
+  return actionId
+}
+
+function resolveAttackEvent(ctx: CombatCtx, actorId: string, targetId: string, hit: boolean, critical?: boolean, actionId?: string): void {
+  dispatchCombatEvent(ctx, {
+    type: 'attack_resolved',
+    actorId,
+    targetIds: [targetId],
+    hit,
+    ...(critical === undefined ? {} : { critical }),
+    ...(actionId ? { actionId } : {}),
+  })
 }
 
 function applyDamageWithEvent(unit: CombatUnit, amount: number, sourceId: string, ctx: CombatCtx): number {
@@ -359,6 +378,7 @@ interface AttackValues {
 }
 
 interface HeroAoeProcessConfig {
+  actionId?: string
   skill: HeroSkill
   skillName: string
   aCat: string
@@ -370,6 +390,7 @@ interface HeroAoeProcessConfig {
 }
 
 interface EnemyAoeProcessConfig {
+  actionId?: string
   chosenSkill: EnemySkillRef | null
   skillName: string
   aCat: string
@@ -959,11 +980,12 @@ function processAoeTarget(
   cfg: HeroAoeProcessConfig,
   ctx: CombatCtx,
 ): TargetResult {
-  const { skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula } = cfg
+  const { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula } = cfg
   const state = ctx.state!
   const { total: defVal, dice: defDice } = getDefenseValue(enemy, aCat, ctx.random)
   const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
+    resolveAttackEvent(ctx, heroUnit.id, enemy.id, false, undefined, actionId)
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat',
       `${heroUnit.name} usa ${skillName} → fallo (${enemy.name})`,
       { actor: heroUnit.name, target: enemy.name, skill: skillName })
@@ -975,6 +997,7 @@ function processAoeTarget(
     }
   }
   const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: ctx.random ?? { next: () => Math.random() } }).critical
+  resolveAttackEvent(ctx, heroUnit.id, enemy.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, enemy.def ?? 5, isArmorPen, dt, enemy.resistances)
@@ -1008,9 +1031,10 @@ function executeHeroAoeAttack(
   const state = ctx.state!
   const atkTotal = adjAttack
   const aCat = inferAttackCategory(skill, heroUnit.position)
+  const actionId = targets.length > 0 ? startAttack(ctx, heroUnit.id, targets.map(target => target.id)) : undefined
   const targetResults: TargetResult[] = []
   for (const enemy of targets) {
-    const aoeCfg: HeroAoeProcessConfig = { skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula }
+    const aoeCfg: HeroAoeProcessConfig = { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula }
     const tr = processAoeTarget(enemy, heroUnit, aoeCfg, ctx)
     targetResults.push(tr)
   }
@@ -1048,18 +1072,21 @@ function executeHeroSingleTargetAttack(
   const allEnemyUnits = extraUnits?.allEnemyUnits ?? state.enemies
   const target = resolvedTarget
   if (!target) return null
+  const actionId = startAttack(ctx, heroUnit.id, [target.id])
 
   const aCat = inferAttackCategory(skill, heroUnit.position)
   const atkTotal = adjAttack
   const { total: defVal, dice: defDice } = getDefenseValue(target, aCat, ctx.random)
   const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
+    resolveAttackEvent(ctx, heroUnit.id, target.id, false, undefined, actionId)
     const msg = `${heroUnit.name} usa ${skillName} → fallo`
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, target: target.name, skill: skillName })
     return makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: false, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: target.defenseEffects?.[aCat], defEquip: target.armorName, msg, rollBase: fResult!.base, rollDice: fResult!.diceTotal, attackTotal: atkTotal, mpCost: meta.mpCost })
   }
 
   const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: ctx.random ?? { next: () => Math.random() } }).critical
+  resolveAttackEvent(ctx, heroUnit.id, target.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, target.def ?? 5, isArmorPen, dt, target.resistances)
@@ -1204,11 +1231,12 @@ function executeEnemyHealEffect(enemy: EnemyData, enemyUnit: CombatUnit, target:
 }
 
 function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: CombatUnit, cfg: EnemyAoeProcessConfig, ctx: CombatCtx): TargetResult {
-  const { chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen } = cfg
+  const { actionId, chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen } = cfg
   const state = ctx.state!
   const { total: defVal, dice: defDice } = getDefenseValue(hero, aCat, ctx.random)
   const hit = defVal <= atkTotal
   if (!hit) {
+    resolveAttackEvent(ctx, enemyUnit.id, hero.id, false, undefined, actionId)
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat', `${enemyUnit.name} usa ${skillName} → fallo (${hero.name})`, { actor: enemyUnit.name, target: hero.name, skill: skillName })
     return {
       targetId: hero.id, targetName: hero.name,
@@ -1218,6 +1246,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
     }
   }
   const critRoll = resolveCritical({ attackerDexterity: enemy.dx, random: ctx.random ?? { next: () => Math.random() } }).critical
+  resolveAttackEvent(ctx, enemyUnit.id, hero.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt: DamageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, hero.def ?? 5, isArmorPen, dt, hero.resistances)
@@ -1252,9 +1281,10 @@ function executeEnemyAoeAttack(
   const state = ctx.state!
   const atkTotal = adjAttack
   const aCat = inferAttackCategory(chosenSkill ?? undefined, enemyUnit.position)
+  const actionId = targets.length > 0 ? startAttack(ctx, enemyUnit.id, targets.map(target => target.id)) : undefined
   const targetResults: TargetResult[] = []
   for (const hero of targets) {
-    const aoeCfg: EnemyAoeProcessConfig = { chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen }
+    const aoeCfg: EnemyAoeProcessConfig = { actionId, chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen }
     const tr = processEnemyAoeTarget(hero, enemy, enemyUnit, aoeCfg, ctx)
     targetResults.push(tr)
   }
@@ -1270,14 +1300,17 @@ function executeEnemySingleTargetAttack(
   initiative: number, actionNum: number, totalActions: number,
   aCat: string
 ): DetailedAction | null {
+  const actionId = startAttack(ctx, enemyUnit.id, [target.id])
   const { total: defVal, dice: defDice } = getDefenseValue(target, aCat, ctx.random)
   const { hit, rollBase, rollDice, attackTotal } = computeEnemyHitValues(fResult, adjAttack, enemy, defVal, ctx.random)
 
   if (!hit) {
+    resolveAttackEvent(ctx, enemyUnit.id, target.id, false, undefined, actionId)
     return makeEnemyMissDetail(enemy, enemyUnit, chosenSkill, skillName, damageType, target, defVal, defDice, aCat, attackTotal, rollBase, rollDice, ctx, initiative, actionNum, totalActions)
   }
 
   const crit = resolveCritical({ attackerDexterity: enemy.dx, random: ctx.random ?? { next: () => Math.random() } }).critical
+  resolveAttackEvent(ctx, enemyUnit.id, target.id, true, crit, actionId)
   const dmg = computeEnemyDamageWithFallback({ fResult, adjAttack, crit, enemy, chosenSkill, isArmorPen, dt: damageType }, ctx, target)
   const defEff = target.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random)
