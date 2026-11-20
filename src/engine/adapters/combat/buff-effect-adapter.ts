@@ -1,6 +1,6 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
-import { advanceEffects } from '../../core/effects/effect-lifecycle'
+import { advanceEffects, applyEffect } from '../../core/effects/effect-lifecycle'
 
 export type LegacyCombatBuffType = 'atk' | 'def'
 export type LegacyCombatBuffSide = 'hero' | 'enemy'
@@ -90,22 +90,36 @@ export function applyLegacyCombatBuff(
   incoming: LegacyCombatBuff,
 ): readonly LegacyCombatBuff[] {
   assertBuff(incoming)
-  const index = current.findIndex(buff =>
+  const existing = current.find(buff =>
     buff.sourceName === incoming.sourceName &&
     buff.type === incoming.type &&
     buff.side === incoming.side
   )
-  if (index < 0) return [...current, incoming]
-
-  const existing = current[index]
-  const next = [...current]
-  if (incoming.value > existing.value) {
-    next[index] = { ...existing, value: incoming.value, remainingRounds: incoming.remainingRounds }
-  } else if (incoming.remainingRounds !== null &&
-    (existing.remainingRounds === null || existing.remainingRounds < incoming.remainingRounds)) {
-    next[index] = { ...existing, remainingRounds: incoming.remainingRounds }
+  const currentEffects = current.map((buff, index) => ({
+    ...legacyBuffToGameEffect(buff),
+    id: `legacy-buff:${buff.side}:${buff.type}:${index}`,
+  }))
+  const incomingEffect = {
+    ...legacyBuffToGameEffect(incoming),
+    id: `legacy-buff:${incoming.side}:${incoming.type}:incoming`,
+    stacking: 'replace' as const,
   }
-  return next
+  const lifecycle = applyEffect(currentEffects, incomingEffect)
+
+  let merged = incoming
+  if (existing) {
+    merged = { ...existing }
+    if (incoming.value > existing.value) {
+      merged = { ...merged, value: incoming.value, remainingRounds: incoming.remainingRounds }
+    } else if (incoming.remainingRounds !== null &&
+      (existing.remainingRounds === null || existing.remainingRounds < incoming.remainingRounds)) {
+      merged = { ...merged, remainingRounds: incoming.remainingRounds }
+    }
+  }
+
+  return lifecycle.effects.map(effect =>
+    effect.id === incomingEffect.id ? merged : gameEffectToLegacyBuff(effect)
+  )
 }
 
 /** Wodos ticks finite group buffs at the beginning of each combat round. */
