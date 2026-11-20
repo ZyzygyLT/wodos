@@ -90,6 +90,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     computedAttrs,
     computedInitiativeBase,
     computedDefense: computedDefense.values,
+    computedArmorDefense: computedDefense.armorDefense,
     computedDefenseBreakdown: computedDefense.breakdown,
     computedResistances,
     computedHpMax: effectiveResources.hpMax,
