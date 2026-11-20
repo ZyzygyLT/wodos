@@ -1079,6 +1079,13 @@ function executeHeroAction(
   const { skill: resolvedSkill, mpCost } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
   skill = resolvedSkill
 
+  // Legacy attack formulas consume their dice before random target selection.
+  // Keep that order so seeded combat streams remain compatible.
+  const isSupportSkill = (skill.effect === 'heal' && !!skill.healPct)
+    || skill.effect === 'party_attack_up'
+    || skill.effect === 'defense_up'
+  const fResult = isSupportSkill ? null : evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
+
   const plan = resolveSkillExecution({
     skill: {
       skillId: skill.skillId,
@@ -1103,8 +1110,8 @@ function executeHeroAction(
     return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.buff, plan.bonus)
   }
 
-  const fResult = evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
-  const adjAttack = applyDiceMultiplier(fResult.base, fResult.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
+  const resolvedFormula = fResult!
+  const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
   const isArmorPen = plan.kind === 'single_attack' && plan.armorPenetration
   const isCritAuto = plan.kind === 'single_attack' && plan.critical
   const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
@@ -1114,7 +1121,7 @@ function executeHeroAction(
     return executeHeroAoeAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, plan.targets)
   }
 
-  const atkValues: AttackValues = { fResult, adjAttack, isArmorPen, isCritAuto }
+  const atkValues: AttackValues = { fResult: resolvedFormula, adjAttack, isArmorPen, isCritAuto }
   return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, plan.target, extraUnits)
 }
 
