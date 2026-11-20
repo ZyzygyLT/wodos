@@ -1,5 +1,6 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
+import type { StatModifier } from '../../core/stats/stat-modifier'
 import { advanceEffects } from '../../core/effects/effect-lifecycle'
 import { mergeBuffByMaximum } from '../../core/effects/buff-stacking'
 
@@ -104,16 +105,49 @@ export function advanceLegacyCombatBuffs(
   return advanced.effects.map(gameEffectToLegacyBuff)
 }
 
+/**
+ * Converts the strongest active group bonuses into neutral percentage modifiers.
+ * The legacy combat formulas interpret both group bonuses as percentage points.
+ */
+export function legacyGroupBuffsToStatModifiers(
+  buffs: readonly LegacyCombatBuff[],
+): readonly StatModifier[] {
+  const bonuses = { atk: 0, def: 0 }
+  for (const buff of buffs) {
+    if (buff.remainingRounds !== null && buff.remainingRounds <= 0) continue
+    if (buff.type === 'atk') bonuses.atk = Math.max(bonuses.atk, buff.value)
+    else bonuses.def = Math.max(bonuses.def, buff.value)
+  }
+
+  const modifiers: StatModifier[] = []
+  if (bonuses.atk !== 0) {
+    modifiers.push({
+      id: 'legacy-group-buff:attack',
+      stat: 'attack',
+      operation: 'percent',
+      value: bonuses.atk,
+      source: 'legacy-group-buffs',
+    })
+  }
+  if (bonuses.def !== 0) {
+    modifiers.push({
+      id: 'legacy-group-buff:defense',
+      stat: 'defense',
+      operation: 'percent',
+      value: bonuses.def,
+      source: 'legacy-group-buffs',
+    })
+  }
+  return modifiers
+}
+
 /** Group bonuses use the strongest active buff, not the sum of all buffs. */
 export function calculateLegacyGroupBuffBonuses(
   buffs: readonly LegacyCombatBuff[],
 ): { atk: number; def: number } {
-  let atk = 0
-  let def = 0
-  for (const buff of buffs) {
-    if (buff.remainingRounds !== null && buff.remainingRounds <= 0) continue
-    if (buff.type === 'atk') atk = Math.max(atk, buff.value)
-    else def = Math.max(def, buff.value)
+  const modifiers = legacyGroupBuffsToStatModifiers(buffs)
+  return {
+    atk: modifiers.find(modifier => modifier.stat === 'attack')?.value ?? 0,
+    def: modifiers.find(modifier => modifier.stat === 'defense')?.value ?? 0,
   }
-  return { atk, def }
 }
