@@ -60,23 +60,42 @@ export async function listAdventures(heroId: string) {
 }
 
 export async function startAdventure(heroId: string, adventureId: number) {
-  const hero = await getHeroWithEnergy(heroId)
-  const adventure = await db.adventure.findUnique({ where: { id: adventureId } })
-  if (!adventure) throw new Error('Aventura no encontrada')
-  if (!adventure.isActive) throw new Error('Aventura no disponible')
-  if (hero.level < adventure.levelReq) throw new Error('Nivel insuficiente')
-  if (hero.level > adventure.maxLevel) throw new Error('Nivel demasiado alto')
-  if (hero.adventureEnergy < adventure.energyCost) throw new Error('Energía insuficiente')
+  // Apply passive recharge first; the hero row lock below serializes starts and energy spending.
+  await getHeroWithEnergy(heroId)
 
-  const existing = await db.heroAdventure.findFirst({
-    where: { heroId, status: 'active' },
-  })
-  if (existing) throw new Error('Ya tienes una aventura activa')
+  return await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
 
-  const steps = adventure.steps as unknown as AdventureStep[]
+    const [hero, adventure, existing] = await Promise.all([
+      tx.hero.findUnique({
+        where: { id: heroId },
+        select: { id: true, level: true, adventureEnergy: true },
+      }),
+      tx.adventure.findUnique({ where: { id: adventureId } }),
+      tx.heroAdventure.findFirst({ where: { heroId, status: "active" }, select: { id: true } }),
+    ])
 
-  const [heroAdventure] = await db.$transaction([
-    db.heroAdventure.create({
+    if (!hero) throw new Error("Héroe no encontrado")
+    if (!adventure) throw new Error("Aventura no encontrada")
+    if (!adventure.isActive) throw new Error("Aventura no disponible")
+    if (hero.level < adventure.levelReq) throw new Error("Nivel insuficiente")
+    if (hero.level > adventure.maxLevel) throw new Error("Nivel demasiado alto")
+    if (existing) throw new Error("Ya tienes una aventura activa")
+    if (hero.adventureEnergy < adventure.energyCost) throw new Error("Energía insuficiente")
+
+    const steps = adventure.steps as unknown as AdventureStep[]
+    if (steps.length === 0) throw new Error("La aventura no tiene pasos configurados")
+
+    const energyUpdate = await tx.hero.updateMany({
+      where: { id: heroId, adventureEnergy: { gte: adventure.energyCost } },
+      data: {
+        adventureEnergy: { decrement: adventure.energyCost },
+        lastEnergyRechargeAt: new Date(),
+      },
+    })
+    if (energyUpdate.count !== 1) throw new Error("Energía insuficiente o modificada por otra operación")
+
+    const heroAdventure = await tx.heroAdventure.create({
       data: {
         heroId,
         adventureId,
@@ -84,17 +103,10 @@ export async function startAdventure(heroId: string, adventureId: number) {
         totalSteps: steps.length,
         energySpent: adventure.energyCost,
       },
-    }),
-    db.hero.update({
-      where: { id: heroId },
-      data: {
-        adventureEnergy: { decrement: adventure.energyCost },
-        lastEnergyRechargeAt: new Date(),
-      },
-    }),
-  ])
+    })
 
-  return { heroAdventureId: heroAdventure.id, totalSteps: steps.length }
+    return { heroAdventureId: heroAdventure.id, totalSteps: steps.length }
+  })
 }
 
 export async function getActiveAdventure(heroId: string) {
@@ -126,129 +138,152 @@ export async function getActiveAdventure(heroId: string) {
 }
 
 export async function executeStep(heroId: string, heroAdventureId: string) {
-  const ha = await db.heroAdventure.findUnique({
-    where: { id: heroAdventureId },
-    include: { adventure: true },
-  })
-  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
-  if (ha.status !== 'active') throw new Error('Aventura no activa')
-  if (ha.currentStep >= ha.totalSteps) throw new Error('Aventura ya completada')
+  // Preserve the passive energy recharge behavior; adventure state itself is locked transactionally.
+  await getHeroWithEnergy(heroId)
 
-  const hero = await getHeroWithEnergy(heroId)
-  const steps = ha.adventure.steps as unknown as AdventureStep[]
-  const currentStep = steps[ha.currentStep]
-  const resultData = (ha.result as any) ?? { steps: [], rewards: null }
+  return await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "hero_adventures" WHERE "id" = ${heroAdventureId} FOR UPDATE`
 
-  let stepResult: StepResult
-  const nextStepIndex = ha.currentStep + 1
-
-  switch (currentStep.type) {
-    case 'narrative': {
-      stepResult = { type: 'narrative' }
-      break
-    }
-    case 'choice': {
-      throw new Error('Este paso requiere elegir una opción')
-    }
-    case 'combat': {
-      const combat = resolveCombatStep(
-        { hpMax: hero.hpMax, mpMax: hero.mpMax, attrs: hero.attrs as Record<string, number>, level: hero.level },
-        currentStep.enemies ?? [],
-      )
-      stepResult = combat
-      if (!combat.victory) {
-        resultData.steps.push(stepResult)
-        const rewards = null
-        await db.heroAdventure.update({
-          where: { id: heroAdventureId },
-          data: {
-            status: 'failed',
-            completedAt: new Date(),
-            result: resultData,
-          },
-        })
-        return { completed: true, victory: false, stepResult, rewards, totalSteps: ha.totalSteps }
-      }
-      break
-    }
-    case 'reward': {
-      stepResult = { type: 'reward', rewards: currentStep.rewards ?? {} }
-      break
-    }
-    default: {
-      stepResult = { type: 'narrative' }
-    }
-  }
-
-  resultData.steps.push(stepResult)
-
-  const isLastStep = nextStepIndex >= ha.totalSteps
-  if (isLastStep) {
-    const rewardsTable = ha.adventure.rewards as unknown as AdventureRewardTable
-    const rewards = rollAdventureRewards(rewardsTable)
-    resultData.rewards = rewards
-
-    await db.heroAdventure.update({
+    const ha = await tx.heroAdventure.findUnique({
       where: { id: heroAdventureId },
-      data: {
-        status: 'completed',
-        currentStep: nextStepIndex,
-        completedAt: new Date(),
-        result: resultData,
-      },
+      include: { adventure: true },
     })
+    if (!ha || ha.heroId !== heroId) throw new Error("Aventura no encontrada")
+    if (ha.status !== "active") throw new Error("Aventura no activa")
+    if (ha.currentStep >= ha.totalSteps) throw new Error("Aventura ya completada")
 
-    return { completed: true, victory: true, stepResult, rewards, totalSteps: ha.totalSteps }
-  }
+    const hero = await tx.hero.findUnique({
+      where: { id: heroId },
+      select: { hpMax: true, mpMax: true, attrs: true, level: true },
+    })
+    if (!hero) throw new Error("Héroe no encontrado")
 
-  await db.heroAdventure.update({
-    where: { id: heroAdventureId },
-    data: { currentStep: nextStepIndex, result: resultData },
+    const steps = ha.adventure.steps as unknown as AdventureStep[]
+    const currentStep = steps[ha.currentStep]
+    if (!currentStep) throw new Error("Paso de aventura no encontrado")
+
+    const resultData = (ha.result as any) ?? { steps: [], rewards: null }
+    if (!Array.isArray(resultData.steps)) resultData.steps = []
+    const nextStepIndex = ha.currentStep + 1
+
+    let stepResult: StepResult
+    switch (currentStep.type) {
+      case "narrative": {
+        stepResult = { type: "narrative" }
+        break
+      }
+      case "choice": {
+        throw new Error("Este paso requiere elegir una opción")
+      }
+      case "combat": {
+        const combat = resolveCombatStep(
+          { hpMax: hero.hpMax, mpMax: hero.mpMax, attrs: hero.attrs as Record<string, number>, level: hero.level },
+          currentStep.enemies ?? [],
+        )
+        stepResult = combat
+        if (!combat.victory) {
+          resultData.steps.push(stepResult)
+          const failed = await tx.heroAdventure.updateMany({
+            where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
+            data: { status: "failed", completedAt: new Date(), result: resultData },
+          })
+          if (failed.count !== 1) throw new Error("AVENTURA_STEP_STALE")
+          return { completed: true, victory: false, stepResult, rewards: null, totalSteps: ha.totalSteps }
+        }
+        break
+      }
+      case "reward": {
+        stepResult = { type: "reward", rewards: currentStep.rewards ?? {} }
+        break
+      }
+      default: {
+        stepResult = { type: "narrative" }
+      }
+    }
+
+    resultData.steps.push(stepResult)
+    const isLastStep = nextStepIndex >= ha.totalSteps
+    if (isLastStep) {
+      const rewardsTable = ha.adventure.rewards as unknown as AdventureRewardTable
+      const rewards = rollAdventureRewards(rewardsTable)
+      resultData.rewards = rewards
+
+      const completed = await tx.heroAdventure.updateMany({
+        where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
+        data: {
+          status: "completed",
+          currentStep: nextStepIndex,
+          completedAt: new Date(),
+          result: resultData,
+        },
+      })
+      if (completed.count !== 1) throw new Error("AVENTURA_STEP_STALE")
+
+      return { completed: true, victory: true, stepResult, rewards, totalSteps: ha.totalSteps }
+    }
+
+    const advanced = await tx.heroAdventure.updateMany({
+      where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
+      data: { currentStep: nextStepIndex, result: resultData },
+    })
+    if (advanced.count !== 1) throw new Error("AVENTURA_STEP_STALE")
+
+    return {
+      completed: false,
+      stepResult,
+      currentStep: nextStepIndex,
+      totalSteps: ha.totalSteps,
+      nextStep: steps[nextStepIndex],
+    }
   })
-
-  return {
-    completed: false,
-    stepResult,
-    currentStep: nextStepIndex,
-    totalSteps: ha.totalSteps,
-    nextStep: steps[nextStepIndex],
-  }
 }
 
 export async function makeChoice(
   heroId: string, heroAdventureId: string, choiceIndex: number
 ) {
-  const ha = await db.heroAdventure.findUnique({
-    where: { id: heroAdventureId },
-    include: { adventure: true },
+  return await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "hero_adventures" WHERE "id" = ${heroAdventureId} FOR UPDATE`
+
+    const ha = await tx.heroAdventure.findUnique({
+      where: { id: heroAdventureId },
+      include: { adventure: true },
+    })
+    if (!ha || ha.heroId !== heroId) throw new Error("Aventura no encontrada")
+    if (ha.status !== "active") throw new Error("Aventura no activa")
+
+    const steps = ha.adventure.steps as unknown as AdventureStep[]
+    const currentStep = steps[ha.currentStep]
+    if (!currentStep || currentStep.type !== "choice") {
+      throw new Error("Este paso no requiere decisión")
+    }
+    if (!Number.isInteger(choiceIndex) || choiceIndex < 0 || !currentStep.choices || choiceIndex >= currentStep.choices.length) {
+      throw new Error("Opción inválida")
+    }
+
+    const chosen = currentStep.choices[choiceIndex]
+    if (!Number.isInteger(chosen.nextStep) || chosen.nextStep < 0 || chosen.nextStep >= steps.length) {
+      throw new Error("La opción apunta a un paso inválido")
+    }
+
+    const resultData = (ha.result as any) ?? { steps: [], rewards: null }
+    if (!Array.isArray(resultData.steps)) resultData.steps = []
+    const stepResult = { type: "choice" as const, chosenIndex: choiceIndex, nextStep: chosen.nextStep }
+    resultData.steps.push(stepResult)
+
+    const advanced = await tx.heroAdventure.updateMany({
+      where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
+      data: { currentStep: chosen.nextStep, result: resultData },
+    })
+    if (advanced.count !== 1) throw new Error("AVENTURA_CHOICE_STALE")
+
+    return {
+      chosen: chosen.text,
+      nextStepIndex: chosen.nextStep,
+      flavor: chosen.flavor ?? null,
+      nextStep: steps[chosen.nextStep] ?? null,
+      totalSteps: ha.totalSteps,
+    }
   })
-  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
-  if (ha.status !== 'active') throw new Error('Aventura no activa')
-
-  const steps = ha.adventure.steps as unknown as AdventureStep[]
-  const currentStep = steps[ha.currentStep]
-  if (currentStep.type !== 'choice') throw new Error('Este paso no requiere decisión')
-  if (!currentStep.choices || choiceIndex >= currentStep.choices.length) {
-    throw new Error('Opción inválida')
-  }
-
-  const chosen = currentStep.choices[choiceIndex]
-  const resultData = (ha.result as any) ?? { steps: [], rewards: null }
-  const stepResult = { type: 'choice' as const, chosenIndex: choiceIndex, nextStep: chosen.nextStep }
-  resultData.steps.push(stepResult)
-
-  await db.heroAdventure.update({
-    where: { id: heroAdventureId },
-    data: { currentStep: chosen.nextStep, result: resultData },
-  })
-
-  return {
-    chosen: chosen.text,
-    nextStepIndex: chosen.nextStep,
-    flavor: chosen.flavor ?? null,
-    nextStep: steps[chosen.nextStep] ?? null,
-    totalSteps: ha.totalSteps,
-  }
 }
 
 export async function claimRewards(heroId: string, heroAdventureId: string) {
