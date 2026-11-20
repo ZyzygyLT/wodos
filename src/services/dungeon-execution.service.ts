@@ -40,6 +40,13 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
     throw new Error('DUNGEON_RUN_ALREADY_FINALIZED')
   }
 
+  for (const hero of heroesData) {
+    const consumedIds = hero.consumedConsumableIds ?? []
+    if (consumedIds.length === 0) continue
+    const consumed = await tx.heroItem.deleteMany({ where: { id: { in: consumedIds }, heroId: hero.id } })
+    if (consumed.count !== consumedIds.length) throw new Error('DUNGEON_CONSUMABLE_INVENTORY_MISMATCH')
+  }
+
   for (const fs of result.heroesFinalState) {
     const hData = heroesData.find(h => h.id === fs.id)
     if (!hData) continue
