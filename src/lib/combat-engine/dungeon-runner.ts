@@ -36,7 +36,7 @@ import { markUnitDefeated } from '../../engine/core/combat/defeat'
 import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
-import type { RandomSource } from '../../engine/core/random/random-source'
+import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -425,7 +425,7 @@ function inferAttackCategory(skill?: { attackCategory?: string; effect?: string;
 function getDefenseValue(target: CombatUnit, attackCategory: string, random: RandomSource = { next: () => Math.random() }): { total: number; base: number; dice: number } {
   const base = target.defenseValues?.[attackCategory] ?? (target.attrs?.dx ?? 5) * 2
   const sides = 6
-  const dice = Math.floor(random.next() * sides) + 1
+  const dice = randomIntInclusive(random, 1, sides)
   const mult = 1 + (dice - 3.5) / 6
   return { total: Math.round(base * Math.max(0.3, mult)), base, dice }
 }
@@ -604,7 +604,7 @@ function assignLootToHeroes(
   if (alive.length === 0) return rawLoot.map(l => ({ ...l, heroId: '', heroName: '' }))
 
   return rawLoot.map(l => {
-    const hero = alive[Math.floor(random.next() * alive.length)]
+    const hero = alive[randomIntInclusive(random, 0, alive.length - 1)]
     return { itemId: l.itemId, qty: l.qty, heroId: hero.id, heroName: hero.name }
   })
 }
@@ -1129,18 +1129,18 @@ function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }, random:
   if (ai?.type === 'strongest') {
     return alive.reduce((max, h) => h.hp > max.hp ? h : max, alive[0])
   }
-  if (random.next() < 0.4) {
+  if (nextRandom(random) < 0.4) {
     return alive.reduce((min, h) => h.hp < min.hp ? h : min, alive[0])
   }
   const front = alive.filter(h => h.position === 'front')
   const rear = alive.filter(h => h.position === 'rear')
   let pool: CombatUnit[]
-  if (random.next() < 0.7) {
+  if (nextRandom(random) < 0.7) {
     pool = front.length > 0 ? front : rear
   } else {
     pool = rear.length > 0 ? rear : front
   }
-  return pool[Math.floor(random.next() * pool.length)]
+  return pool[randomIntInclusive(random, 0, pool.length - 1)]
 }
 
 function isEnemySkillOnCooldown(state: CombatState, actorId: string, skillId: number): boolean {
@@ -1360,7 +1360,7 @@ function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | nu
     return { hit: resolveAttackHit({ attackTotal, defenseValue: defVal ?? 5 }).hit, rollBase, rollDice, attackTotal }
   }
   const rollBase = Math.round(enemy.atk)
-  const rollDice = Math.floor(random.next() * 10) + 1
+  const rollDice = randomIntInclusive(random, 1, 10)
   const attackTotal = rollBase + rollDice
   return { hit: (defVal ?? 10) <= attackTotal, rollBase, rollDice, attackTotal }
 }
@@ -1558,7 +1558,7 @@ function applyCritEffects(
   if (!isCrit || damage <= 0 || target.hp <= 0) return
   const bleedDmg = Math.max(1, Math.round(damage * 0.2))
   applyStatusEffect(target, 'bleed', bleedDmg, 2, sourceName, ctx)
-  if ((ctx.random ?? { next: () => Math.random() }).next() < 0.15) {
+  if (nextRandom(ctx.random ?? { next: () => Math.random() }) < 0.15) {
     applyStatusEffect(target, 'stun', 0, 1, sourceName, ctx)
   }
 }
