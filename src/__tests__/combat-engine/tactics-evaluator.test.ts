@@ -197,3 +197,29 @@ describe('buildTurnQueue', () => {
     expect(queue.length).toBe(0)
   })
 })
+
+describe('buildTurnQueue arena opponent initiative', () => {
+  it('uses canonical AGI/PER initiative for hero-derived enemies and keeps fixed initiative for regular enemies', () => {
+    const hero = {
+      ...makeHero(),
+      attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
+    }
+    const arenaOpponent = makeEnemy('arena-opponent', {
+      attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 20, pe: 10, wi: 10 },
+    })
+    const regularEnemy = makeEnemy('regular-enemy')
+    const queue = buildTurnQueue([hero], [arenaOpponent, regularEnemy], { next: () => 0 })
+
+    expect(queue.map(actor => actor.unit.id)).toEqual(['arena-opponent', 'hero-1', 'regular-enemy'])
+    expect(queue.map(actor => actor.initiative)).toEqual([25, 15, 10])
+  })
+
+  it('neutralizes invalid hero-derived enemy attributes', () => {
+    const invalidArenaOpponent = makeEnemy('arena-opponent', {
+      attrs: { ag: Number.NaN, pe: Number.POSITIVE_INFINITY },
+    })
+    const queue = buildTurnQueue([], [invalidArenaOpponent], { next: () => 0 })
+
+    expect(queue[0]?.initiative).toBe(0)
+  })
+})
