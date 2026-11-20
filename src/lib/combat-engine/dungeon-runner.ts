@@ -50,7 +50,7 @@ import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
 import { executeEnemyTurnPipeline, executeHeroTurnPipeline } from '../../engine/core/combat/actor-action'
 import { resolveStatusApplication } from '../../engine/core/effects/status-application'
 import { applyStatModifiers, applyStatModifiersToRecord, statRecordToFlatModifiers, type StatModifier } from '../../engine/core/stats/stat-modifier'
-import { calculateEffectiveResourceMaxima } from '../../engine/core/stats/derived-stats'
+import { applyInitiativeSkillModifiers, calculateEffectiveResourceMaxima } from '../../engine/core/stats/derived-stats'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -554,7 +554,7 @@ function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, num
     } else if (skill.effect === 'accuracy_up') {
       skillModifiers.push({ id: `skill:${index}:accuracy`, stat: 'dx', operation: 'flat', value: 5, source: 'hero-skill' })
     } else if (skill.effect === 'speed_up') {
-      skillModifiers.push({ id: `skill:${index}:speed`, stat: 'ag', operation: 'flat', value: 5, source: 'hero-skill' })
+      // Initiative passives are applied by the shared derived-stat helper below.
     } else if (skill.effect === 'fortitude') {
       defenseModifiers.push({ id: `skill:${index}:fortitude`, stat: 'defense', operation: 'flat', value: 10, source: 'hero-skill' })
     } else if (skill.effect === 'thorns') thornsPct = 20
@@ -562,7 +562,10 @@ function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, num
     else if (skill.effect === 'counter') counterPct = 30
   })
 
-  const modifiedAttrs = applyStatModifiersToRecord(merged, skillModifiers)
+  const modifiedAttrs = applyInitiativeSkillModifiers(
+    applyStatModifiersToRecord(merged, skillModifiers),
+    skills.map(skill => skill.effect)
+  )
   const heroDef = applyStatModifiers(baseDefense, defenseModifiers)
   return { finalHp, finalMp, merged: modifiedAttrs, heroDef, defenseBonus: heroDef - baseDefense, thornsPct, vampirePct, counterPct }
 }
