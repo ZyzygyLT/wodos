@@ -76,6 +76,17 @@ describe('pure combat target selection', () => {
     expect(first?.id).toBe(second?.id)
   })
 
+  it('supports global target selection without positional bias for enemy AI', () => {
+    const front = unit('front-strong', 90, 'front')
+    const rear = unit('rear-weak', 5, 'rear')
+    const result = selectCombatTarget({
+      actor, allies: [], enemies: [front, rear],
+      targetPosition: 'auto', targetType: 'weakest', globalTargeting: true,
+    })
+    expect(result.target).toBe(rear)
+    expect(result.reason).toBe('fallback')
+  })
+
   it('returns null when no valid target exists', () => {
     const result = selectCombatTarget({
       actor, allies: [], enemies: [unit('dead', 0, 'front')],
