@@ -11,7 +11,6 @@ export default function BazarPage() {
   const [tab, setTab] = useState<"browse" | "sell">("browse")
   const [bidAmounts, setBidAmounts] = useState<Record<string, string>>({})
   const { toast: message, show: setMessage, dismiss } = useToast()
-  const [cleaning, setCleaning] = useState(false)
 
   const fetchData = useCallback(async () => {
     try {
@@ -83,15 +82,22 @@ export default function BazarPage() {
     fetchMyItems()
   }
 
-  async function cleanExpired() {
-    setCleaning(true)
+  async function cancelListing(listingId: string) {
     try {
-      const res = await fetch("/api/bazar/expire", { method: "POST" })
-      setCleaning(false)
+      const res = await fetch("/api/bazar", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingId }),
+      })
       const data = await res.json()
-      setMessage(res.ok ? `🧹 ${data.expired ?? 0} listings vencidos limpiados` : `❌ ${data.error}`)
-    } catch { setCleaning(false); setMessage("❌ Error de red") }
+      setMessage(res.ok
+        ? (data.refunded ? `✅ Publicación cancelada. Se devolvieron ${data.refundedGold} de oro al mejor postor.` : "✅ Publicación cancelada.")
+        : `❌ ${data.error}`)
+    } catch {
+      setMessage("❌ Error de red")
+    }
     fetchData()
+    fetchMyItems()
   }
 
   const rarityColors: Record<string, string> = {
@@ -123,10 +129,7 @@ export default function BazarPage() {
             className={`px-4 py-2 rounded-lg text-sm transition ${tab === "sell" ? "bg-yellow-700 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
             💰 Vender
           </button>
-          <button onClick={cleanExpired} disabled={cleaning}
-            className="ml-auto px-3 py-2 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 disabled:opacity-50 transition">
-            {cleaning ? "..." : "🧹 Limpiar vencidos"}
-          </button>
+
         </div>
 
         {tab === "browse" && (
@@ -176,6 +179,12 @@ export default function BazarPage() {
                       <button onClick={() => buyNow(l.id)}
                         className="w-full sm:w-auto px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-xs transition">
                         Comprar {l.price}💰
+                      </button>
+                    )}
+                    {l.sellerId === hero.id && (
+                      <button onClick={() => cancelListing(l.id)}
+                        className="mt-2 w-full sm:w-auto px-3 py-1 rounded bg-red-900 hover:bg-red-800 text-xs transition">
+                        Cancelar publicación
                       </button>
                     )}
                   </div>
