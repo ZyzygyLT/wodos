@@ -57,7 +57,9 @@ export function computeDefenseForHero(hero: any) {
       flatBonus === 0 ? [...lines] : [...lines, `bono fijo de equipo/pasiva = +${flatBonus}`],
     ])
   )
-  return { values, breakdown }
+  const level = Number.isFinite(hero.level) ? hero.level : 1
+  const armorDefense = 2 * (attrs.ag ?? 0) + (attrs.pe ?? 0) + level * 2 + flatBonus
+  return { values, breakdown, armorDefense }
 }
 
 
