@@ -2076,10 +2076,15 @@ function applyManaRegen(heroUnits: CombatUnit[], ctx: CombatCtx): void {
   }
 }
 
-function processTrapsAutoWin(enemyUnits: CombatUnit[], log: LogEntry[], round: number, levelNum: number): boolean {
+function processTrapsAutoWin(enemyUnits: CombatUnit[], log: LogEntry[], round: number, levelNum: number, ctx?: CombatCtx): boolean {
   const aliveNonTraps = enemyUnits.filter(e => e.hp > 0 && !e.trap)
   if (aliveNonTraps.length > 0 || !enemyUnits.some(e => e.hp > 0 && e.trap)) return false
-  for (const e of enemyUnits) { if (e.trap) e.hp = 0 }
+  for (const e of enemyUnits) {
+    if (!e.trap) continue
+    e.hp = 0
+    e.condition = getCondition(e.hp, e.maxHp)
+    if (ctx) emitUnitStateChanged(ctx, e, { hp: 0, condition: e.condition, defeated: true })
+  }
   addLog(log, 'level_complete', round, levelNum, 'combat', '🗜️ Trampas desactivadas — nivel superado')
   return true
 }
@@ -2349,7 +2354,7 @@ export async function runDungeon(
         break
       }
 
-      if (processTrapsAutoWin(enemyUnits, log, round, lvl.number)) {
+      if (processTrapsAutoWin(enemyUnits, log, round, lvl.number, roundCtx)) {
         levelVictory = true
         break
       }
