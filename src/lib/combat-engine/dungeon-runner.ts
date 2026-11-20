@@ -44,6 +44,7 @@ import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
 import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
 import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
+import { executeEnemyTurnPipeline, executeHeroTurnPipeline } from '../../engine/core/combat/actor-action'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -2155,15 +2156,25 @@ function runHeroTurn(
   if (!hero) return null
 
   const perHeroState = buildPerHeroState(actorUnit, heroUnits, enemyUnits, state)
-  const action = evalTactics(hero.combatProfile.roundRules, perHeroState, fallbackSkillId)
-  addLog(log, 'tactic_eval', round, levelNum, 'combat', `⚡ Táctica: ${actorUnit.name} → skill_${action.skillId} → ${action.targetType}`, { actor: actorUnit.name, skill: `skill_${action.skillId}` })
-
-  let finalAction = resolveCooldownOverride(hero, action, state, actorUnit, log, round, levelNum)
-  finalAction = resolveBuffOverride(hero, finalAction, state, actorUnit, log, round, levelNum)
-
-  const detail = executeHeroAction(actorUnit, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { ...combatCtx, state: perHeroState }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
-  if (detail) applySkillCooldown(state, actorUnit, hero, finalAction.skillId, undefined, combatCtx)
-  return detail
+  return executeHeroTurnPipeline({
+    selectAction: () => evalTactics(hero.combatProfile.roundRules, perHeroState, fallbackSkillId),
+    recordSelection: action => addLog(
+      log, 'tactic_eval', round, levelNum, 'combat',
+      `⚡ Táctica: ${actorUnit.name} → skill_${action.skillId} → ${action.targetType}`,
+      { actor: actorUnit.name, skill: `skill_${action.skillId}` }
+    ),
+    applyCooldownOverride: action => resolveCooldownOverride(hero, action, state, actorUnit, log, round, levelNum),
+    applyBuffOverride: action => resolveBuffOverride(hero, action, state, actorUnit, log, round, levelNum),
+    execute: finalAction => executeHeroAction(
+      actorUnit, hero,
+      { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors },
+      { ...combatCtx, state: perHeroState },
+      { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits }
+    ),
+    afterSuccessfulExecution: finalAction => applySkillCooldown(
+      state, actorUnit, hero, finalAction.skillId, undefined, combatCtx
+    ),
+  })
 }
 
 function buildPerHeroState(actorUnit: CombatUnit, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], state: CombatState): CombatState {
@@ -2186,11 +2197,16 @@ function runEnemyTurn(
   state: CombatState, log: LogEntry[], round: number, levelNum: number,
   ai: number, totalActors: number, random: RandomSource, combatCtx: CombatCtx
 ): DetailedAction | null {
-  const enemyIndex = lvl.enemies.findIndex((e: any, i: number) => actorUnit.id === `enemy_${e.id}_${i}`)
-  if (enemyIndex < 0) return null
-  const enemyData = lvl.enemies[enemyIndex]
-  if (!enemyData || actorUnit.hp <= 0) return null
-  return executeEnemyAction(enemyData, actorUnit, heroUnits, { ...combatCtx, state }, 0, ai + 1, totalActors)
+  return executeEnemyTurnPipeline({
+    isAlive: unit => unit.hp > 0,
+    resolveDefinition: unit => {
+      const enemyIndex = lvl.enemies.findIndex((enemy: any, index: number) => unit.id === `enemy_${enemy.id}_${index}`)
+      return enemyIndex < 0 ? undefined : lvl.enemies[enemyIndex]
+    },
+    execute: (enemyData, unit) => executeEnemyAction(
+      enemyData, unit, heroUnits, { ...combatCtx, state }, 0, ai + 1, totalActors
+    ),
+  }, actorUnit)
 }
 
 function cloneHeroForSimulation(hero: HeroData): HeroData {
