@@ -1,4 +1,4 @@
-import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical } from '@/engine/core'
+import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage } from '@/engine/core'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IRONHOLD — Fórmulas de combate
