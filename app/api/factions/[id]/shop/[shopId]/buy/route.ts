@@ -36,6 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const goldCost = item.goldCost ?? 100
   try {
     await db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM heroes WHERE id = ${hero.id} FOR UPDATE`
       const debit = await tx.hero.updateMany({
         where: { id: hero.id, gold: { gte: goldCost } },
         data: { gold: { decrement: goldCost } },
