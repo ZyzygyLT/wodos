@@ -79,3 +79,43 @@ export function normalizeSkillCooldown(rounds: number | null | undefined): numbe
     ? Math.floor(rounds)
     : 0
 }
+
+
+/** Returns a new cooldown map with the selected skill assigned a finite cooldown. */
+export function setSkillCooldown(
+  current: Readonly<Record<string, Readonly<Record<number, number>>>> | undefined,
+  actorId: string,
+  skillId: number,
+  rounds: number | null | undefined,
+): Record<string, Record<number, number>> {
+  const normalized = normalizeSkillCooldown(rounds)
+  if (normalized <= 0) {
+    return Object.fromEntries(
+      Object.entries(current ?? {}).map(([id, skills]) => [id, { ...skills }]),
+    )
+  }
+  const next = Object.fromEntries(
+    Object.entries(current ?? {}).map(([id, skills]) => [id, { ...skills }]),
+  ) as Record<string, Record<number, number>>
+  next[actorId] ??= {}
+  next[actorId][skillId] = normalized
+  return next
+}
+
+/** Advances all actor cooldowns by whole rounds and removes ready entries. */
+export function advanceSkillCooldowns(
+  current: Readonly<Record<string, Readonly<Record<number, number>>>> | undefined,
+  elapsed = 1,
+): Record<string, Record<number, number>> {
+  if (!Number.isSafeInteger(elapsed) || elapsed < 0) {
+    throw new RangeError('Elapsed cooldown duration must be a non-negative safe integer')
+  }
+  const next: Record<string, Record<number, number>> = {}
+  for (const [actorId, skills] of Object.entries(current ?? {})) {
+    const remaining = Object.entries(skills)
+      .map(([skillId, rounds]) => [Number(skillId), Math.max(0, Math.floor(rounds) - elapsed)] as const)
+      .filter(([, rounds]) => Number.isFinite(rounds) && rounds > 0)
+    if (remaining.length > 0) next[actorId] = Object.fromEntries(remaining)
+  }
+  return next
+}
