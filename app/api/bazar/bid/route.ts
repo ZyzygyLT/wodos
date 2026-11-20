@@ -114,6 +114,10 @@ export async function POST(req: NextRequest) {
 
       // The previous leader's escrow is refunded; a returning leader pays only
       // the increase over their already-escrowed bid.
+      // Lock all affected wallets in a stable order to avoid cross-auction deadlocks.
+      const walletIds = [...new Set([buyerId, listing.sellerId, ...(previousBid ? [previousBid.buyerId] : [])])].sort()
+      await tx.$queryRaw`SELECT id FROM heroes WHERE id = ANY(${walletIds}::text[]) ORDER BY id FOR UPDATE`
+
       const charge = previousBid?.buyerId === buyerId
         ? bidAmount - previousBid.pricePaid
         : bidAmount
@@ -253,6 +257,10 @@ export async function PUT(req: NextRequest) {
           data: { gold: { increment: previousBid.pricePaid } },
         })
       }
+
+      // Lock buyer, seller and previous bidder wallets in a stable order.
+      const walletIds = [...new Set([buyerId, listing.sellerId, ...(previousBid ? [previousBid.buyerId] : [])])].sort()
+      await tx.$queryRaw`SELECT id FROM heroes WHERE id = ANY(${walletIds}::text[]) ORDER BY id FOR UPDATE`
 
       const charge = listing.listingType === "auction" && previousBid?.buyerId === buyerId
         ? Math.max(0, price - previousBid.pricePaid)
