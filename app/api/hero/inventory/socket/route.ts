@@ -196,6 +196,8 @@ export async function PUT(req: NextRequest) {
     const code = error instanceof Error ? error.message : ""
     const responses: Record<string, { error: string; status: number }> = {
       TARGET_NOT_FOUND: { error: "Item no encontrado", status: 404 },
+      ITEM_NOT_FOUND: { error: "Item no encontrado", status: 404 },
+      ITEM_LISTED: { error: "No podés modificar las runas de un objeto mientras esté publicado en el bazar.", status: 409 },
       INVALID_SLOT: { error: "Slot inválido", status: 400 },
       INVALID_RUNE_DATA: { error: "Los datos de runas del objeto son inválidos", status: 409 },
       SLOT_EMPTY: { error: "Slot vacío", status: 409 },
