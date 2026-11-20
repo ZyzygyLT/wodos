@@ -23,6 +23,12 @@ import {
   isLegacyCombatUnitDisabled,
 } from '../../engine/adapters/combat/status-effect-adapter'
 
+import {
+  advanceLegacyCombatBuffs,
+  applyLegacyCombatBuff,
+  calculateLegacyGroupBuffBonuses,
+} from '../../engine/adapters/combat/buff-effect-adapter'
+
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
 export interface HeroData {
@@ -1504,41 +1510,20 @@ function statusEffectFromDamageType(dt: DamageType, atk: number): { type: Status
 const BUFF_DURATION = 3  // rondas que duran los buffs de party_attack_up / defense_up
 
 function recalcGroupBuffs(state: CombatState) {
-  if (!state.buffs) { state.buffs = []; return }
-  let atk = 0
-  let def = 0
-  for (const b of state.buffs) {
-    if (b.remainingRounds != null && b.remainingRounds <= 0) continue
-    if (b.type === 'atk') atk = Math.max(atk, b.value)
-    if (b.type === 'def') def = Math.max(def, b.value)
-  }
-  state.groupAtkBonus = atk
-  state.groupDefBonus = def
+  if (!state.buffs) state.buffs = []
+  const bonuses = calculateLegacyGroupBuffBonuses(state.buffs)
+  state.groupAtkBonus = bonuses.atk
+  state.groupDefBonus = bonuses.def
 }
 
 function addBuff(state: CombatState, type: 'atk' | 'def', value: number, sourceName: string, side: 'hero' | 'enemy', duration: number | null) {
-  if (!state.buffs) state.buffs = []
-  // Check if same source is already active -> refresh or keep higher
-  const existing = state.buffs.find(b => b.sourceName === sourceName && b.type === type && b.side === side)
-  if (existing) {
-    if (value > existing.value) {
-      existing.value = value
-      existing.remainingRounds = duration
-    } else if (duration != null && (existing.remainingRounds == null || existing.remainingRounds < duration)) {
-      existing.remainingRounds = duration  // refresh duration if longer
-    }
-  } else {
-    state.buffs.push({ type, value, remainingRounds: duration, sourceName, side })
-  }
+  state.buffs = [...applyLegacyCombatBuff(state.buffs ?? [], { type, value, sourceName, side, remainingRounds: duration })]
   recalcGroupBuffs(state)
 }
 
 function decayBuffs(state: CombatState) {
   if (!state.buffs) return
-  for (const b of state.buffs) {
-    if (b.remainingRounds != null) b.remainingRounds--
-  }
-  state.buffs = state.buffs.filter(b => b.remainingRounds == null || b.remainingRounds > 0)
+  state.buffs = [...advanceLegacyCombatBuffs(state.buffs)]
   recalcGroupBuffs(state)
 }
 
