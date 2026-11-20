@@ -79,9 +79,9 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   for (const fs of result.heroesFinalState) {
     await grantMaterialDrops(fs.id, dungeon.id, runId).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
     const kills = (result.log as any[])?.filter((l: any) => l.type === 'death').length ?? 0
-    await updateQuestProgress(fs.id, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    if (kills > 0) await updateQuestProgress(fs.id, { type: 'total_kills', kills }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    await updateQuestProgress(fs.id, { type: 'ep_total', value: result.epGained / totalHeroes }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+    await updateQuestProgress(fs.id, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+    if (kills > 0) await updateQuestProgress(fs.id, { type: 'total_kills', kills, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+    await updateQuestProgress(fs.id, { type: 'ep_total', value: result.epGained / totalHeroes, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
     checkAchievements(fs.id, { type: 'dungeon_complete' }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
   }
 
