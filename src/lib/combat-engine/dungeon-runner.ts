@@ -633,7 +633,7 @@ function enemyToUnit(e: EnemyData, idx: number, random: RandomSource): CombatUni
   for (const cat of ['melee', 'ranged', 'magic']) {
     const defSkill = (e.skills ?? []).find(s => s.defenseCategory === cat || s.defenseCategory === 'all')
     defenseValues[cat] = defSkill?.formula
-      ? evalDefenseFormula(defSkill.formula, { atk: e.atk, def: e.def, dx: e.dx, ag: e.ag, level: e.level }, 1, random)
+      ? evalDefenseFormula(defSkill.formula, { atk: e.atk, def: e.def, dx: e.dx, ag: e.ag, level: e.level, ...(e.attrs ?? {}) }, 1, random)
       : (e.dx ?? 5) * 2
     if (defSkill) {
       defenseSkillNames[cat] = defSkill.name ?? ''
