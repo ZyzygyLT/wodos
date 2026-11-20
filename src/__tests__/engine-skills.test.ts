@@ -64,6 +64,15 @@ describe('engine skill definitions and formulas', () => {
     expect(result).toEqual({ base: 30, diceTotal: 2 })
   })
 
+  it('preserves legacy defaults for partially populated persisted formulas', () => {
+    expect(evaluateSkillFormula(
+      { attrCoeffs: { st: 2 } } as SkillFormulaDefinition,
+      { st: 4 },
+      1,
+      { next: () => 0 },
+    )).toEqual({ base: 8, diceTotal: 0 })
+  })
+
   it('preserves the existing centered dice multiplier', () => {
     expect(applySkillDiceMultiplier(100, 7, 2, 6)).toBe(100)
     expect(applySkillDiceMultiplier(100, 0, 2, 6)).toBe(100)
