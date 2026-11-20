@@ -2,6 +2,7 @@ import db from '@/lib/db'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
 import logger from '@/lib/logger'
+import { assertHeroItemNotListed } from '@/services/bazar-item-guard'
 
 const STAT_RANGES: Record<string, { min: number; max: number }> = {
   str: { min: 1, max: 8 }, agi: { min: 1, max: 8 }, int: { min: 1, max: 8 },
