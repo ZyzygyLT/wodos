@@ -8,27 +8,30 @@ import {
 } from '@/lib/adventures/types'
 
 async function getHeroWithEnergy(heroId: string) {
-  const hero = await db.hero.findUnique({
-    where: { id: heroId },
-    select: {
-      id: true, level: true, adventureEnergy: true, adventureEnergyMax: true,
-      lastEnergyRechargeAt: true, gold: true, hpCurrent: true, hpMax: true,
-      mpCurrent: true, mpMax: true, attrs: true,
-    },
-  })
-  if (!hero) throw new Error('Héroe no encontrado')
+  return db.$transaction(async tx => {
+    // Serialize passive recharge with purchases, manual recharge and adventure starts.
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
 
-  const energyRechargeAmount = calcEnergyRecharge(hero.lastEnergyRechargeAt)
-  if (energyRechargeAmount > 0) {
+    const hero = await tx.hero.findUnique({
+      where: { id: heroId },
+      select: {
+        id: true, level: true, adventureEnergy: true, adventureEnergyMax: true,
+        lastEnergyRechargeAt: true, gold: true, hpCurrent: true, hpMax: true,
+        mpCurrent: true, mpMax: true, attrs: true,
+      },
+    })
+    if (!hero) throw new Error('Héroe no encontrado')
+
+    const energyRechargeAmount = calcEnergyRecharge(hero.lastEnergyRechargeAt)
+    if (energyRechargeAmount <= 0) return hero
+
     const newEnergy = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + energyRechargeAmount)
-    await db.hero.update({
+    await tx.hero.update({
       where: { id: heroId },
       data: { adventureEnergy: newEnergy, lastEnergyRechargeAt: new Date() },
     })
-    return { ...hero, adventureEnergy: newEnergy }
-  }
-
-  return hero
+    return { ...hero, adventureEnergy: newEnergy, lastEnergyRechargeAt: new Date() }
+  })
 }
 
 export async function listAdventures(heroId: string) {
@@ -384,37 +387,69 @@ export async function abandonAdventure(heroId: string, heroAdventureId: string) 
 }
 
 export async function rechargeEnergy(heroId: string) {
-  const hero = await getHeroWithEnergy(heroId)
-  if (hero.adventureEnergy >= hero.adventureEnergyMax) {
-    throw new Error('Energía ya está al máximo')
-  }
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
 
-  const rechargeAmount = Math.floor(
-    (Date.now() - (hero.lastEnergyRechargeAt?.getTime() ?? Date.now())) / (5 * 60000)
-  )
+    const hero = await tx.hero.findUnique({
+      where: { id: heroId },
+      select: { id: true, adventureEnergy: true, adventureEnergyMax: true, lastEnergyRechargeAt: true },
+    })
+    if (!hero) throw new Error('Héroe no encontrado')
 
-  const newEnergy = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + Math.max(1, rechargeAmount))
+    // Apply elapsed passive energy exactly once before the explicit +1 recharge.
+    const passiveAmount = calcEnergyRecharge(hero.lastEnergyRechargeAt)
+    const energyAfterPassive = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + passiveAmount)
+    const now = new Date()
+    const effectiveLastRechargeAt = passiveAmount > 0 ? now : hero.lastEnergyRechargeAt
 
-  await db.hero.update({
-    where: { id: heroId },
-    data: { adventureEnergy: newEnergy, lastEnergyRechargeAt: new Date() },
+    if (energyAfterPassive >= hero.adventureEnergyMax) {
+      if (passiveAmount > 0) {
+        await tx.hero.update({
+          where: { id: heroId },
+          data: { adventureEnergy: energyAfterPassive, lastEnergyRechargeAt: now },
+        })
+      }
+      throw new Error('Energía ya está al máximo')
+    }
+
+    const newEnergy = Math.min(hero.adventureEnergyMax, energyAfterPassive + 1)
+    await tx.hero.update({
+      where: { id: heroId },
+      data: {
+        adventureEnergy: newEnergy,
+        lastEnergyRechargeAt: now,
+      },
+    })
+
+    return { energy: newEnergy, energyMax: hero.adventureEnergyMax }
   })
-
-  return { energy: newEnergy, energyMax: hero.adventureEnergyMax }
 }
 
 export async function buyEnergy(heroId: string, amount: number = ENERGY_RECHARGE_AMOUNT_GOLD) {
   if (!Number.isInteger(amount) || amount <= 0) throw new Error('Cantidad de energía inválida')
 
-  return await db.$transaction(async tx => {
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
+
     const hero = await tx.hero.findUnique({
       where: { id: heroId },
-      select: { id: true, gold: true, adventureEnergy: true, adventureEnergyMax: true },
+      select: { id: true, gold: true, adventureEnergy: true, adventureEnergyMax: true, lastEnergyRechargeAt: true },
     })
     if (!hero) throw new Error('Héroe no encontrado')
-    if (hero.adventureEnergy >= hero.adventureEnergyMax) throw new Error('Energía ya está al máximo')
 
-    const available = hero.adventureEnergyMax - hero.adventureEnergy
+    // Settle passive recharge before calculating the purchasable capacity.
+    const passiveAmount = calcEnergyRecharge(hero.lastEnergyRechargeAt)
+    const energy = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + passiveAmount)
+    const now = new Date()
+    if (passiveAmount > 0) {
+      await tx.hero.update({
+        where: { id: heroId },
+        data: { adventureEnergy: energy, lastEnergyRechargeAt: now },
+      })
+    }
+    if (energy >= hero.adventureEnergyMax) throw new Error('Energía ya está al máximo')
+
+    const available = hero.adventureEnergyMax - energy
     const toBuy = Math.min(amount, available)
     const cost = toBuy * ENERGY_RECHARGE_COST_GOLD
 
@@ -422,7 +457,7 @@ export async function buyEnergy(heroId: string, amount: number = ENERGY_RECHARGE
       where: {
         id: heroId,
         gold: { gte: cost },
-        adventureEnergy: { lte: hero.adventureEnergyMax - toBuy },
+        adventureEnergy: { equals: energy },
       },
       data: {
         gold: { decrement: cost },
@@ -431,6 +466,6 @@ export async function buyEnergy(heroId: string, amount: number = ENERGY_RECHARGE
     })
     if (purchase.count !== 1) throw new Error('Oro insuficiente o energía modificada por otra operación')
 
-    return { energyBought: toBuy, cost, energy: hero.adventureEnergy + toBuy }
+    return { energyBought: toBuy, cost, energy: energy + toBuy }
   })
 }
