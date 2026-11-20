@@ -293,6 +293,7 @@ interface CombatCtx {
   round: number
   level: number
   state?: CombatState
+  processedDeaths?: Set<string>
 }
 
 interface ActionMeta {
@@ -782,7 +783,7 @@ function actionResultType(hit: boolean | null, crit: boolean | null): 'failed' |
   return 'failed'
 }
 
-function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, actor: string, skillName: string): boolean {
+function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, actor: string, skillName: string, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], attacker?: CombatUnit): boolean {
   target.hp = applyHpDamage(target.hp, dmg).currentHp
   target.condition = getCondition(target.hp, target.maxHp)
   ctx.state!.damagedThisRound = true
@@ -790,8 +791,7 @@ function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, ac
     `${actor} usa ${skillName} → ${dmg} daño (${target.name})${target.hp <= 0 ? ' — DERRIBADO' : ''}`,
     { actor, target: target.name, skill: skillName, value: dmg })
   if (target.hp <= 0) {
-    addLog(ctx.log, 'death', ctx.round, ctx.level, 'combat',
-      `💀 ${target.name} derribado`, { target: target.name })
+    processUnitDefeat(target, attacker, heroUnits, enemyUnits, ctx)
     return true
   }
   return false
@@ -967,7 +967,7 @@ function processAoeTarget(
   const defEff = enemy.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(enemy, dmg, defEff)
   const finalDmg = resolved.damage
-  applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName)
+  applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName, allHeroUnits, allEnemyUnits, heroUnit)
   applyCritEffects(critRoll, enemy, finalDmg, ctx, heroUnit.name)
   applyVampireHeal(heroUnit, finalDmg, ctx)
   const tr: TargetResult = {
@@ -1067,10 +1067,7 @@ function executeHeroSingleTargetAttack(
 
   const msg = buildHeroAttackLogMessage(heroUnit, skillName, critRoll, isCritAuto, finalDmg, resolved, target)
   addLog(ctx.log, critRoll ? 'crit' : 'hit', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, target: target.name, skill: skillName, value: finalDmg })
-  if (target.hp <= 0) {
-    addLog(ctx.log, 'death', ctx.round, ctx.level, 'combat', `💀 ${target.name} derribado`, { target: target.name })
-    processPassiveEffects('on_death', target, allHeroUnits, allEnemyUnits, heroUnit, ctx)
-  }
+  if (target.hp <= 0) processUnitDefeat(target, heroUnit, allHeroUnits, allEnemyUnits, ctx)
   const detail = makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: finalDmg, hit: true, crit: critRoll, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: defEff, defEquip: target.armorName, msg, rollBase: fResult!.base, rollDice: fResult!.diceTotal, attackTotal: atkTotal, mpCost: meta.mpCost })
   if (resolved.absorbed > 0) detail.absorbed = resolved.absorbed
   return detail
@@ -1217,7 +1214,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const defEff = hero.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(hero, dmg, defEff)
   const finalDmg = resolved.damage
-  applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName)
+  applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit)
   applyCritEffects(critRoll, hero, finalDmg, ctx, enemyUnit.name)
   const tr: TargetResult = {
     targetId: hero.id, targetName: hero.name,
@@ -1282,14 +1279,14 @@ function executeEnemySingleTargetAttack(
   target.condition = getCondition(target.hp, target.maxHp)
   state.damagedThisRound = finalDmg > 0
 
-  applyThornsReflect(target, enemyUnit, finalDmg, ctx)
+  applyThornsReflect(target, enemyUnit, finalDmg, ctx, heroUnits, allEnemyUnits)
   applyCritEffects(crit, target, finalDmg, ctx, enemyUnit.name)
-  applyCounterAttack(target, enemyUnit, finalDmg, aCat, ctx)
+  applyCounterAttack(target, enemyUnit, finalDmg, aCat, ctx, heroUnits, allEnemyUnits)
 
   const defSuffix = buildEnemyDefSuffix(resolved, absorbed)
   const msg = buildEnemyAttackMessage(enemyUnit, skillName, attackTotal, crit, finalDmg, defSuffix, target)
   addLog(ctx.log, crit ? 'crit' : 'hit', ctx.round, ctx.level, 'combat', msg, { actor: enemyUnit.name, target: target.name, value: finalDmg })
-  applyEnemyPostDamageEffects(target, damageType, enemy, enemyUnit, resolved, ctx, state)
+  applyEnemyPostDamageEffects(target, damageType, enemy, enemyUnit, resolved, ctx, state, heroUnits, allEnemyUnits)
 
   const sk = makeEnemySkillObj(chosenSkill, enemy, skillName, chosenSkill?.icon ?? enemy.skillIcon, damageType)
   const detail = makeDetail({ skill: sk, heroUnit: enemyUnit, target, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'weakest' }, initiative, actionNum, total: totalActions, dmg: finalDmg > 0 ? finalDmg : dmg, hit: true, crit, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: defEff, defEquip: target.armorName, msg, rollBase, rollDice, attackTotal })
@@ -1323,9 +1320,9 @@ function buildEnemyAttackMessage(enemyUnit: CombatUnit, skillName: string, attac
   return `${enemyUnit.name} ataca (${skillName}/${attackTotal})${crit ? ' 💥 CRÍTICO' : ''} → ${finalDmg} daño${defSuffix} (${target.name})${target.hp <= 0 ? ' — DERRIBADO' : ''}`
 }
 
-function applyEnemyPostDamageEffects(target: CombatUnit, damageType: DamageType, enemy: EnemyData, enemyUnit: CombatUnit, resolved: { dodged: boolean }, ctx: CombatCtx, state: CombatState): void {
+function applyEnemyPostDamageEffects(target: CombatUnit, damageType: DamageType, enemy: EnemyData, enemyUnit: CombatUnit, resolved: { dodged: boolean }, ctx: CombatCtx, state: CombatState, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   if (target.hp <= 0) {
-    addLog(ctx.log, 'death', ctx.round, ctx.level, 'combat', `💀 ${target.name} derribado`)
+    processUnitDefeat(target, enemyUnit, heroUnits, enemyUnits, ctx)
     return
   }
   if (!resolved.dodged && damageType && damageType !== 'physical') {
@@ -1380,7 +1377,7 @@ function applyManaShieldAbsorption(target: CombatUnit, state: CombatState, dmg: 
   return { absorbed: 0, finalDmg: dmg }
 }
 
-function applyThornsReflect(target: CombatUnit, enemyUnit: CombatUnit, finalDmg: number, ctx: CombatCtx): void {
+function applyThornsReflect(target: CombatUnit, enemyUnit: CombatUnit, finalDmg: number, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   if (!target.thornsPct || finalDmg <= 0 || enemyUnit.hp <= 0) return
   const reflected = Math.max(1, Math.round(finalDmg * target.thornsPct / 100))
   enemyUnit.hp = applyHpDamage(enemyUnit.hp, reflected).currentHp
@@ -1388,9 +1385,10 @@ function applyThornsReflect(target: CombatUnit, enemyUnit: CombatUnit, finalDmg:
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
     `🌵 ${target.name} refleja ${reflected} daño a ${enemyUnit.name}`,
     { target: enemyUnit.name, value: reflected })
+  if (enemyUnit.hp <= 0) processUnitDefeat(enemyUnit, target, heroUnits, enemyUnits, ctx)
 }
 
-function applyCounterAttack(target: CombatUnit, enemyUnit: CombatUnit, finalDmg: number, aCat: string, ctx: CombatCtx): void {
+function applyCounterAttack(target: CombatUnit, enemyUnit: CombatUnit, finalDmg: number, aCat: string, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   if (!target.counterPct || finalDmg <= 0 || target.hp <= 0 || enemyUnit.hp <= 0 || aCat !== 'melee') return
   const countered = Math.max(1, Math.round(finalDmg * target.counterPct / 100))
   enemyUnit.hp = applyHpDamage(enemyUnit.hp, countered).currentHp
@@ -1398,6 +1396,7 @@ function applyCounterAttack(target: CombatUnit, enemyUnit: CombatUnit, finalDmg:
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
     `🔄 ${target.name} contraataca causando ${countered} de daño`,
     { target: enemyUnit.name, value: countered })
+  if (enemyUnit.hp <= 0) processUnitDefeat(enemyUnit, target, heroUnits, enemyUnits, ctx)
 }
 
 function executeEnemyAction(
@@ -1470,7 +1469,8 @@ function applyStatusEffect(
 
 function processDotDamage(
   unit: CombatUnit, unitName: string,
-  log: LogEntry[], round: number, level: number
+  log: LogEntry[], round: number, level: number,
+  heroUnits: CombatUnit[], enemyUnits: CombatUnit[], ctx: CombatCtx
 ): number {
   if (!unit.statusEffects || unit.hp <= 0) return 0
   const doT = calculateLegacyStatusDamage(unit.statusEffects)
@@ -1481,7 +1481,7 @@ function processDotDamage(
       `☠️ ${unitName} recibe ${doT} daño de efectos`,
       { target: unitName, value: doT })
     if (unit.hp <= 0) {
-      addLog(log, 'death', round, level, 'combat', `💀 ${unitName} derribado por efectos`)
+      processUnitDefeat(unit, undefined, heroUnits, enemyUnits, ctx, `💀 ${unitName} derribado por efectos`)
     }
   }
   return doT
@@ -1599,6 +1599,7 @@ function damageAll(units: CombatUnit[], value: number, source: CombatUnit, logMs
     if (u.hp <= 0) continue
     u.hp = applyHpDamage(u.hp, value).currentHp
     u.condition = getCondition(u.hp, u.maxHp)
+    if (u.hp <= 0) processUnitDefeat(u, source, units, units, ctx)
   }
   if (logMsg) addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat', logMsg, { target: source.name, value })
 }
@@ -1607,6 +1608,7 @@ function damageUnit(unit: CombatUnit, value: number, source: CombatUnit, logMsg:
   unit.hp = applyHpDamage(unit.hp, value).currentHp
   if (unit.condition) unit.condition = getCondition(unit.hp, unit.maxHp)
   if (logMsg) addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat', logMsg, { target: unit.name, value })
+  if (unit.hp <= 0) processUnitDefeat(unit, source, [unit], [unit], ctx)
 }
 
 function doPassiveHeal(u: CombatUnit, value: number, source: CombatUnit, pe: PassiveEffect, ctx: CombatCtx): void {
@@ -1692,6 +1694,25 @@ function processPassiveEffects(
     },
   }
   dispatchCombatEvent(event, [handler])
+}
+
+/** Processes a unit's transition to defeated exactly once per combat context. */
+function processUnitDefeat(
+  unit: CombatUnit,
+  attacker: CombatUnit | undefined,
+  heroUnits: CombatUnit[],
+  enemyUnits: CombatUnit[],
+  ctx: CombatCtx,
+  message = `💀 ${unit.name} derribado`,
+): boolean {
+  if (unit.hp > 0) return false
+  const processed = ctx.processedDeaths ?? (ctx.processedDeaths = new Set<string>())
+  if (processed.has(unit.id)) return false
+  processed.add(unit.id)
+  unit.condition = getCondition(unit.hp, unit.maxHp)
+  addLog(ctx.log, 'death', ctx.round, ctx.level, 'combat', message, { target: unit.name, targetId: unit.id })
+  processPassiveEffects('on_death', unit, heroUnits, enemyUnits, attacker, ctx)
+  return true
 }
 
 // ─── NARRATIVA ────────────────────────────────────────────────────────────────
@@ -2099,8 +2120,8 @@ export async function runDungeon(
       decayBuffs(state)
 
       // DoT al inicio de ronda
-      for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number)
-      for (const e of enemyUnits) processDotDamage(e, e.name, log, round, lvl.number)
+      for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
+      for (const e of enemyUnits) processDotDamage(e, e.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
 
       applyManaRegen(heroUnits)
 
