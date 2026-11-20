@@ -3,6 +3,7 @@ import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
 import { notify } from '@/lib/notifications/emitter'
 import logger from '@/lib/logger'
+import { assertHeroItemNotListed } from '@/services/bazar-item-guard'
 
 const MAX_LEVEL = 10
 const SUCCESS_RATES = [1, 1, 0.9, 0.8, 0.7, 0.5, 0.4, 0.3, 0.2, 0.1]
@@ -45,6 +46,7 @@ export async function processEnchant(userId: string, heroItemId: string): Promis
   const newLevel = success ? currentLevel + 1 : currentLevel
   try {
     await db.$transaction(async tx => {
+      await assertHeroItemNotListed(tx, hi.id, hero.id)
       if (success) {
         // Claim this exact upgrade level first. Concurrent requests for the same
         // item cannot both advance it or charge for the same transition.
@@ -73,6 +75,12 @@ export async function processEnchant(userId: string, heroItemId: string): Promis
     })
   } catch (error) {
     if (error instanceof Error) {
+      if (error.message === "ITEM_LISTED") {
+        return { ok: false, error: "No podés mejorar un objeto mientras esté publicado en el bazar.", status: 409 }
+      }
+      if (error.message === "ITEM_NOT_FOUND") {
+        return { ok: false, error: "Item no encontrado", status: 404 }
+      }
       if (error.message === "ENCHANT_STALE_LEVEL") {
         return { ok: false, error: "El item cambió mientras se procesaba la mejora. Actualizá el inventario e intentá de nuevo.", status: 409 }
       }
