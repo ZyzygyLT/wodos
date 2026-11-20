@@ -201,7 +201,7 @@ This is the first skill-domain extraction, not yet a full skill executor. Skill 
 `core/skills/skill-availability.ts` extracts pure rules used by the current combat runner:
 
 - `calculateSkillManaCost` preserves Wodos' existing +20% of base mana per rank above rank 1.
-- `resolveSkillMana` returns the selected skill, actual MP cost, resulting MP and any low-mana fallback without mutating the combat unit. It preserves the current preference for a free basic attack, then a non-free basic attack, and finally the legacy forced-skill fallback.
+- `resolveSkillMana` returns the selected skill, actual MP cost, resulting MP and any low-mana fallback without mutating the combat unit. It preserves the current preference for a free basic attack, then a non-free basic attack without further MP deduction, and finally the legacy forced-skill fallback that depletes MP.
 - `isSkillOnCooldown` and `getSkillCooldownRemaining` centralize cooldown lookup; `normalizeSkillCooldown` treats absent, non-finite and non-positive durations as no cooldown.
 - The dungeon runner delegates hero MP resolution and hero/enemy cooldown checks to these contracts. It still owns logs, state mutation, tactic overrides and the round-by-round cooldown clock.
 
