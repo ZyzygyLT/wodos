@@ -255,15 +255,15 @@ export const resolveTarget = (
   for (const p of priority) {
     const matches = aliveEnemies.filter(e => e.position === p)
     if (matches.length > 0) {
-      return pickByType(matches, action.targetType)
+      return pickByType(matches, action.targetType, random)
     }
   }
 
   // Fallback: any alive enemy
-  return pickByType(aliveEnemies, action.targetType)
+  return pickByType(aliveEnemies, action.targetType, random)
 }
 
-function pickByType(pool: CombatUnit[], targetType: string): CombatUnit | null {
+function pickByType(pool: CombatUnit[], targetType: string, random: RandomSource = { next: () => Math.random() }): CombatUnit | null {
   switch (targetType) {
     case 'weakest':
     case 'auto':
@@ -271,7 +271,7 @@ function pickByType(pool: CombatUnit[], targetType: string): CombatUnit | null {
     case 'strongest':
       return getStrongest(pool)
     case 'random':
-      return pool[Math.floor(Math.random() * pool.length)] ?? null
+      return pool[Math.floor(random.next() * pool.length)] ?? null
     default:
       return getWeakest(pool)
   }
@@ -311,20 +311,21 @@ export interface TurnActor {
 
 export const buildTurnQueue = (
   heroes: (CombatUnit & { attrs?: Record<string, number> })[],
-  enemies: CombatUnit[]
+  enemies: CombatUnit[],
+  random: RandomSource = { next: () => Math.random() }
 ): TurnActor[] => {
   const actors: TurnActor[] = []
 
   for (const hero of heroes) {
     if (hero.hp > 0) {
       const base = hero.attrs ? calcInitiativeBase(hero.attrs as any) : 12
-      actors.push({ unit: hero, initiative: rollInitiative(base), isHero: true, attrs: hero.attrs })
+      actors.push({ unit: hero, initiative: rollInitiative(base, random), isHero: true, attrs: hero.attrs })
     }
   }
 
   for (const enemy of enemies) {
     if (enemy.hp > 0 && !enemy.trap) {
-      actors.push({ unit: enemy, initiative: rollInitiative(10), isHero: false })
+      actors.push({ unit: enemy, initiative: rollInitiative(10, random), isHero: false })
     }
   }
 
@@ -332,3 +333,4 @@ export const buildTurnQueue = (
 }
 
 import { rollInitiative, calcInitiativeBase, DamageType } from './formulas'
+import type { RandomSource } from '@/engine/core/random/random-source'
