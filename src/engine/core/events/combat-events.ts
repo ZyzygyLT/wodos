@@ -1,8 +1,8 @@
 export type CombatEvent =
   | { readonly type: 'attack_started'; readonly actorId: string; readonly targetIds: readonly string[]; readonly actionId?: string }
   | { readonly type: 'attack_resolved'; readonly actorId: string; readonly targetIds: readonly string[]; readonly hit: boolean; readonly critical?: boolean; readonly actionId?: string }
-  | { readonly type: 'on_damage'; readonly sourceId: string; readonly targetId: string; readonly damage?: number }
-  | { readonly type: 'healing_applied'; readonly sourceId: string; readonly targetId: string; readonly healing: number }
+  | { readonly type: 'on_damage'; readonly sourceId: string; readonly targetId: string; readonly damage?: number; readonly actionId?: string }
+  | { readonly type: 'healing_applied'; readonly sourceId: string; readonly targetId: string; readonly healing: number; readonly actionId?: string }
   | { readonly type: 'on_death'; readonly sourceId: string; readonly targetId: string; readonly attackerId?: string }
   | { readonly type: 'on_round_start'; readonly round: number; readonly unitId: string }
 
