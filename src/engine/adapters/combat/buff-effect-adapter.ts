@@ -124,9 +124,11 @@ export function advanceLegacyCombatBuffs(
  */
 export function legacyGroupBuffsToStatModifiers(
   buffs: readonly LegacyCombatBuff[],
+  side?: LegacyCombatBuffSide,
 ): readonly StatModifier[] {
   const bonuses = { atk: 0, def: 0 }
   for (const buff of buffs) {
+    if (side !== undefined && buff.side !== side) continue
     if (buff.remainingRounds !== null && buff.remainingRounds <= 0) continue
     if (buff.type === 'atk') bonuses.atk = Math.max(bonuses.atk, buff.value)
     else bonuses.def = Math.max(bonuses.def, buff.value)
@@ -157,8 +159,9 @@ export function legacyGroupBuffsToStatModifiers(
 /** Group bonuses use the strongest active buff, not the sum of all buffs. */
 export function calculateLegacyGroupBuffBonuses(
   buffs: readonly LegacyCombatBuff[],
+  side?: LegacyCombatBuffSide,
 ): { atk: number; def: number } {
-  const modifiers = legacyGroupBuffsToStatModifiers(buffs)
+  const modifiers = legacyGroupBuffsToStatModifiers(buffs, side)
   return {
     atk: modifiers.find(modifier => modifier.stat === 'attack')?.value ?? 0,
     def: modifiers.find(modifier => modifier.stat === 'defense')?.value ?? 0,
