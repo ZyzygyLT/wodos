@@ -218,21 +218,6 @@ const getWeakest = (units: CombatUnit[]): CombatUnit | null =>
     null
   )
 
-const getStrongest = (units: CombatUnit[]): CombatUnit | null =>
-  units.reduce<CombatUnit | null>(
-    (max, u) => !max || u.hp > max.hp ? u : max,
-    null
-  )
-
-const getMostInjured = (units: CombatUnit[]): CombatUnit | null =>
-  units.reduce<CombatUnit | null>((min, u) => {
-    if (u.hp >= u.maxHp) return min
-    if (!min) return u
-    const uPct = u.hp / u.maxHp
-    const minPct = min.hp / min.maxHp
-    return uPct < minPct ? u : min
-  }, null)
-
 // ─── QUEUE DE TURNOS ─────────────────────────────────────────────────────────
 
 export interface TurnActor {
