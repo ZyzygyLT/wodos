@@ -18,7 +18,6 @@ describe('reproducible combat randomness', () => {
   })
 
   it('repeats initiative rolls with the same seed', () => {
-    const first = [rollInitiative(10, createSeededRandom(77)), rollInitiative(10, createSeededRandom(77))]
     const randomA = createSeededRandom(77)
     const randomB = createSeededRandom(77)
     expect(rollInitiative(10, randomA)).toBe(rollInitiative(10, randomB))
