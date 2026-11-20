@@ -1,5 +1,6 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
+import type { StatModifier } from '../../core/stats/stat-modifier'
 import { advanceEffects } from '../../core/effects/effect-lifecycle'
 import { mergeStatusByMaximum } from '../../core/effects/status-stacking'
 import { selectStatusEffectsForPhase } from '../../core/effects/status-timing'
@@ -15,6 +16,18 @@ export interface LegacyCombatStatusEffect {
   readonly value: number
   readonly source: string
   readonly sourceName: string
+}
+
+/** Maps only status types that directly modify combat statistics. */
+export function legacyStatusToStatModifiers(status: LegacyCombatStatusEffect): readonly StatModifier[] {
+  if (status.type !== 'atk_up' && status.type !== 'def_up') return []
+  return [{
+    id: `legacy-status-modifier:${status.type}`,
+    stat: status.type === 'atk_up' ? 'attack' : 'defense',
+    operation: 'percent',
+    value: status.value,
+    source: 'legacy-status',
+  }]
 }
 
 interface LegacyStatusMetadata extends Readonly<Record<string, unknown>> {
@@ -47,7 +60,7 @@ export function legacyStatusToGameEffect(targetId: string, status: LegacyCombatS
     targetId: entityId,
     duration: { type: 'rounds', remaining: status.remainingRounds },
     stacking: 'refresh',
-    modifiers: [],
+    modifiers: legacyStatusToStatModifiers(status),
     metadata: { legacyType: status.type, value: status.value, source: status.source, sourceName: status.sourceName },
   }
 }
