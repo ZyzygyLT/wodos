@@ -1,6 +1,4 @@
-import type { DamageType } from '../../../lib/combat-engine/formulas'
-
-export type DamageResistances = Partial<Record<DamageType, number>>
+export type DamageResistances = Readonly<Record<string, number | undefined>>
 
 export interface DamageResolutionResult {
   readonly strategy: 'formula' | 'enemy-fallback'
