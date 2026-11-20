@@ -1157,7 +1157,7 @@ function executeHeroSingleTargetAttack(
   resolveAttackEvent(ctx, heroUnit.id, target.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
-  const dmg = calcActualDamage(critAdj, state.groupAtkBonus, target.def ?? 5, isArmorPen, dt, target.resistances)
+  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), state.groupAtkBonus, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances)
 
   const defEff = target.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random, ctx)
