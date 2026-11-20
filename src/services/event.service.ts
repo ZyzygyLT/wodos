@@ -223,19 +223,28 @@ export async function claimHeroEventReward(heroId: string, eventId: string): Pro
   const fameGained = rewardTier.fame ?? 0
   const goldGained = rewardTier.gold ?? 0
 
-  await db.$transaction([
-    db.hero.update({
-      where: { id: heroId },
-      data: {
-        fame: { increment: fameGained },
-        gold: { increment: goldGained },
-      },
-    }),
-    db.heroEventParticipation.update({
-      where: { heroId_eventId: { heroId, eventId } },
-      data: { claimedAt: new Date() },
-    }),
-  ])
+  try {
+    await db.$transaction(async tx => {
+      const claimed = await tx.heroEventParticipation.updateMany({
+        where: { heroId, eventId, completed: true, claimedAt: null },
+        data: { claimedAt: new Date() },
+      })
+      if (claimed.count !== 1) throw new Error("EVENT_REWARD_ALREADY_CLAIMED")
+
+      await tx.hero.update({
+        where: { id: heroId },
+        data: {
+          fame: { increment: fameGained },
+          gold: { increment: goldGained },
+        },
+      })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "EVENT_REWARD_ALREADY_CLAIMED") {
+      return { success: false, error: "Ya reclamaste la recompensa" }
+    }
+    throw error
+  }
 
   return { success: true, reward: { fame: fameGained, gold: goldGained } }
 }
