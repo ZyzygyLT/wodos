@@ -80,7 +80,10 @@ describe('combat event recorder', () => {
     const buffs = [{ type: 'atk', value: 10, remainingRounds: 2, sourceName: 'Warcry', side: 'hero' }]
     const dispatcher = new CombatEventDispatcher([], 1000, envelope => recorder.record(envelope))
     dispatcher.dispatch({ type: 'unit_state_changed', unitId: 'hero-1', changes: { statusEffects: statuses } })
-    dispatcher.dispatch({ type: 'combat_state_changed', changes: { buffs, cooldowns: { 'hero-1': { 7: 2 } } } })
+    dispatcher.dispatch({ type: 'combat_state_changed', changes: {
+      units: [{ id: 'hero-1', hp: 90, mp: 30, condition: 'healthy', defeated: false, statusEffects: statuses }],
+      buffs, cooldowns: { 'hero-1': { 7: 2 } },
+    } })
 
     statuses[0].value = 99
     buffs[0].value = 99
@@ -89,7 +92,10 @@ describe('combat event recorder', () => {
       changes: { statusEffects: [{ value: 4 }] },
     })
     expect(snapshot.events[1].event).toMatchObject({
-      changes: { buffs: [{ value: 10 }], cooldowns: { 'hero-1': { 7: 2 } } },
+      changes: {
+        units: [{ id: 'hero-1', statusEffects: [{ value: 4 }] }],
+        buffs: [{ value: 10 }], cooldowns: { 'hero-1': { 7: 2 } },
+      },
     })
     ;(snapshot.events[0].event as any).changes.statusEffects[0].value = 55
     expect(recorder.snapshot().events[0].event).toMatchObject({
