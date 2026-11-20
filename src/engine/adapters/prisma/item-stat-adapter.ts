@@ -58,24 +58,50 @@ export function itemStatsToModifiers(
   return statsToModifiers(itemId, 'base', stats, excluded)
 }
 
+function finiteNumericStats(stats: NumericStatRecord | null | undefined): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(stats ?? {}).filter((entry): entry is [string, number] =>
+      typeof entry[1] === 'number' && Number.isFinite(entry[1])
+    )
+  )
+}
+
 /**
- * Wodos' existing upgrade rule scales every item stat by 20% per level and
- * rounds each resulting stat. Convert that final value to a delta so the
- * engine can add it to the original item.stats exactly once.
+ * Wodos treats statOverrides as replacements: { ...item.stats, ...statOverrides }.
+ * Return only the additive delta needed to reproduce that replacement in the
+ * engine's additive modifier pipeline.
+ */
+export function resolveWodosStatOverrideBonus(item: PersistedHeroItem): NumericStatRecord {
+  const base = finiteNumericStats(item.item.stats)
+  const overrides = finiteNumericStats(
+    item.statOverrides && typeof item.statOverrides === 'object' && !Array.isArray(item.statOverrides)
+      ? item.statOverrides as NumericStatRecord
+      : undefined
+  )
+  return Object.fromEntries(
+    Object.entries(overrides).map(([stat, value]) => [stat, value - (base[stat] ?? 0)])
+  )
+}
+
+/**
+ * Wodos' existing upgrade rule scales the merged item stats by 20% per level
+ * and rounds each result. Include statOverrides before applying the curve,
+ * matching buildHeroData's legacy order; return only the additive delta.
  */
 export function resolveWodosUpgradeBonus(item: PersistedHeroItem): NumericStatRecord {
   const level = item.upgradeLevel ?? 0
-  const base = item.item.stats ?? {}
   if (level <= 0) return {}
-
-  const upgraded = applyUpgradeStats(
-    Object.fromEntries(Object.entries(base).filter((entry): entry is [string, number] =>
-      typeof entry[1] === 'number' && Number.isFinite(entry[1])
-    )),
-    level
-  )
+  const merged = {
+    ...finiteNumericStats(item.item.stats),
+    ...finiteNumericStats(
+      item.statOverrides && typeof item.statOverrides === 'object' && !Array.isArray(item.statOverrides)
+        ? item.statOverrides as NumericStatRecord
+        : undefined
+    ),
+  }
+  const upgraded = applyUpgradeStats(merged, level)
   return Object.fromEntries(
-    Object.entries(upgraded).map(([stat, value]) => [stat, value - (base[stat] as number)])
+    Object.entries(upgraded).map(([stat, value]) => [stat, value - merged[stat]])
   )
 }
 
