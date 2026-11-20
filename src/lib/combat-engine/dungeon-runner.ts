@@ -305,7 +305,6 @@ interface CombatCtx {
   processedDeaths?: Set<string>
   events?: CombatEventDispatcher
   eventSequence?: { value: number }
-  actionSequence?: { value: number }
 }
 
 
@@ -316,8 +315,8 @@ function dispatchCombatEvent(ctx: CombatCtx, event: CombatEvent): void {
 }
 
 function startAttack(ctx: CombatCtx, actorId: string, targetIds: readonly string[]): string {
-  const sequence = ctx.actionSequence ?? (ctx.actionSequence = { value: 0 })
-  const actionId = `action:${ctx.level}:${ctx.round}:${sequence.value++}`
+  const sequence = ctx.eventSequence ?? (ctx.eventSequence = { value: 0 })
+  const actionId = `action:${ctx.level}:${ctx.round}:${sequence.value}`
   dispatchCombatEvent(ctx, { type: 'attack_started', actorId, targetIds: [...targetIds], actionId })
   return actionId
 }
