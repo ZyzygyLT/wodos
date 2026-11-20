@@ -116,6 +116,15 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - The dungeon runner now dispatches the three legacy triggers through the engine event contract and executes the resolved commands using its existing damage/heal/buff handlers. Side-effect semantics and combat timing remain in the runner; this phase does not change damage formulas or target rules.
 - Event dispatch is synchronous and ordered. The event contract allows the legacy damage trigger to omit an amount because the existing passive call site does not pass the resolved damage value.
 
+### HP damage and healing event integration
+
+- The dungeon runner now emits `on_damage` from the shared HP mutation boundary with the actual HP removed (after mitigation, barriers, and the zero-HP floor), plus stable source and target IDs.
+- Damage observers receive events for hero/enemy single-target attacks, area targets, reflected damage, counterattacks, periodic status damage, and passive damage to one or multiple units. A damage event is emitted only when HP was actually reduced.
+- The runner emits `healing_applied` for combat HP healing from hero/enemy healing actions, consumable healing during combat, vampirism, passive healing, and the darkness-faction regeneration effect. The payload reports the effective amount after the max-HP cap; no event is emitted when HP does not change.
+- Legacy `on_damage` passive execution remains a separate compatibility dispatch, so moving observer notifications to the HP mutation boundary does not execute legacy passive commands twice. The existing legacy passive trigger still runs at its original hero single-target attack call site; extending legacy passive gameplay semantics to every damage source remains a separate balance/compatibility decision.
+- Periodic status damage currently uses a synthetic source ID (`status:<targetId>`) because the persisted legacy status shape retains a source name, not a stable source entity ID. Preliminary/pre-combat healing is outside the dungeon combat dispatcher. MP regeneration is not an HP healing event.
+- Event IDs share the dungeon-level monotonic sequence used by round/death events. Handlers are synchronous observers and should remain lightweight and avoid mutating combat units.
+
 ### Shared combat HP changes
 
 - `core/combat/health.ts` centralizes the arithmetic for HP damage and healing and reports requested/applied amounts, whether HP changed, and whether a unit crossed into defeat on this operation.
