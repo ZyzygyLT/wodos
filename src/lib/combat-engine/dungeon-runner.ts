@@ -913,10 +913,11 @@ function executeHeroBuffAction(
   skillName: string,
   ctx: CombatCtx,
   meta: ActionMeta,
+  buff: 'atk' | 'def',
   bonus: number,
 ): DetailedAction {
   const state = ctx.state!
-  const isAtk = skill.effect === 'party_attack_up'
+  const isAtk = buff === 'atk'
   addBuff(state, isAtk ? 'atk' : 'def', bonus, skillName, 'hero', BUFF_DURATION)
   const label = isAtk ? 'ATK grupal' : 'DEF grupal'
   const msg = `${heroUnit.name} usa ${skillName} → +${bonus}% ${label}`
@@ -1099,7 +1100,7 @@ function executeHeroAction(
     return executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.target)
   }
   if (plan.kind === 'party_buff') {
-    return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.bonus)
+    return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.buff, plan.bonus)
   }
 
   const fResult = evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
