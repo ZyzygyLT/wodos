@@ -108,36 +108,56 @@ export async function claimDailyLogin(
   if (!hero) return { ok: false, error: 'Héroe no encontrado', status: 404 }
 
   const now = new Date()
-  const lastLogin = hero.lastLoginAt
-  const streak = hero.loginStreak ?? 0
-
-  if (lastLogin && daysBetween(lastLogin, now) === 0) {
-    return { ok: false, error: 'Ya reclamaste tu recompensa de hoy', status: 400 }
-  }
-
-  let newStreak = 1
-  if (lastLogin) {
-    const diff = daysBetween(lastLogin, now)
-    newStreak = diff === 1 ? streak + 1 : 1
-  }
-
-  const dayIndex = ((newStreak - 1) % 7)
-  const reward = DAY_REWARDS[dayIndex]
   const allMaterials = await db.material.findMany()
 
-  await db.$transaction(async (tx) => {
-    await tx.hero.update({
-      where: { id: hero.id },
-      data: { gold: { increment: reward.gold }, lastLoginAt: now, loginStreak: newStreak },
-    })
-    for (const m of reward.materials) {
-      await tx.heroMaterial.upsert({
-        where: { heroId_materialId: { heroId: hero.id, materialId: m.materialId } },
-        update: { quantity: { increment: m.qty } },
-        create: { heroId: hero.id, materialId: m.materialId, quantity: m.qty },
+  let claim: { newStreak: number; reward: typeof DAY_REWARDS[number] }
+  try {
+    claim = await db.$transaction(async tx => {
+      // Lock the hero row so two requests cannot both claim the same calendar day.
+      await tx.$queryRaw`SELECT id FROM heroes WHERE id = ${hero.id} FOR UPDATE`
+      const freshHero = await tx.hero.findUnique({
+        where: { id: hero.id },
+        select: { id: true, lastLoginAt: true, loginStreak: true },
       })
+      if (!freshHero) throw new Error("HERO_NOT_FOUND")
+
+      const lastLogin = freshHero.lastLoginAt
+      const streak = freshHero.loginStreak ?? 0
+      if (lastLogin && daysBetween(lastLogin, now) === 0) {
+        throw new Error("DAILY_LOGIN_ALREADY_CLAIMED")
+      }
+
+      let newStreak = 1
+      if (lastLogin) {
+        const diff = daysBetween(lastLogin, now)
+        newStreak = diff === 1 ? streak + 1 : 1
+      }
+      const reward = DAY_REWARDS[(newStreak - 1) % 7]
+
+      await tx.hero.update({
+        where: { id: hero.id },
+        data: { gold: { increment: reward.gold }, lastLoginAt: now, loginStreak: newStreak },
+      })
+      for (const material of reward.materials) {
+        await tx.heroMaterial.upsert({
+          where: { heroId_materialId: { heroId: hero.id, materialId: material.materialId } },
+          update: { quantity: { increment: material.qty } },
+          create: { heroId: hero.id, materialId: material.materialId, quantity: material.qty },
+        })
+      }
+      return { newStreak, reward }
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "DAILY_LOGIN_ALREADY_CLAIMED") {
+      return { ok: false, error: "Ya reclamaste tu recompensa de hoy", status: 409 }
     }
-  })
+    if (error instanceof Error && error.message === "HERO_NOT_FOUND") {
+      return { ok: false, error: "Héroe no encontrado", status: 404 }
+    }
+    throw error
+  }
+
+  const { newStreak, reward } = claim
 
   updateQuestProgress(hero.id, { type: 'login' }).catch(e => logger.error("daily-login", "Background operation failed", e))
   checkAchievements(hero.id, { type: 'login' }).catch(e => logger.error("daily-login", "Background operation failed", e))
