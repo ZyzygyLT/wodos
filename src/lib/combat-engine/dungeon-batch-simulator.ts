@@ -55,9 +55,13 @@ export interface DungeonBatchResult {
   averageHeroDamage: number
   averageEnemyDamage: number
   averageDeaths: number
+  attacks: number
   criticals: number
+  criticalRate: number
   misses: number
+  missRate: number
   dodges: number
+  dodgeRate: number
   totalDeaths: number
   damageByCombatant: CombatantDamageMetric[]
   damageBySkill: SkillDamageMetric[]
@@ -125,6 +129,7 @@ export async function simulateDungeonBatch(
   let totalHeroDamage = 0
   let totalEnemyDamage = 0
   let totalDeaths = 0
+  let attacks = 0
   let criticals = 0
   let misses = 0
   let dodges = 0
@@ -146,8 +151,9 @@ export async function simulateDungeonBatch(
       const side = heroIds.has(action.actorId) ? 'heroes' : 'enemies'
       const outcomes = actionOutcomes(action)
       const damage = outcomes.reduce((sum, outcome) => sum + outcome.damage, 0)
-      const successful = outcomes.filter(outcome => outcome.resultType !== 'failed')
-      const actionCriticals = outcomes.filter(outcome => outcome.resultType === 'critical_success').length
+      const attackOutcomes = outcomes.filter(outcome => outcome.resultType !== undefined || outcome.damage > 0)
+      const successful = attackOutcomes.filter(outcome => outcome.resultType !== 'failed')
+      const actionCriticals = attackOutcomes.filter(outcome => outcome.resultType === 'critical_success').length
 
       if (side === 'heroes') runHeroDamage += damage
       else runEnemyDamage += damage
@@ -187,9 +193,10 @@ export async function simulateDungeonBatch(
       skill.criticals += actionCriticals
       skill.damage += damage
 
+      attacks += attackOutcomes.length
       criticals += actionCriticals
-      misses += outcomes.filter(outcome => outcome.resultType === 'failed').length
-      dodges += outcomes.filter(outcome => {
+      misses += attackOutcomes.filter(outcome => outcome.resultType === 'failed').length
+      dodges += attackOutcomes.filter(outcome => {
         const effect = (outcome.defenseEffect ?? '').toLowerCase()
         return effect.includes('dodge') || effect.includes('esquiv')
       }).length
@@ -226,9 +233,13 @@ export async function simulateDungeonBatch(
     averageHeroDamage: mean(totalHeroDamage, count),
     averageEnemyDamage: mean(totalEnemyDamage, count),
     averageDeaths: mean(totalDeaths, count),
+    attacks,
     criticals,
+    criticalRate: mean(criticals, attacks),
     misses,
+    missRate: mean(misses, attacks),
     dodges,
+    dodgeRate: mean(dodges, attacks),
     totalDeaths,
     damageByCombatant: [...combatants.values()].sort((a, b) => b.damage - a.damage),
     damageBySkill: [...skills.values()].sort((a, b) => b.damage - a.damage),
