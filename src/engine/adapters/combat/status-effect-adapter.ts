@@ -1,7 +1,6 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
-import type { StatModifier } from '../../core/stats/stat-modifier'
-import { applyStatModifiers } from '../../core/stats/stat-modifier'
+import { applyStatModifiers, type StatModifier } from '../../core/stats/stat-modifier'
 import { advanceEffects } from '../../core/effects/effect-lifecycle'
 import { mergeStatusByMaximum } from '../../core/effects/status-stacking'
 import { selectStatusEffectsForPhase } from '../../core/effects/status-timing'
