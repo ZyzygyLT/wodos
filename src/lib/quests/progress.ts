@@ -76,10 +76,10 @@ export async function updateQuestProgress(heroId: string, event: QuestProgressEv
             fame: { increment: rewards.fame || 0 },
           },
         })
-        return { quest: current.quest, rewards }
+        return { quest: current.quest, rewards, heroQuestId: current.id }
       })
 
-      if (completion) await afterQuestCompletion(heroId, completion.quest, completion.rewards)
+      if (completion) await afterQuestCompletion(heroId, completion.quest, completion.rewards, completion.heroQuestId)
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === "P2002" && event.sourceRunId) continue
       throw error
@@ -87,7 +87,7 @@ export async function updateQuestProgress(heroId: string, event: QuestProgressEv
   }
 }
 
-async function afterQuestCompletion(heroId: string, quest: any, rewards: any) {
+async function afterQuestCompletion(heroId: string, quest: any, rewards: any, heroQuestId: string) {
   const hero = await db.hero.findFirst({ where: { id: heroId }, select: { userId: true } })
   if (hero) {
     trackQuestCompleted(hero.userId, { questName: quest.name, questType: quest.type })
@@ -101,19 +101,20 @@ async function afterQuestCompletion(heroId: string, quest: any, rewards: any) {
   }).catch(e => logger.error("quests", "Quest completion notification failed", e))
 
   checkLevelUp(heroId).catch(e => logger.error("quests", "Quest completion level-up failed", e))
-  await grantFactionRepForQuest(heroId, quest.type)
+  await grantFactionRepForQuest(heroId, quest.type, heroQuestId)
   await chainNextQuest(heroId, quest)
 }
 
-async function grantFactionRepForQuest(heroId: string, questType: string) {
+async function grantFactionRepForQuest(heroId: string, questType: string, heroQuestId: string) {
   try {
+    const source = { sourceType: "quest_completion", sourceId: heroQuestId }
     if (questType === "main") {
-      await adjustRep(heroId, 1, 10)
-      await adjustRep(heroId, 5, 5)
+      await adjustRep(heroId, 1, 10, undefined, source)
+      await adjustRep(heroId, 5, 5, undefined, source)
     } else if (questType === "daily") {
-      await adjustRep(heroId, 2, 3)
+      await adjustRep(heroId, 2, 3, undefined, source)
     } else if (questType === "clan") {
-      await adjustRep(heroId, 1, 5)
+      await adjustRep(heroId, 1, 5, undefined, source)
     }
   } catch (e) {
     logger.error("quest-progress", "Error en faction rep", e)
