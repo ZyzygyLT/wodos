@@ -25,6 +25,30 @@ const makeFakeHero = (id: string, name: string, elo: number) => ({
 })
 
 describe('arena opponent stat mapping', () => {
+
+  it('includes speed_up in the mirrored opponent attributes used for initiative', () => {
+    const hero: HeroData = {
+      id: 'hero-speed',
+      name: 'Fast Opponent',
+      level: 5,
+      attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
+      equipStats: { ag: 2 },
+      hpMax: 125,
+      mpMax: 120,
+      gold: 100,
+      combatProfile: { position: 'rear', prelimRules: [], roundRules: [], defenseSkills: {} },
+      skills: [{
+        skillId: 8, name: 'Velocidad', icon: '⚡', multiplier: 1, manaCost: 0,
+        effect: 'speed_up', rank: 1,
+      }],
+    }
+
+    const opponent = heroDataToArenaOpponent(hero, 'rear')
+
+    expect(opponent.attrs?.ag).toBe(17)
+    expect(opponent.ag).toBe(17)
+  })
+
   it('uses canonical hero attributes and equipped bonuses for formulas and derived combat stats', () => {
     const hero: HeroData = {
       id: 'hero-2',
