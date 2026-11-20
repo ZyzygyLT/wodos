@@ -51,7 +51,11 @@ const roundRuleSchema = z.object({
 const putSchema = z.object({
   dungeonLevel: z.number().int().positive().nullable().optional(),
   position: z.enum(POSITIONS).optional(),
-  defenseSkills: z.record(z.string(), z.number().int().positive().nullable()).optional(),
+  defenseSkills: z.object({
+    melee: z.number().int().positive().nullable().optional(),
+    ranged: z.number().int().positive().nullable().optional(),
+    magic: z.number().int().positive().nullable().optional(),
+  }).strict().optional(),
   prelimRules: z.array(prelimRuleSchema).max(30).optional(),
   roundRules: z.array(roundRuleSchema).max(50).optional(),
 }).strict()
@@ -113,18 +117,24 @@ export async function PUT(req: NextRequest) {
 
   const unlockedIds = new Set(hero.skills.map(s => s.skillId))
   const ownedItems = hero.items.map(hi => hi.item)
-  const ownedItemIds = new Set(ownedItems.map(item => item.id))
   const consumableIds = new Set(ownedItems.filter(item => item.category === 'consumable').map(item => item.id))
+  const skillsById = new Map(hero.skills.map(entry => [entry.skillId, entry.skill]))
 
   function validatePrelimRule(r: z.infer<typeof prelimRuleSchema>): string | null {
-    if (r.skillId !== undefined && !unlockedIds.has(r.skillId)) return `Skill ID ${r.skillId} en preparación no está desbloqueada`
+    if (r.skillId !== undefined) {
+      const skill = skillsById.get(r.skillId)
+      if (!skill) return `Skill ID ${r.skillId} en preparación no está desbloqueada`
+      if (skill.timing !== 'both' && skill.timing !== 'pre_round') return `Skill ID ${r.skillId} no se puede usar durante la preparación`
+    }
     if (r.itemId !== undefined && !consumableIds.has(r.itemId)) return `Item ID ${r.itemId} en preparación no es un consumible disponible`
     return null
   }
 
   function validateAction(action: z.infer<typeof tacticActionSchema>, context: string): string | null {
-    if (action.skillId !== undefined && !unlockedIds.has(action.skillId)) {
-      return `Skill ID ${action.skillId} en ${context} no está desbloqueada`
+    if (action.skillId !== undefined) {
+      const skill = skillsById.get(action.skillId)
+      if (!skill) return `Skill ID ${action.skillId} en ${context} no está desbloqueada`
+      if (skill.timing !== 'both' && skill.timing !== 'round') return `Skill ID ${action.skillId} no se puede usar durante una ronda`
     }
     if (action.itemId !== undefined && !consumableIds.has(action.itemId)) {
       return `Item ID ${action.itemId} en ${context} no es un consumible disponible`
@@ -137,6 +147,18 @@ export async function PUT(req: NextRequest) {
     const err = validatePrelimRule(r)
     if (err) return NextResponse.json({ error: err }, { status: 400 })
   }
+  const defenseSkills = parsed.data.defenseSkills
+  if (defenseSkills) {
+    for (const category of ['melee', 'ranged', 'magic'] as const) {
+      const skillId = defenseSkills[category]
+      if (skillId == null) continue
+      const skill = skillsById.get(skillId)
+      if (!skill || (skill.defenseCategory !== category && skill.defenseCategory !== 'all')) {
+        return NextResponse.json({ error: `Skill ID ${skillId} no es una defensa válida para ${category}` }, { status: 400 })
+      }
+    }
+  }
+
   const roundRules = parsed.data.roundRules ?? []
   for (const r of roundRules) {
     const err = validateAction(r.action, 'regla de ronda')
