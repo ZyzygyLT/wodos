@@ -17,7 +17,6 @@ import {
 } from './tactics-evaluator'
 
 import {
-  advanceLegacyStatusRound,
   advanceLegacyPeriodicStatusRound,
   advanceLegacyNonPeriodicStatusRound,
   applyLegacyStatusEffect,
