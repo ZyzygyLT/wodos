@@ -1334,6 +1334,9 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const shield = applyManaShieldAbsorption(hero, state, resolved.damage, ctx)
   const finalDmg = shield.finalDmg
   applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit, actionId)
+  // Area attacks must trigger the same defender reactions as single-target attacks.
+  applyThornsReflect(hero, enemyUnit, finalDmg, ctx, heroUnits, allEnemyUnits)
+  applyCounterAttack(hero, enemyUnit, finalDmg, aCat, ctx, heroUnits, allEnemyUnits)
   if (hero.hp > 0 && !resolved.dodged && dt !== 'physical') {
     applyStatusEffectFromDamage(dt, enemy.atk, hero, enemyUnit.name, ctx)
   }
