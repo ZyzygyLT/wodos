@@ -36,10 +36,26 @@ export function computeDefenseForHero(hero: any) {
     attrs[key] = (attrs[key] ?? 0) + (equip[key] ?? 0)
   }
 
-  return calculateDefense({
+  const result = calculateDefense({
     attributes: attrs,
     baseAttributes: baseAttrs,
     profile,
     skills: hero.skills ?? [],
   })
+  const fortitudeBonus = (hero.skills ?? []).reduce((total: number, skill: any) => {
+    const effect = skill.effect ?? skill.skill?.effect
+    return total + (effect === 'fortitude' ? 10 : 0)
+  }, 0)
+  const equipmentDefense = Number.isFinite(equip.def) ? equip.def : 0
+  const flatBonus = fortitudeBonus + equipmentDefense
+  const values = Object.fromEntries(
+    Object.entries(result.values).map(([category, value]) => [category, value + flatBonus])
+  )
+  const breakdown = Object.fromEntries(
+    Object.entries(result.breakdown).map(([category, lines]) => [
+      category,
+      flatBonus === 0 ? [...lines] : [...lines, `bono fijo de equipo/pasiva = +${flatBonus}`],
+    ])
+  )
+  return { values, breakdown }
 }
