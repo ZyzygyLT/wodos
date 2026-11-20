@@ -19,6 +19,19 @@ describe('combat action result', () => {
     expect(Object.isFrozen(result.targets[0])).toBe(true)
   })
 
+  it('preserves the originating action identifier', () => {
+    const result = createCombatActionResult({
+      actionId: 'action:1:2:3',
+      actorId: 'hero-1',
+      skillId: 12,
+      kind: 'attack',
+      outcome: 'hit',
+      targets: [{ targetId: 'enemy-1', outcome: 'hit' }],
+    })
+
+    expect(result.actionId).toBe('action:1:2:3')
+  })
+
   it('preserves per-target outcomes for area actions', () => {
     const result = createCombatActionResult({
       actorId: 'enemy-1',
