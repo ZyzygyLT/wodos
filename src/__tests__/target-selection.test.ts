@@ -87,6 +87,29 @@ describe('pure combat target selection', () => {
     expect(result.reason).toBe('fallback')
   })
 
+  it('preserves the legacy enemy AI weakest and front/rear targeting probabilities', () => {
+    const weakest = unit('weakest', 5, 'rear')
+    const frontA = unit('front-a', 40, 'front')
+    const frontB = unit('front-b', 60, 'front')
+    const common = {
+      actor, allies: [], enemies: [frontA, frontB, weakest],
+      targetPosition: 'auto' as const, targetType: 'enemy_ai' as const,
+    }
+    const weakestPlan = selectCombatTarget({
+      ...common,
+      random: { next: () => 0.1 },
+    })
+    expect(weakestPlan.target).toBe(weakest)
+
+    const values = [0.9, 0.1, 0.99]
+    let index = 0
+    const frontPlan = selectCombatTarget({
+      ...common,
+      random: { next: () => values[index++] },
+    })
+    expect(frontPlan.target).toBe(frontB)
+  })
+
   it('returns null when no valid target exists', () => {
     const result = selectCombatTarget({
       actor, allies: [], enemies: [unit('dead', 0, 'front')],
