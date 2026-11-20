@@ -109,6 +109,9 @@ export interface CombatState {
   damagedThisRound: boolean
   groupAtkBonus: number
   groupDefBonus: number
+  /** Stable hero-side bonuses retained when temporary buffs are recalculated. */
+  baseGroupAtkBonus?: number
+  baseGroupDefBonus?: number
   manaShield?: boolean
   skillCooldowns?: Record<string, Record<number, number>>  // heroId -> { skillId -> remainingRounds }
   factionBonuses?: { atk: number; def: number; combustion: boolean; darknessHeal: boolean }
