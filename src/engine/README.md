@@ -76,3 +76,10 @@ These adapters are deliberately one-way and do not query Prisma. The dungeon/are
 ## Validation status
 
 Unit tests are added for core contracts and adapter mapping. Run the repository test suite and `npx tsc --noEmit` before treating the migration as verified.
+
+
+### Legacy combat status compatibility
+
+- `adapters/combat/status-effect-adapter.ts` maps Wodos' legacy `StatusEffect` shape to/from the neutral `GameEffect` contract without importing the combat runner.
+- The adapter preserves current behavior: one instance per status type and target, refresh by maximum value/duration while retaining original source, poison/burn/bleed damage at round start, stun/freeze turn skipping, and end-of-round duration decay.
+- This is a compatibility boundary, not a combat-runner migration. Existing battle execution remains unchanged until differential integration tests can verify the complete turn sequence.
