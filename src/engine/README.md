@@ -194,3 +194,15 @@ Damage totals are derived from the damage breakdowns exposed by action reports. 
 - `src/lib/combat-engine/formulas.ts` retains its existing public `SkillFormula`, `evaluateFormula` and `applyDiceMultiplier` compatibility surface, delegating evaluation to the engine module. Existing callers therefore do not need to migrate at once.
 
 This is the first skill-domain extraction, not yet a full skill executor. Skill ownership/unlock rules, target selection, MP deduction, cooldown scheduling, status application and action reporting still belong to the existing application combat flow. They must be migrated in separate characterized steps so the current combat sequence and balance remain unchanged.
+
+
+## Skill availability and resource rules
+
+`core/skills/skill-availability.ts` extracts pure rules used by the current combat runner:
+
+- `calculateSkillManaCost` preserves Wodos' existing +20% of base mana per rank above rank 1.
+- `resolveSkillMana` returns the selected skill, actual MP cost, resulting MP and any low-mana fallback without mutating the combat unit. It preserves the current preference for a free basic attack, then a non-free basic attack, and finally the legacy forced-skill fallback.
+- `isSkillOnCooldown` and `getSkillCooldownRemaining` centralize cooldown lookup; `normalizeSkillCooldown` treats absent, non-finite and non-positive durations as no cooldown.
+- The dungeon runner delegates hero MP resolution and hero/enemy cooldown checks to these contracts. It still owns logs, state mutation, tactic overrides and the round-by-round cooldown clock.
+
+This phase does not yet validate skill ownership or `requiresSkills`: the runner receives a pre-filtered hero skill list and does not currently carry the complete persisted skill catalogue/prerequisite state. It also does not change target selection or action resolution.
