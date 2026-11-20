@@ -1,4 +1,4 @@
-import type { RandomSource } from '@/engine/core/random/random-source'
+import { nextRandom, randomIntInclusive, type RandomSource } from '@/engine/core/random/random-source'
 import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage } from '@/engine/core'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export function evaluateFormula(
   const count = formula.diceCount ?? 0
   const sides = formula.diceSides ?? 0
   for (let i = 0; i < count; i++) {
-    diceTotal += Math.floor(random.next() * Math.max(1, sides)) + 1
+    diceTotal += randomIntInclusive(random, 1, Math.max(1, sides))
   }
 
   return { base: Math.max(0, base), diceTotal }
@@ -140,7 +140,7 @@ export const CRIT_MULTIPLIER = 1.5
  * Se recalcula cada ronda — el orden cambia ronda a ronda.
  */
 export const rollInitiative = (base: number, random: RandomSource = { next: () => Math.random() }): number =>
-  base + Math.floor(random.next() * 20)
+  base + randomIntInclusive(random, 0, 19)
 
 // ─── HEALING ─────────────────────────────────────────────────────────────────
 
