@@ -41,6 +41,7 @@ import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-reso
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
 import { advanceSkillCooldowns, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
 import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
+import { dispatchSkillExecutionPlan } from '../../engine/core/skills/skill-plan-dispatch'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
 import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
 import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
@@ -1216,26 +1217,23 @@ function executeHeroAction(
     random: ctx.random ?? { next: () => Math.random() },
   })
 
-  if (plan.kind === 'heal') {
-    return executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.target)
-  }
-  if (plan.kind === 'party_buff') {
-    return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.buff, plan.bonus)
-  }
-
-  const resolvedFormula = fResult!
-  const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
-  const isArmorPen = plan.kind === 'single_attack' && plan.armorPenetration
-  const isCritAuto = plan.kind === 'single_attack' && plan.critical
   const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
-
-  if (plan.kind === 'area_attack') {
-    const atkValues: AttackValues = { adjAttack, isArmorPen, isCritAuto }
-    return executeHeroAoeAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, plan.targets)
-  }
-
-  const atkValues: AttackValues = { fResult: resolvedFormula, adjAttack, isArmorPen, isCritAuto }
-  return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, plan.target, extraUnits)
+  return dispatchSkillExecutionPlan(plan, {
+    heal: target => executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target),
+    party_buff: (buff, bonus) => executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
+    area_attack: (targets, armorPenetration, critical) => {
+      const resolvedFormula = fResult!
+      const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
+      const atkValues: AttackValues = { adjAttack, isArmorPen: armorPenetration, isCritAuto: critical }
+      return executeHeroAoeAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, targets)
+    },
+    single_attack: (target, armorPenetration, critical) => {
+      const resolvedFormula = fResult!
+      const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
+      const atkValues: AttackValues = { fResult: resolvedFormula, adjAttack, isArmorPen: armorPenetration, isCritAuto: critical }
+      return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, target, extraUnits)
+    },
+  })
 }
 
 // ─── ACCIÓN DEL ENEMIGO (IA SIMPLE) ─────────────────────────────────────────
@@ -1582,19 +1580,24 @@ function executeEnemyAction(
   const adjAttack = fResult ? applyDiceMultiplier(fResult.base, fResult.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor) : 0
   const plan = resolveSkillExecution(executionInput)
 
-  if (plan.kind === 'area_attack' && fResult) {
-    return executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen: false }, ctx, { initiative, actionNum, totalActions }, plan.targets)
-  }
-
-  const singlePlan = plan.kind === 'area_attack'
+  const singlePlan = plan.kind === 'area_attack' && !fResult
     ? resolveSkillExecution({
         ...executionInput,
         skill: { ...executionSkill, effect: 'attack' },
       })
     : plan
-  if (singlePlan.kind !== 'single_attack' || !singlePlan.target) return null
-  const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
-  return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, singlePlan.armorPenetration, singlePlan.target, state, ctx, initiative, actionNum, totalActions, aCat)
+  return dispatchSkillExecutionPlan(singlePlan, {
+    heal: () => null,
+    party_buff: () => null,
+    area_attack: targets => fResult
+      ? executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen: false }, ctx, { initiative, actionNum, totalActions }, targets)
+      : null,
+    single_attack: (target, armorPenetration) => {
+      if (!target) return null
+      const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
+      return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, armorPenetration, target, state, ctx, initiative, actionNum, totalActions, aCat)
+    },
+  })
 }
 
 // ─── EFECTOS DE ESTADO ────────────────────────────────────────────────────────
