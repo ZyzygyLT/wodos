@@ -956,7 +956,7 @@ function processAoeTarget(
       resultType: 'failed',
     }
   }
-  const critRoll = isCritAuto ? true : rollCrit(heroUnit.attrs.dx)
+  const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: { next: () => Math.random() } }).critical
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, enemy.def ?? 5, isArmorPen, dt, enemy.resistances)
