@@ -1,4 +1,13 @@
-import type { ResolvedPassiveCommand } from '../../adapters/combat/passive-effect-adapter'
+export interface PassiveExecutionCommand {
+  readonly trigger: 'on_damage' | 'on_death' | 'on_round_start'
+  readonly effectType: 'damage' | 'heal' | 'buff'
+  readonly targetType: 'attacker' | 'all_heroes' | 'all_enemies' | 'self'
+  readonly value: number
+  readonly sourceId: string
+  readonly sourceName: string
+  readonly damageType?: string
+  readonly buffType?: 'atk' | 'def'
+}
 
 export interface PassiveExecutionContext {
   readonly sourceId: string
@@ -8,7 +17,7 @@ export interface PassiveExecutionContext {
 }
 
 export interface PassiveExecutionPlan {
-  readonly command: ResolvedPassiveCommand
+  readonly command: PassiveExecutionCommand
   readonly targetIds: readonly string[]
 }
 
@@ -18,7 +27,7 @@ export interface PassiveExecutionPlan {
  * defeated units. Individual legacy handlers retain their own alive/dead rules.
  */
 export function planPassiveExecution(
-  command: ResolvedPassiveCommand,
+  command: PassiveExecutionCommand,
   context: PassiveExecutionContext,
 ): PassiveExecutionPlan {
   let targetIds: readonly string[]
