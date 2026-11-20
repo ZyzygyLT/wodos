@@ -858,13 +858,15 @@ function actionResultType(hit: boolean | null, crit: boolean | null): 'failed' |
 }
 
 function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, actor: string, skillName: string, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], attacker?: CombatUnit, actionId?: string): boolean {
-  applyDamageWithEvent(target, dmg, attacker?.id ?? `actor:${actor}`, ctx, actionId)
+  const appliedDamage = applyDamageWithEvent(target, dmg, attacker?.id ?? `actor:${actor}`, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
   emitUnitStateChanged(ctx, target, { condition: target.condition })
   ctx.state!.damagedThisRound = true
   // Every attack route using this helper must notify the damaged unit's passives,
   // including area attacks from either side. Keep this before defeat handling.
-  processPassiveEffects('on_damage', target, heroUnits, enemyUnits, attacker, ctx)
+  if (appliedDamage > 0) {
+    processPassiveEffects('on_damage', target, heroUnits, enemyUnits, attacker, ctx)
+  }
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
     `${actor} usa ${skillName} → ${dmg} daño (${target.name})${target.hp <= 0 ? ' — DERRIBADO' : ''}`,
     { actor, target: target.name, skill: skillName, value: dmg })
@@ -1166,9 +1168,9 @@ function executeHeroSingleTargetAttack(
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
 
-  applyDamageWithEvent(target, finalDmg, heroUnit.id, ctx, actionId)
+  const appliedDamage = applyDamageWithEvent(target, finalDmg, heroUnit.id, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
-  state.damagedThisRound = finalDmg > 0
+  state.damagedThisRound = appliedDamage > 0
 
   if (!resolved.dodged && target.hp > 0 && formula?.damageType && formula.damageType !== 'physical') {
     applyStatusEffectFromDamage(formula.damageType, fResult!.base, target, heroUnit.name, ctx)
@@ -1176,7 +1178,9 @@ function executeHeroSingleTargetAttack(
 
   applyCritEffects(critRoll, target, finalDmg, ctx, heroUnit.name)
   applyVampireHeal(heroUnit, finalDmg, ctx)
-  processPassiveEffects('on_damage', target, allHeroUnits, allEnemyUnits, heroUnit, ctx)
+  if (appliedDamage > 0) {
+    processPassiveEffects('on_damage', target, allHeroUnits, allEnemyUnits, heroUnit, ctx)
+  }
 
   const msg = buildHeroAttackLogMessage(heroUnit, skillName, critRoll, isCritAuto, finalDmg, resolved, target)
   addLog(ctx.log, critRoll ? 'crit' : 'hit', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, target: target.name, skill: skillName, value: finalDmg })
@@ -1386,10 +1390,12 @@ function executeEnemySingleTargetAttack(
   const { absorbed, finalDmg: afterShield } = applyManaShieldAbsorption(target, state, finalDmg, ctx)
   finalDmg = afterShield
 
-  applyDamageWithEvent(target, finalDmg, enemyUnit.id, ctx, actionId)
+  const appliedDamage = applyDamageWithEvent(target, finalDmg, enemyUnit.id, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
-  state.damagedThisRound = finalDmg > 0
-  processPassiveEffects('on_damage', target, heroUnits, allEnemyUnits, enemyUnit, ctx)
+  state.damagedThisRound = appliedDamage > 0
+  if (appliedDamage > 0) {
+    processPassiveEffects('on_damage', target, heroUnits, allEnemyUnits, enemyUnit, ctx)
+  }
 
   applyThornsReflect(target, enemyUnit, finalDmg, ctx, heroUnits, allEnemyUnits)
   applyCritEffects(crit, target, finalDmg, ctx, enemyUnit.name)
