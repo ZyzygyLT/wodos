@@ -120,7 +120,7 @@ export const rollCrit = (attackerDx: number, random: RandomSource = { next: () =
 export const CRIT_MULTIPLIER = 1.5
 
 /**
- * Iniciativa final con componente aleatoria (+0 a +20).
+ * Iniciativa final con componente aleatoria uniforme (+0 a +19).
  * Se recalcula cada ronda — el orden cambia ronda a ronda.
  */
 export const rollInitiative = rollCombatInitiative
