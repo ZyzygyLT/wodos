@@ -9,3 +9,5 @@ export * from './stats/stat-pipeline'
 export * from './stats/derived-stats'
 export * from './combat'
 export * from './events/combat-events'
+
+export * from './skills/skill-definition'
