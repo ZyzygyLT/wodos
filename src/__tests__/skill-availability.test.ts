@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  advanceSkillCooldowns,
   calculateSkillManaCost,
   getSkillCooldownRemaining,
   isSkillOnCooldown,
   normalizeSkillCooldown,
   resolveSkillMana,
+  setSkillCooldown,
 } from '@/engine/core/skills/skill-availability'
 
 const basic = { skillId: 1, name: 'Basic', effect: 'attack', manaCost: 0 }
@@ -85,4 +87,27 @@ describe('skill availability and resource rules', () => {
     expect(normalizeSkillCooldown(Number.NaN)).toBe(0)
     expect(normalizeSkillCooldown(undefined)).toBe(0)
   })
+  it('assigns cooldowns immutably for heroes and enemies', () => {
+    const initial = { hero_1: { 12: 2 } }
+    const next = setSkillCooldown(initial, 'enemy_1', 7, 3)
+    expect(next).toEqual({ hero_1: { 12: 2 }, enemy_1: { 7: 3 } })
+    expect(initial).toEqual({ hero_1: { 12: 2 } })
+  })
+
+  it('advances cooldowns and removes skills that become ready', () => {
+    const initial = { hero_1: { 1: 1, 2: 2 }, enemy_1: { 3: 3 } }
+    expect(advanceSkillCooldowns(initial)).toEqual({
+      hero_1: { 2: 1 },
+      enemy_1: { 3: 2 },
+    })
+    expect(initial).toEqual({ hero_1: { 1: 1, 2: 2 }, enemy_1: { 3: 3 } })
+  })
+
+  it('supports advancing by multiple rounds and rejects invalid elapsed values', () => {
+    expect(advanceSkillCooldowns({ hero_1: { 1: 4, 2: 1 } }, 3)).toEqual({
+      hero_1: { 1: 1 },
+    })
+    expect(() => advanceSkillCooldowns({}, -1)).toThrow(RangeError)
+  })
+
 })
