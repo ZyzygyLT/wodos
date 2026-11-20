@@ -52,7 +52,7 @@ describe('initiative and turn queue', () => {
 
   it('preserves Wodos defaults, trap exclusion, hero attributes and stable tie order', () => {
     const heroes = [
-      unit('h1', 100, { attrs: { dx: 5 } }),
+      unit('h1', 100, { attrs: { ag: 12, pe: 0 } }),
       unit('h2', 100),
       unit('h3', 0, { attrs: { dx: 100 } }),
     ]
@@ -63,7 +63,7 @@ describe('initiative and turn queue', () => {
     ]
     const queue = buildTurnQueue(heroes, enemies, { next: () => 0 })
     expect(queue.map(actor => actor.unit.id)).toEqual(['h1', 'h2', 'enemy'])
-    expect(queue[0]).toMatchObject({ initiative: 12, isHero: true, attrs: { dx: 5 } })
+    expect(queue[0]).toMatchObject({ initiative: 12, isHero: true, attrs: { ag: 12, pe: 0 } })
     expect(queue[1]).toMatchObject({ initiative: 12, isHero: true, attrs: undefined })
     expect(queue[2]).toMatchObject({ initiative: 10, isHero: false })
   })
