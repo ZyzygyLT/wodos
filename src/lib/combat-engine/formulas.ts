@@ -1,3 +1,5 @@
+import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp } from '@/engine/core'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // IRONHOLD — Fórmulas de combate
 // lib/combat-engine/formulas.ts
@@ -22,10 +24,10 @@ export interface HeroAttrs {
 // ─── STATS DERIVADOS ─────────────────────────────────────────────────────────
 
 export const calcHpMax = (attrs: HeroAttrs, level: number): number =>
-  attrs.co * 10 + level * 5
+  calculateMaxHp(attrs, level)
 
 export const calcMpMax = (attrs: HeroAttrs): number =>
-  attrs.wi * 8 + attrs.in * 4
+  calculateMaxMp(attrs)
 
 export interface SkillFormula {
   attrCoeffs: Record<string, number>  // { st: 2, dx: 1 }
@@ -83,10 +85,10 @@ export function applyDiceMultiplier(
 }
 
 export const calcDefenseBase = (attrs: HeroAttrs): number =>
-  2 * attrs.ag + attrs.pe
+  calculateDefenseBase(attrs)
 
 export const calcInitiativeBase = (attrs: HeroAttrs): number =>
-  attrs.ag + Math.floor(attrs.pe / 2)
+  calculateInitiativeBase(attrs)
 
 // ─── ROLLS DE COMBATE ─────────────────────────────────────────────────────────
 
