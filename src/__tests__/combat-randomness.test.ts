@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSeededRandom } from '@/engine/core/random/random-source'
 import { validateCombatEventJournal, type CombatEventHandler } from '@/engine/core/events/combat-events'
-import { reconstructCombatState, type CombatStateSnapshot } from '@/engine/core/events/combat-state-reducer'
+import { reconstructCombatState } from '@/engine/core/events/combat-state-reducer'
 import { evaluateFormula, rollInitiative } from '@/lib/combat-engine/formulas'
 import { buildTurnQueue, resolveTarget, type CombatUnit, type CombatState } from '@/lib/combat-engine/tactics-evaluator'
 import { runDungeon, type HeroData, type DungeonData } from '@/lib/combat-engine/dungeon-runner'
