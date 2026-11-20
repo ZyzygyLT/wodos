@@ -27,11 +27,6 @@ function parseRunesIn(value: unknown): SocketEntry[] | null {
   return entries
 }
 
-async function lockHeroItems(tx: typeof db, ids: string[]) {
-  // Lock rows in a stable order to serialize concurrent socket/unsocket requests.
-  await tx.$queryRaw`SELECT id FROM hero_items WHERE id IN (${ids[0]}, ${ids[1] ?? ids[0]}) ORDER BY id FOR UPDATE`
-}
-
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 })
@@ -82,7 +77,8 @@ export async function POST(req: NextRequest) {
 
   try {
     await db.$transaction(async tx => {
-      await lockHeroItems(tx, [heroItemId, runeHeroItemId])
+      // Lock both rows in a stable order before reading or changing their state.
+      await tx.$queryRaw`SELECT id FROM hero_items WHERE id IN (${heroItemId}, ${runeHeroItemId}) ORDER BY id FOR UPDATE`
 
       const target = await tx.heroItem.findFirst({
         where: { id: heroItemId, heroId: hero.id },
@@ -163,7 +159,7 @@ export async function PUT(req: NextRequest) {
 
   try {
     await db.$transaction(async tx => {
-      await lockHeroItems(tx, [heroItemId])
+      await tx.$queryRaw`SELECT id FROM hero_items WHERE id = ${heroItemId} FOR UPDATE`
 
       const target = await tx.heroItem.findFirst({
         where: { id: heroItemId, heroId: hero.id },
