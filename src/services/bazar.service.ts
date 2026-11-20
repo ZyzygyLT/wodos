@@ -19,39 +19,65 @@ export async function listItem(
   const hero = await db.hero.findFirst({
     where: { userId },
     orderBy: { createdAt: 'asc' },
-    include: { items: { include: { item: true } } },
+    select: { id: true },
   })
   if (!hero) return { ok: false, error: 'No tenés un héroe', status: 404 }
-
-  const heroItem = hero.items.find(i => i.id === params.heroItemId)
-  if (!heroItem) return { ok: false, error: 'Item no encontrado', status: 404 }
-
-  if (heroItem.equipped) return { ok: false, error: 'Deequipá el item antes de venderlo', status: 400 }
-
-  const existing = await db.bazarListing.findUnique({ where: { heroItemId: params.heroItemId } })
-  if (existing?.status === 'active') return { ok: false, error: 'Este item ya está en venta', status: 400 }
 
   const expiresAt = new Date(Date.now() + (params.expiresInHours ?? 72) * 3600000)
   const listingType = params.listingType
 
-  const listing = await db.bazarListing.create({
-    data: {
-      sellerId: hero.id,
-      heroItemId: heroItem.id,
-      itemId: heroItem.itemId,
-      listingType,
+  try {
+    const result = await db.$transaction(async tx => {
+      // Serialize attempts to list the same owned item, then validate fresh state.
+      await tx.$queryRaw`SELECT id FROM hero_items WHERE id = ${params.heroItemId} FOR UPDATE`
+
+      const heroItem = await tx.heroItem.findFirst({
+        where: { id: params.heroItemId, heroId: hero.id },
+        include: { item: true },
+      })
+      if (!heroItem) throw new Error('ITEM_NOT_FOUND')
+      if (heroItem.equipped) throw new Error('ITEM_EQUIPPED')
+
+      const existing = await tx.bazarListing.findUnique({
+        where: { heroItemId: heroItem.id },
+      })
+      if (existing?.status === 'active') throw new Error('ALREADY_LISTED')
+
+      const listingData = {
+        sellerId: hero.id,
+        itemId: heroItem.itemId,
+        listingType,
+        price: params.price,
+        startPrice: listingType === 'auction' ? params.price : null,
+        buyNowPrice: listingType === 'auction' ? Math.round(params.price * 1.5) : null,
+        expiresAt,
+        status: 'active' as const,
+      }
+
+      const listing = existing
+        ? await tx.bazarListing.update({
+            where: { id: existing.id },
+            data: listingData,
+          })
+        : await tx.bazarListing.create({
+            data: { ...listingData, heroItemId: heroItem.id },
+          })
+
+      return { listing, itemName: heroItem.item.name }
+    })
+
+    trackItemListed(userId, {
+      itemName: result.itemName,
       price: params.price,
-      startPrice: listingType === 'auction' ? params.price : null,
-      buyNowPrice: listingType === 'auction' ? Math.round(params.price * 1.5) : null,
-      expiresAt,
-    },
-  })
+      type: listingType,
+    })
 
-  trackItemListed(userId, {
-    itemName: heroItem.item.name,
-    price: params.price,
-    type: listingType,
-  })
-
-  return { ok: true, data: listing }
+    return { ok: true, data: result.listing }
+  } catch (error) {
+    const code = error instanceof Error ? error.message : ''
+    if (code === 'ITEM_NOT_FOUND') return { ok: false, error: 'Item no encontrado', status: 404 }
+    if (code === 'ITEM_EQUIPPED') return { ok: false, error: 'Deequipá el item antes de venderlo', status: 400 }
+    if (code === 'ALREADY_LISTED') return { ok: false, error: 'Este item ya está en venta', status: 400 }
+    throw error
+  }
 }
