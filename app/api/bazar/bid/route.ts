@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
 
       const previousBid = await tx.bazarPurchase.findFirst({
         where: { listingId: listing.id, cycle: listing.cycle },
-        orderBy: { pricePaid: "desc" },
+        orderBy: [{ pricePaid: "desc" }, { purchasedAt: "desc" }],
       })
       const minBid = (previousBid?.pricePaid ?? listing.startPrice ?? listing.price) + 1
       const bidAmount = amount === undefined ? minBid : amount as number
@@ -257,7 +257,7 @@ export async function PUT(req: NextRequest) {
       const previousBid = listing.listingType === "auction"
         ? await tx.bazarPurchase.findFirst({
             where: { listingId: listing.id, cycle: listing.cycle },
-            orderBy: { pricePaid: "desc" },
+            orderBy: [{ pricePaid: "desc" }, { purchasedAt: "desc" }],
           })
         : null
 
