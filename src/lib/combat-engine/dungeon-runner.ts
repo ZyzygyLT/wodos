@@ -47,6 +47,7 @@ import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control
 import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
 import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
 import { executeEnemyTurnPipeline, executeHeroTurnPipeline } from '../../engine/core/combat/actor-action'
+import { resolveStatusApplication } from '../../engine/core/effects/status-application'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -1112,7 +1113,7 @@ function buildHeroAttackLogMessage(heroUnit: CombatUnit & { attrs: Record<string
 }
 
 function applyStatusEffectFromDamage(dt: string, atkOrBase: number, target: CombatUnit, sourceName: string, ctx: CombatCtx): void {
-  const se = statusEffectFromDamageType(dt as DamageType, atkOrBase)
+  const se = resolveStatusApplication(dt, atkOrBase)
   if (se) applyStatusEffect(target, se.type, se.value, se.rounds, sourceName, ctx)
 }
 
@@ -1653,20 +1654,6 @@ function decayStatusEffects(unit: CombatUnit, ctx: CombatCtx) {
   emitUnitStateChanged(ctx, unit, { statusEffects: unit.statusEffects.map(effect => ({ ...effect })) })
 }
 
-function statusEffectFromDamageType(dt: DamageType, atk: number): { type: StatusEffect['type']; value: number; rounds: number } | null {
-  switch (dt) {
-    case 'poison': return { type: 'poison', value: Math.max(1, Math.round(atk * 0.15)), rounds: 3 }
-    case 'fire': return { type: 'burn', value: Math.max(1, Math.round(atk * 0.2)), rounds: 2 }
-    case 'ice': return { type: 'freeze', value: 0, rounds: 1 }
-    case 'lightning': return { type: 'stun', value: 0, rounds: 1 }
-    case 'holy': return { type: 'burn', value: Math.max(1, Math.round(atk * 0.25)), rounds: 2 }
-    case 'psychological':
-    case 'dark': return { type: 'stun', value: 0, rounds: 1 }
-    case 'bleed':
-    case 'piercing': return { type: 'bleed', value: Math.max(1, Math.round(atk * 0.1)), rounds: 3 }
-    default: return null
-  }
-}
 
 const BUFF_DURATION = 3  // rondas que duran los buffs de party_attack_up / defense_up
 
