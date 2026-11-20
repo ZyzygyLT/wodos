@@ -65,19 +65,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const fameGained = rewardTier.fame ?? 0
 
-  await db.$transaction([
-    db.clan.update({
-      where: { id: clanMember.clanId },
-      data: {
-        fame: { increment: fameGained },
-        gold: { increment: rewardTier.gold ?? 0 },
-      },
-    }),
-    db.clanEventParticipation.update({
-      where: { clanId_eventId: { clanId: clanMember.clanId, eventId: id } },
-      data: { claimed: true },
-    }),
-  ])
+  try {
+    await db.$transaction(async tx => {
+      const claimed = await tx.clanEventParticipation.updateMany({
+        where: { clanId: clanMember.clanId, eventId: id, claimed: false },
+        data: { claimed: true },
+      })
+      if (claimed.count !== 1) throw new Error("CLAN_EVENT_ALREADY_CLAIMED")
+
+      await tx.clan.update({
+        where: { id: clanMember.clanId },
+        data: {
+          fame: { increment: fameGained },
+          gold: { increment: rewardTier.gold ?? 0 },
+        },
+      })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "CLAN_EVENT_ALREADY_CLAIMED") {
+      return NextResponse.json({ error: "Ya reclamaste las recompensas de este evento" }, { status: 409 })
+    }
+    throw error
+  }
 
   const newLevel = await checkClanLevelUp(clanMember.clanId)
 
