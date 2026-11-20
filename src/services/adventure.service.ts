@@ -66,14 +66,15 @@ export async function startAdventure(heroId: string, adventureId: number) {
   return await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
 
-    const [hero, adventure, existing] = await Promise.all([
-      tx.hero.findUnique({
-        where: { id: heroId },
-        select: { id: true, level: true, adventureEnergy: true },
-      }),
-      tx.adventure.findUnique({ where: { id: adventureId } }),
-      tx.heroAdventure.findFirst({ where: { heroId, status: "active" }, select: { id: true } }),
-    ])
+    const hero = await tx.hero.findUnique({
+      where: { id: heroId },
+      select: { id: true, level: true, adventureEnergy: true },
+    })
+    const adventure = await tx.adventure.findUnique({ where: { id: adventureId } })
+    const existing = await tx.heroAdventure.findFirst({
+      where: { heroId, status: "active" },
+      select: { id: true },
+    })
 
     if (!hero) throw new Error("Héroe no encontrado")
     if (!adventure) throw new Error("Aventura no encontrada")
@@ -363,16 +364,21 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
 }
 
 export async function abandonAdventure(heroId: string, heroAdventureId: string) {
-  const ha = await db.heroAdventure.findUnique({ where: { id: heroAdventureId } })
-  if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
-  if (ha.status !== 'active') throw new Error('Aventura no activa')
+  return await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "hero_adventures" WHERE "id" = ${heroAdventureId} FOR UPDATE`
 
-  await db.heroAdventure.update({
-    where: { id: heroAdventureId },
-    data: { status: 'failed', completedAt: new Date() },
+    const ha = await tx.heroAdventure.findUnique({ where: { id: heroAdventureId } })
+    if (!ha || ha.heroId !== heroId) throw new Error("Aventura no encontrada")
+    if (ha.status !== "active") throw new Error("Aventura no activa")
+
+    const abandoned = await tx.heroAdventure.updateMany({
+      where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
+      data: { status: "failed", completedAt: new Date() },
+    })
+    if (abandoned.count !== 1) throw new Error("AVENTURA_ABANDON_STALE")
+
+    return { abandoned: true }
   })
-
-  return { abandoned: true }
 }
 
 export async function rechargeEnergy(heroId: string) {
