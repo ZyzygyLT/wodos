@@ -13,6 +13,7 @@ export interface SkillExecutionDefinition {
   readonly multiplier?: number
   readonly rank?: number
   readonly healPct?: number
+  readonly healTarget?: 'self' | 'most_injured_ally'
   readonly tags?: readonly string[]
 }
 
@@ -50,7 +51,8 @@ export function resolveSkillExecution<T extends TargetableUnit>(
   const rank = skill.rank ?? 1
 
   if (effect === 'heal' && skill.healPct) {
-    const injured = [actor, ...allies].filter(unit => unit.hp > 0 && unit.hp < unit.maxHp)
+    const candidates = skill.healTarget === 'self' ? [actor] : [actor, ...allies]
+    const injured = candidates.filter(unit => unit.hp > 0 && unit.hp < unit.maxHp)
     const target = injured.reduce<T | null>((best, unit) => {
       if (!best || unit.hp / unit.maxHp < best.hp / best.maxHp) return unit
       return best
