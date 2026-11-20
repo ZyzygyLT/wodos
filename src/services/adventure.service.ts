@@ -361,26 +361,33 @@ export async function rechargeEnergy(heroId: string) {
 }
 
 export async function buyEnergy(heroId: string, amount: number = ENERGY_RECHARGE_AMOUNT_GOLD) {
-  const hero = await db.hero.findUnique({
-    where: { id: heroId },
-    select: { id: true, gold: true, adventureEnergy: true, adventureEnergyMax: true },
+  if (!Number.isInteger(amount) || amount <= 0) throw new Error('Cantidad de energía inválida')
+
+  return await db.$transaction(async tx => {
+    const hero = await tx.hero.findUnique({
+      where: { id: heroId },
+      select: { id: true, gold: true, adventureEnergy: true, adventureEnergyMax: true },
+    })
+    if (!hero) throw new Error('Héroe no encontrado')
+    if (hero.adventureEnergy >= hero.adventureEnergyMax) throw new Error('Energía ya está al máximo')
+
+    const available = hero.adventureEnergyMax - hero.adventureEnergy
+    const toBuy = Math.min(amount, available)
+    const cost = toBuy * ENERGY_RECHARGE_COST_GOLD
+
+    const purchase = await tx.hero.updateMany({
+      where: {
+        id: heroId,
+        gold: { gte: cost },
+        adventureEnergy: { lte: hero.adventureEnergyMax - toBuy },
+      },
+      data: {
+        gold: { decrement: cost },
+        adventureEnergy: { increment: toBuy },
+      },
+    })
+    if (purchase.count !== 1) throw new Error('Oro insuficiente o energía modificada por otra operación')
+
+    return { energyBought: toBuy, cost, energy: hero.adventureEnergy + toBuy }
   })
-  if (!hero) throw new Error('Héroe no encontrado')
-  if (hero.adventureEnergy >= hero.adventureEnergyMax) throw new Error('Energía ya está al máximo')
-
-  const available = hero.adventureEnergyMax - hero.adventureEnergy
-  const toBuy = Math.min(amount, available)
-  const cost = toBuy * ENERGY_RECHARGE_COST_GOLD
-
-  if (hero.gold < cost) throw new Error('Oro insuficiente')
-
-  await db.hero.update({
-    where: { id: heroId },
-    data: {
-      gold: { decrement: cost },
-      adventureEnergy: { increment: toBuy },
-    },
-  })
-
-  return { energyBought: toBuy, cost, energy: hero.adventureEnergy + toBuy }
 }
