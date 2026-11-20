@@ -95,11 +95,7 @@ export default function ProfilePage() {
   const epProgress = Math.min(100, Math.round((epInCurrent / currentLevelEp) * 100))
 
   const base = (hero.attrs ?? {}) as Record<string, number>
-  const equip: Record<string, number> = {}
-  for (const hi of (hero.items ?? []).filter((i: any) => i.equipped)) {
-    const stats = hi.item?.stats as Record<string, number> ?? {}
-    for (const [k, v] of Object.entries(stats)) equip[k] = (equip[k] ?? 0) + v
-  }
+  const effectiveAttrs = (hero.computedAttrs ?? base) as Record<string, number>
 
   const winRate = (hero.arenaWins ?? 0) + (hero.arenaLosses ?? 0) > 0
     ? Math.round(((hero.arenaWins ?? 0) / ((hero.arenaWins ?? 0) + (hero.arenaLosses ?? 0))) * 100)
@@ -200,8 +196,8 @@ export default function ProfilePage() {
           <h3 className="font-bold text-sm mb-3">📊 Atributos</h3>
           <div className="grid grid-cols-4 gap-2">
             {Object.entries(base).map(([key, val]) => {
-              const bonus = equip[key] ?? 0
-              const total = val + bonus
+              const total = effectiveAttrs[key] ?? val
+              const bonus = total - val
               return (
                 <div key={key} className="bg-gray-800 rounded-lg p-2 text-center">
                   <p className="text-[10px] text-gray-500 uppercase">{ATTR_LABELS[key] ?? key}</p>
@@ -210,6 +206,10 @@ export default function ProfilePage() {
                 </div>
               )
             })}
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-gray-800 pt-3 text-xs">
+            <span className="text-gray-400">⚡ Iniciativa base (AGI + ⌊PER / 2⌋)</span>
+            <span className="font-bold text-amber-400">{hero.computedInitiativeBase ?? "—"}</span>
           </div>
         </div>
       )}
