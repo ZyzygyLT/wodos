@@ -10,7 +10,7 @@ export async function GET() {
   const listings = await db.bazarListing.findMany({
     where: { status: "active" },
     include: {
-      seller: { select: { name: true } },
+      seller: { select: { id: true, name: true } },
       item: { select: { name: true, icon: true, rarity: true, category: true } },
       heroItem: { select: { runesIn: true } },
     },
