@@ -193,7 +193,7 @@ Damage totals are derived from the damage breakdowns exposed by action reports. 
 - `evaluateSkillFormula` and `applySkillDiceMultiplier` own the existing Wodos attribute/rank/dice calculations as pure engine operations. Random dice remain injectable through `RandomSource`.
 - `src/lib/combat-engine/formulas.ts` retains its existing public `SkillFormula`, `evaluateFormula` and `applyDiceMultiplier` compatibility surface, delegating evaluation to the engine module. Existing callers therefore do not need to migrate at once.
 
-This is the first skill-domain extraction, not yet a full skill executor. Skill ownership/unlock rules, target selection, MP deduction, cooldown scheduling, status application and action reporting still belong to the existing application combat flow. They must be migrated in separate characterized steps so the current combat sequence and balance remain unchanged.
+This is the first skill-domain extraction, not yet a full skill executor. Skill ownership/unlock rules, target selection, status application and action reporting still belong to the existing application combat flow. MP cost/fallback decisions and cooldown lookup are extracted separately below; the runner still applies those decisions to mutable combat state. Remaining execution concerns must be migrated in separate characterized steps so the current combat sequence and balance remain unchanged.
 
 
 ## Skill availability and resource rules
