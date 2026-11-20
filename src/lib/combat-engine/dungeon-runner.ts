@@ -1456,6 +1456,7 @@ function computeEnemyDamageWithFallback(params: EnemyDamageParams, ctx: CombatCt
     critical: crit,
     targetDefense: applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'),
     groupDefenseBonus: groupBuffBonusesForSide(state, target.isHero ? 'hero' : 'enemy').def,
+    groupAttackBonus: groupBuffBonusesForSide(state, attackerUnit.isHero ? 'hero' : 'enemy').atk,
     damageType: dt,
     resistances: target.resistances,
   }).finalDamage
