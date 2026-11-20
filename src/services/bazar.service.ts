@@ -52,6 +52,7 @@ export async function listItem(
         buyNowPrice: listingType === 'auction' ? Math.round(params.price * 1.5) : null,
         expiresAt,
         status: 'active' as const,
+        cycle: existing ? existing.cycle + 1 : 1,
       }
 
       const listing = existing
