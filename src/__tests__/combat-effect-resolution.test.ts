@@ -20,6 +20,17 @@ describe('pure combat effect resolution', () => {
       .toEqual({ absorbed: 0, remainingDamage: 0, mpRemaining: 12 })
   })
 
+  it('normalizes invalid or negative mana and damage before shield absorption', () => {
+    expect(resolveManaShield({ enabled: true, currentMp: -5, incomingDamage: 20 }))
+      .toEqual({ absorbed: 0, remainingDamage: 20, mpRemaining: 0 })
+    expect(resolveManaShield({ enabled: true, currentMp: 12, incomingDamage: -5 }))
+      .toEqual({ absorbed: 0, remainingDamage: 0, mpRemaining: 12 })
+    expect(resolveManaShield({ enabled: true, currentMp: Number.NaN, incomingDamage: 20 }))
+      .toEqual({ absorbed: 0, remainingDamage: 20, mpRemaining: 0 })
+    expect(resolveManaShield({ enabled: true, currentMp: 12, incomingDamage: Number.NaN }))
+      .toEqual({ absorbed: 0, remainingDamage: 0, mpRemaining: 12 })
+  })
+
   it('calculates reflected damage with legacy rounding and minimum one point', () => {
     expect(calculateThornsDamage({
       enabled: true, incomingDamage: 15, reflectionPercent: 20, attackerAlive: true,
