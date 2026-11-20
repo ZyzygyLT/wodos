@@ -108,14 +108,19 @@ export function applyLegacyStatusEffect(
   return mergeStatusByMaximum(current, incoming)
 }
 
+/** Only statuses with remaining duration participate in combat resolution. */
+function activeLegacyStatuses(statuses: readonly LegacyCombatStatusEffect[]): readonly LegacyCombatStatusEffect[] {
+  return statuses.filter(status => status.remainingRounds > 0)
+}
+
 /** Wodos applies poison, burn and bleed damage at round start. */
 export function calculateLegacyStatusDamage(statuses: readonly LegacyCombatStatusEffect[]): number {
-  return calculatePeriodicStatusDamage(selectStatusEffectsForPhase(statuses, 'round_start'))
+  return calculatePeriodicStatusDamage(selectStatusEffectsForPhase(activeLegacyStatuses(statuses), 'round_start'))
 }
 
 /** Stun and freeze skip the affected unit's turn. */
 export function isLegacyCombatUnitDisabled(statuses: readonly LegacyCombatStatusEffect[]): boolean {
-  return isTurnPreventedByStatus(selectStatusEffectsForPhase(statuses, 'actor_turn'))
+  return isTurnPreventedByStatus(selectStatusEffectsForPhase(activeLegacyStatuses(statuses), 'actor_turn'))
 }
 
 /** Mirrors end-of-round duration decay and removes statuses at zero. */
