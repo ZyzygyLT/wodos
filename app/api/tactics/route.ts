@@ -5,14 +5,56 @@ import { z } from "zod"
 import { formatZodError } from "@/lib/zod-error"
 
 const POSITIONS = ['front', 'center', 'rear', 'left_flank', 'right_flank', 'flexible'] as const
+const TARGET_POSITIONS = ['front', 'center', 'rear', 'left_flank', 'right_flank', 'auto'] as const
+const TARGET_TYPES = ['weakest', 'strongest', 'most_injured_ally', 'random', 'auto', 'self'] as const
+const CONDITION_TYPES = [
+  'always', 'hp_self_lt', 'hp_self_gt', 'hp_enemy_lt', 'hp_ally_lt',
+  'round_gt', 'mana_lt', 'ally_down', 'damaged_this_round',
+] as const
+
+const tacticConditionSchema = z.object({
+  type: z.enum(CONDITION_TYPES),
+  value: z.number().finite().optional(),
+}).strict().superRefine((condition, ctx) => {
+  if (['hp_self_lt', 'hp_self_gt', 'hp_enemy_lt', 'hp_ally_lt', 'mana_lt'].includes(condition.type)) {
+    if (condition.value !== undefined && (condition.value < 0 || condition.value > 100)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['value'], message: 'El porcentaje debe estar entre 0 y 100' })
+    }
+  }
+  if (condition.type === 'round_gt' && condition.value !== undefined && condition.value < 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['value'], message: 'La ronda debe ser mayor o igual a cero' })
+  }
+})
+
+const tacticActionSchema = z.object({
+  skillId: z.number().int().positive().optional(),
+  itemId: z.number().int().positive().optional(),
+  targetPos: z.enum(TARGET_POSITIONS),
+  targetType: z.enum(TARGET_TYPES),
+}).strict().refine(action => (action.skillId !== undefined) !== (action.itemId !== undefined), {
+  message: 'Cada acción debe seleccionar exactamente una habilidad o un consumible',
+})
+
+const prelimRuleSchema = z.object({
+  skillId: z.number().int().positive().optional(),
+  itemId: z.number().int().positive().optional(),
+}).strict().refine(rule => (rule.skillId !== undefined) !== (rule.itemId !== undefined), {
+  message: 'Cada regla de preparación debe seleccionar exactamente una habilidad o un consumible',
+})
+
+const roundRuleSchema = z.object({
+  priority: z.number().int().positive(),
+  condition: tacticConditionSchema,
+  action: tacticActionSchema,
+}).strict()
 
 const putSchema = z.object({
   dungeonLevel: z.number().int().positive().nullable().optional(),
   position: z.enum(POSITIONS).optional(),
-  defenseSkills: z.record(z.string(), z.number().int().nullable()).optional(),
-  prelimRules: z.array(z.any()).optional(),
-  roundRules: z.array(z.any()).optional(),
-})
+  defenseSkills: z.record(z.string(), z.number().int().positive().nullable()).optional(),
+  prelimRules: z.array(prelimRuleSchema).max(30).optional(),
+  roundRules: z.array(roundRuleSchema).max(50).optional(),
+}).strict()
 
 export async function GET() {
   const session = await auth()
@@ -70,20 +112,22 @@ export async function PUT(req: NextRequest) {
   }
 
   const unlockedIds = new Set(hero.skills.map(s => s.skillId))
-  const ownedItemIds = new Set(hero.items.map(hi => hi.itemId))
+  const ownedItems = hero.items.map(hi => hi.item)
+  const ownedItemIds = new Set(ownedItems.map(item => item.id))
+  const consumableIds = new Set(ownedItems.filter(item => item.category === 'consumable').map(item => item.id))
 
-  function validatePrelimRule(r: any): string | null {
-    if (r.skillId && !unlockedIds.has(r.skillId)) return `Skill ID ${r.skillId} en preparación no está desbloqueada`
-    if (r.itemId && !ownedItemIds.has(r.itemId)) return `Item ID ${r.itemId} en preparación no lo tenés`
+  function validatePrelimRule(r: z.infer<typeof prelimRuleSchema>): string | null {
+    if (r.skillId !== undefined && !unlockedIds.has(r.skillId)) return `Skill ID ${r.skillId} en preparación no está desbloqueada`
+    if (r.itemId !== undefined && !consumableIds.has(r.itemId)) return `Item ID ${r.itemId} en preparación no es un consumible disponible`
     return null
   }
 
-  function validateAction(action: any, context: string): string | null {
-    if (action?.skillId && !unlockedIds.has(action.skillId)) {
+  function validateAction(action: z.infer<typeof tacticActionSchema>, context: string): string | null {
+    if (action.skillId !== undefined && !unlockedIds.has(action.skillId)) {
       return `Skill ID ${action.skillId} en ${context} no está desbloqueada`
     }
-    if (action?.itemId && !ownedItemIds.has(action.itemId)) {
-      return `Item ID ${action.itemId} en ${context} no lo tenés`
+    if (action.itemId !== undefined && !consumableIds.has(action.itemId)) {
+      return `Item ID ${action.itemId} en ${context} no es un consumible disponible`
     }
     return null
   }
