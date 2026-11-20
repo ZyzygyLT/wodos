@@ -24,7 +24,24 @@ export async function GET() {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
   }
 
-  return NextResponse.json(hero.items)
+  const insertedRuneIds = [...new Set(
+    hero.items.flatMap(heroItem => (heroItem.runesIn as { itemId?: number }[] ?? [])
+      .map(rune => rune.itemId)
+      .filter((id): id is number => typeof id === "number" && Number.isInteger(id)))
+  )]
+  const insertedRunes = insertedRuneIds.length > 0
+    ? await db.item.findMany({ where: { id: { in: insertedRuneIds } } })
+    : []
+  const insertedRuneById = new Map(insertedRunes.map(rune => [rune.id, rune]))
+
+  return NextResponse.json(hero.items.map(heroItem => ({
+    ...heroItem,
+    resolvedRuneItems: (heroItem.runesIn as { itemId?: number; slotIndex?: number }[] ?? [])
+      .flatMap(rune => {
+        const resolved = typeof rune.itemId === "number" ? insertedRuneById.get(rune.itemId) : null
+        return resolved ? [{ id: resolved.id, name: resolved.name, icon: resolved.icon, stats: resolved.stats, slotIndex: rune.slotIndex }] : []
+      }),
+  })))
 }
 
 export async function PUT(req: NextRequest) {
