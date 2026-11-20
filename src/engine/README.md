@@ -98,3 +98,10 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - `adapters/combat/passive-effect-adapter.ts` resolves Wodos passive definitions into commands. It preserves trigger filtering, numeric and attribute-scaled values, legacy rounding/coefficient fallback, targets, damage type, buff type, and the legacy truthiness filter for zero/NaN values.
 - The dungeon runner now dispatches the three legacy triggers through the engine event contract and executes the resolved commands using its existing damage/heal/buff handlers. Side-effect semantics and combat timing remain in the runner; this phase does not change damage formulas or target rules.
 - Event dispatch is synchronous and ordered. The event contract allows the legacy damage trigger to omit an amount because the existing passive call site does not pass the resolved damage value.
+
+### Shared combat HP changes
+
+- `core/combat/health.ts` centralizes the arithmetic for HP damage and healing and reports requested/applied amounts, whether HP changed, and whether a unit crossed into defeat on this operation.
+- Damage preserves the legacy zero floor; healing preserves the legacy maximum-HP ceiling. The helpers do not dispatch events or own combat logs, so callers retain control of timing, messages, passives, and death handling.
+- The dungeon runner now routes its direct HP damage/healing assignments through these helpers, including attacks, periodic damage, passive damage/healing, thorns, counterattacks, vampirism, consumables, skill healing and faction healing. Trap deactivation remains a state transition rather than a damage operation.
+- This is an arithmetic extraction only. Existing differences in when damage/death passives are triggered are intentionally not silently changed in this phase.
