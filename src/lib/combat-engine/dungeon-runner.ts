@@ -1177,26 +1177,25 @@ function makeEnemySkillObj(chosenSkill: EnemySkillRef | null, enemy: EnemyData, 
   return { skillId: chosenSkill?.skillId ?? enemy.id, name: skillName, icon: skillIcon, multiplier: chosenSkill?.multiplier ?? enemy.atk / 10, formula: { damageType } }
 }
 
-function executeEnemyBuffEffect(enemy: EnemyData, enemyUnit: CombatUnit, chosenSkill: EnemySkillRef, skillName: string, ctx: CombatCtx, meta: ActionMeta): DetailedAction {
+function executeEnemyBuffEffect(enemy: EnemyData, enemyUnit: CombatUnit, chosenSkill: EnemySkillRef, skillName: string, buff: 'atk' | 'def', bonus: number, ctx: CombatCtx, meta: ActionMeta): DetailedAction {
   const state = ctx.state!
-  const bonus = Math.round((chosenSkill.multiplier || 1.5) * 10)
-  addBuff(state, 'atk', bonus, skillName, 'enemy', BUFF_DURATION)
-  const msg = `${enemyUnit.name} usa ${skillName} → +${bonus}% ATK enemigos`
+  addBuff(state, buff, bonus, skillName, 'enemy', BUFF_DURATION)
+  const label = buff === 'atk' ? 'ATK grupal' : 'DEF grupal'
+  const msg = enemyUnit.name + ' usa ' + skillName + ' → +' + bonus + '% ' + label + ' enemigos'
   addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', msg, { actor: enemyUnit.name, skill: skillName, value: bonus })
   const sk = makeEnemySkillObj(chosenSkill, enemy, skillName, chosenSkill.icon, (chosenSkill.damageType ?? 'physical') as DamageType)
-  return makeDetail({ skill: sk, heroUnit: enemyUnit, target: null, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'self' }, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: 'ATK grupal', buffV: bonus, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
+  return makeDetail({ skill: sk, heroUnit: enemyUnit, target: null, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'self' }, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: label, buffV: bonus, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
 }
 
-function executeEnemyHealEffect(enemy: EnemyData, enemyUnit: CombatUnit, chosenSkill: EnemySkillRef, skillName: string, ctx: CombatCtx, meta: ActionMeta): DetailedAction | null {
-  if (enemyUnit.hp >= enemyUnit.maxHp) return null
-  const healPct = (chosenSkill.formula as any)?.healPct ?? 30
-  const healed = calcHeal(enemyUnit.maxHp, healPct)
-  const actual = Math.min(healed, enemyUnit.maxHp - enemyUnit.hp)
-  enemyUnit.hp = applyHpHealing(enemyUnit.hp, enemyUnit.maxHp, actual).currentHp
-  const msg = `${enemyUnit.name} usa ${skillName} → recupera ${actual} HP`
-  addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: enemyUnit.name, skill: skillName, value: actual })
+function executeEnemyHealEffect(enemy: EnemyData, enemyUnit: CombatUnit, target: CombatUnit, chosenSkill: EnemySkillRef, skillName: string, healPct: number, ctx: CombatCtx, meta: ActionMeta): DetailedAction | null {
+  if (target.hp >= target.maxHp || target.hp <= 0) return null
+  const healed = calcHeal(target.maxHp, healPct)
+  const actual = Math.min(healed, target.maxHp - target.hp)
+  target.hp = applyHpHealing(target.hp, target.maxHp, actual).currentHp
+  const msg = enemyUnit.name + ' usa ' + skillName + ' → recupera ' + actual + ' HP'
+  addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: enemyUnit.name, target: target.name, skill: skillName, value: actual })
   const sk = makeEnemySkillObj(chosenSkill, enemy, skillName, chosenSkill.icon, (chosenSkill.damageType ?? 'physical') as DamageType)
-  return makeDetail({ skill: sk, heroUnit: enemyUnit, target: enemyUnit, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'self' }, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'hp', buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
+  return makeDetail({ skill: sk, heroUnit: enemyUnit, target, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'self' }, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'hp', buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
 }
 
 function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: CombatUnit, cfg: EnemyAoeProcessConfig, ctx: CombatCtx): TargetResult {
@@ -1241,6 +1240,7 @@ function executeEnemyAoeAttack(
   atkValues: { fResult: { base: number; diceTotal: number }; adjAttack: number; isArmorPen: boolean },
   ctx: CombatCtx,
   meta: ActionMeta,
+  targets: readonly CombatUnit[],
 ): DetailedAction {
   const { chosenSkill, skillName } = actionSkill
   const { fResult, adjAttack, isArmorPen } = atkValues
@@ -1248,8 +1248,7 @@ function executeEnemyAoeAttack(
   const atkTotal = adjAttack
   const aCat = inferAttackCategory(chosenSkill ?? undefined, enemyUnit.position)
   const targetResults: TargetResult[] = []
-  for (const hero of heroUnits) {
-    if (hero.hp <= 0) continue
+  for (const hero of targets) {
     const aoeCfg: EnemyAoeProcessConfig = { chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen }
     const tr = processEnemyAoeTarget(hero, enemy, enemyUnit, aoeCfg, ctx)
     targetResults.push(tr)
@@ -1437,29 +1436,61 @@ function executeEnemyAction(
     applySkillCooldown(state, enemyUnit, null, chosenSkill.skillId, chosenSkill.cooldownRounds ?? 0)
   }
 
-  if (chosenSkill?.effect === 'party_attack_up') {
-    return executeEnemyBuffEffect(enemy, enemyUnit, chosenSkill, skillName, ctx, { initiative, actionNum, totalActions })
+  const executionSkill = chosenSkill
+    ? {
+        skillId: chosenSkill.skillId,
+        name: chosenSkill.name,
+        effect: chosenSkill.effect,
+        multiplier: chosenSkill.multiplier,
+        rank: 0,
+        healPct: chosenSkill.effect === 'heal' ? ((chosenSkill.formula as any)?.healPct ?? 30) : undefined,
+        healTarget: 'self' as const,
+      }
+    : { skillId: enemy.id, effect: 'attack' }
+  const enemyAction = {
+    targetPos: 'auto' as const,
+    targetType: enemy.ai?.type === 'weakest'
+      ? 'weakest' as const
+      : enemy.ai?.type === 'strongest'
+        ? 'strongest' as const
+        : 'random' as const,
   }
-  if (chosenSkill?.effect === 'heal') {
-    const result = executeEnemyHealEffect(enemy, enemyUnit, chosenSkill, skillName, ctx, { initiative, actionNum, totalActions })
-    if (result) return result
+  const executionInput = {
+    skill: executionSkill,
+    actor: enemyUnit,
+    allies: state.enemies.filter(unit => unit.id !== enemyUnit.id && unit.hp > 0),
+    enemies: heroUnits,
+    action: enemyAction,
+    random: ctx.random,
   }
 
-  const isAoe = chosenSkill?.effect === 'aoe_attack'
-  const isArmorPen = chosenSkill?.effect === 'armor_penetration'
+  if (chosenSkill?.effect === 'heal') {
+    const plan = resolveSkillExecution(executionInput)
+    if (plan.kind === 'heal' && plan.target) {
+      const result = executeEnemyHealEffect(enemy, enemyUnit, plan.target, chosenSkill, skillName, plan.healPct, ctx, { initiative, actionNum, totalActions })
+      if (result) return result
+    }
+  }
+  if (chosenSkill?.effect === 'party_attack_up' || chosenSkill?.effect === 'defense_up') {
+    const plan = resolveSkillExecution(executionInput)
+    if (plan.kind === 'party_buff') {
+      return executeEnemyBuffEffect(enemy, enemyUnit, chosenSkill, skillName, plan.buff, plan.bonus, ctx, { initiative, actionNum, totalActions })
+    }
+  }
+
+  // Preserve legacy order: formula dice are rolled before target selection.
   const formula = chosenSkill?.formula
   const fResult = formula ? evaluateFormula(formula, enemyAttrs, 1, ctx.random) : null
   const adjAttack = fResult ? applyDiceMultiplier(fResult.base, fResult.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor) : 0
+  const plan = resolveSkillExecution(executionInput)
 
-  if (isAoe && fResult) {
-    return executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen }, ctx, { initiative, actionNum, totalActions })
+  if (plan.kind === 'area_attack' && fResult) {
+    return executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen: false }, ctx, { initiative, actionNum, totalActions }, plan.targets)
   }
 
+  if (plan.kind !== 'single_attack' || !plan.target) return null
   const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
-  const target = pickEnemyTarget(heroUnits, enemy.ai, ctx.random)
-  if (!target) return null
-
-  return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, isArmorPen, target, state, ctx, initiative, actionNum, totalActions, aCat)
+  return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, plan.armorPenetration, plan.target, state, ctx, initiative, actionNum, totalActions, aCat)
 }
 
 // ─── EFECTOS DE ESTADO ────────────────────────────────────────────────────────
