@@ -612,7 +612,7 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
     position: hero.combatProfile.position,
     condition: 'ready',
     attrs: mergedMod,
-    def: heroDef,
+    def: heroDef + (Number.isFinite(equip.def) ? equip.def : 0),
     armorName: '',
     defenseValues,
     defenseSkillNames,
