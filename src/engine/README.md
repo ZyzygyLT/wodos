@@ -181,3 +181,16 @@ The application-layer helper `src/lib/combat-engine/dungeon-batch-simulator.ts` 
 - This is an observational tool, not an optimizer. It does not change gameplay values, infer class strength from a single sample, or guarantee statistical significance. Use larger batches and multiple seed ranges for consequential balance decisions.
 
 Damage totals are derived from the damage breakdowns exposed by action reports. The simulator reports only what the current runner exposes; it does not reconstruct hidden damage, attribute damage to individual equipment pieces, or infer class identity. Death totals use the runner's `death` log events.
+
+
+## Neutral skill contracts and formula evaluation
+
+`core/skills/skill-definition.ts` introduces application-independent contracts for normalized skill definitions and formulas:
+
+- `SkillDefinition` captures identity, display name, effect/timing identifiers, mana cost, multiplier, optional cooldown, prerequisite skill IDs, tags and optional formula.
+- `SkillFormulaDefinition` captures attribute coefficients, rank coefficient, dice configuration, flat bonus and optional string-based damage/healing metadata. It does not import Wodos enums or Prisma types.
+- `validateSkillDefinition` and `validateSkillFormula` return structured validation results rather than throwing for ordinary invalid catalogue data.
+- `evaluateSkillFormula` and `applySkillDiceMultiplier` own the existing Wodos attribute/rank/dice calculations as pure engine operations. Random dice remain injectable through `RandomSource`.
+- `src/lib/combat-engine/formulas.ts` retains its existing public `SkillFormula`, `evaluateFormula` and `applyDiceMultiplier` compatibility surface, delegating evaluation to the engine module. Existing callers therefore do not need to migrate at once.
+
+This is the first skill-domain extraction, not yet a full skill executor. Skill ownership/unlock rules, target selection, MP deduction, cooldown scheduling, status application and action reporting still belong to the existing application combat flow. They must be migrated in separate characterized steps so the current combat sequence and balance remain unchanged.
