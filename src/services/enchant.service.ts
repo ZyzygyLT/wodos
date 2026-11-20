@@ -42,16 +42,51 @@ export async function processEnchant(userId: string, heroItemId: string): Promis
   const successRate = SUCCESS_RATES[currentLevel] ?? 0.05
   const success = Math.random() < successRate
 
-  if (success) {
-    const newLevel = currentLevel + 1
-    await db.$transaction([
-      db.heroItem.update({ where: { id: hi.id }, data: { upgradeLevel: newLevel } }),
-      db.hero.update({ where: { id: hero.id }, data: { gold: { decrement: goldCost } } }),
-      db.heroMaterial.update({
-        where: { heroId_materialId: { heroId: hero.id, materialId: ESSENCE_MATERIAL_ID } },
+  const newLevel = success ? currentLevel + 1 : currentLevel
+  try {
+    await db.$transaction(async tx => {
+      if (success) {
+        // Claim this exact upgrade level first. Concurrent requests for the same
+        // item cannot both advance it or charge for the same transition.
+        const claimed = await tx.heroItem.updateMany({
+          where: { id: hi.id, heroId: hero.id, upgradeLevel: currentLevel },
+          data: { upgradeLevel: newLevel },
+        })
+        if (claimed.count !== 1) throw new Error("ENCHANT_STALE_LEVEL")
+      }
+
+      const goldUpdate = await tx.hero.updateMany({
+        where: { id: hero.id, gold: { gte: goldCost } },
+        data: { gold: { decrement: goldCost } },
+      })
+      if (goldUpdate.count !== 1) throw new Error("ENCHANT_INSUFFICIENT_GOLD")
+
+      const materialUpdate = await tx.heroMaterial.updateMany({
+        where: {
+          heroId: hero.id,
+          materialId: ESSENCE_MATERIAL_ID,
+          quantity: { gte: essenceCost },
+        },
         data: { quantity: { decrement: essenceCost } },
-      }),
-    ])
+      })
+      if (materialUpdate.count !== 1) throw new Error("ENCHANT_INSUFFICIENT_ESSENCE")
+    })
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "ENCHANT_STALE_LEVEL") {
+        return { ok: false, error: "El item cambió mientras se procesaba la mejora. Actualizá el inventario e intentá de nuevo.", status: 409 }
+      }
+      if (error.message === "ENCHANT_INSUFFICIENT_GOLD") {
+        return { ok: false, error: `Oro insuficiente. Necesitás ${goldCost}💰`, status: 400 }
+      }
+      if (error.message === "ENCHANT_INSUFFICIENT_ESSENCE") {
+        return { ok: false, error: `Faltan ${essenceCost} Esencia Mágica`, status: 400 }
+      }
+    }
+    throw error
+  }
+
+  if (success) {
     updateQuestProgress(hero.id, { type: 'enchant_item' }).catch(e => logger.error("enchant", "Background operation failed", e))
     checkAchievements(hero.id, { type: 'enchant_level' }).catch(e => logger.error("enchant", "Background operation failed", e))
     notify({
@@ -63,14 +98,6 @@ export async function processEnchant(userId: string, heroItemId: string): Promis
     }).catch(e => logger.error("enchant", "Background operation failed", e))
     return { ok: true, data: { success: true, newLevel, newMax: MAX_LEVEL } }
   }
-
-  await db.$transaction([
-    db.hero.update({ where: { id: hero.id }, data: { gold: { decrement: goldCost } } }),
-    db.heroMaterial.update({
-      where: { heroId_materialId: { heroId: hero.id, materialId: ESSENCE_MATERIAL_ID } },
-      data: { quantity: { decrement: essenceCost } },
-    }),
-  ])
 
   notify({
     heroId: hero.id,
