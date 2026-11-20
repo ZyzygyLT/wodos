@@ -5,7 +5,7 @@
 
 import {
   calcDefenseBase,
-  calcActualDamage, calcHeal, rollCrit,
+  calcActualDamage, calcHeal,
   getCondition, calcReward, CRIT_MULTIPLIER, evaluateFormula,
   applyDiceMultiplier, SkillFormula, DamageType,
 } from './formulas'
