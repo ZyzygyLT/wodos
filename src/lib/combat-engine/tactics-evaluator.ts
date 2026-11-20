@@ -3,6 +3,8 @@
 // lib/combat-engine/tactics-evaluator.ts
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { randomIntInclusive, type RandomSource } from '@/engine/core/random/random-source'
+
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 
 export type ConditionType =
@@ -272,7 +274,7 @@ function pickByType(pool: CombatUnit[], targetType: string, random: RandomSource
     case 'strongest':
       return getStrongest(pool)
     case 'random':
-      return pool[Math.floor(random.next() * pool.length)] ?? null
+      return pool[randomIntInclusive(random, 0, pool.length - 1)] ?? null
     default:
       return getWeakest(pool)
   }
@@ -334,4 +336,3 @@ export const buildTurnQueue = (
 }
 
 import { rollInitiative, calcInitiativeBase, DamageType } from './formulas'
-import type { RandomSource } from '@/engine/core/random/random-source'
