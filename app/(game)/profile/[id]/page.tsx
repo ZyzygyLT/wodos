@@ -228,11 +228,11 @@ export default function ProfilePage() {
           </div>
           {Object.keys(hero.computedResistances ?? {}).length > 0 && (
             <div className="mt-3 border-t border-gray-800 pt-3">
-              <p className="text-[10px] text-gray-500 mb-2 uppercase">Reducción por armadura / resistencia</p>
+              <p className="text-[10px] text-gray-500 mb-2 uppercase">Reducción de daño por tipo</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(hero.computedResistances).map(([type, value]) => (
                   <span key={type} className="rounded-md bg-gray-800 px-2 py-1 text-xs text-cyan-300">
-                    {type}: +{String(value)}
+                    {type}: {String(value)}%
                   </span>
                 ))}
               </div>
