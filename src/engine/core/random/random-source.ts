@@ -3,11 +3,19 @@ export interface RandomSource {
   next(): number
 }
 
+export function nextRandom(random: RandomSource): number {
+  const value = random.next()
+  if (!Number.isFinite(value) || value < 0 || value >= 1) {
+    throw new RangeError('RandomSource.next() must return a finite number in [0, 1)')
+  }
+  return value
+}
+
 export function randomIntInclusive(random: RandomSource, min: number, max: number): number {
   if (!Number.isInteger(min) || !Number.isInteger(max) || max < min) {
     throw new RangeError('Expected integer bounds with max >= min')
   }
-  return min + Math.floor(random.next() * (max - min + 1))
+  return min + Math.floor(nextRandom(random) * (max - min + 1))
 }
 
 /** Small deterministic PRNG for reproducible simulations and tests. */
