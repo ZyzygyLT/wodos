@@ -118,7 +118,7 @@ interface PostRunHeroContext {
 async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   const { result, heroesData, totalHeroes, dungeon, runId, clanMemberRec, kills } = ctx
   await checkLevelUp(heroId).catch(e => logger.error('dungeon-service', 'Error en level up', e))
-  await grantMaterialDrops(heroId, dungeon.id).catch(e => logger.error('dungeon-service', 'Error en material drops', e))
+  await grantMaterialDrops(heroId, dungeon.id, runId).catch(e => logger.error('dungeon-service', 'Error en material drops', e))
   await contributeToEvent(heroId, dungeon, clanMemberRec, kills)
   await updateQuestProgressForHero(heroId, dungeon, kills, result, totalHeroes)
   checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => logger.error('dungeon-service', 'Error en achievements', e))
