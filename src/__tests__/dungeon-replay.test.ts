@@ -5,6 +5,7 @@ import {
   runDungeonReplay,
 } from '@/lib/combat-engine/dungeon-replay'
 import type { DungeonData, HeroData } from '@/lib/combat-engine/dungeon-runner'
+import { validateCombatEventJournal } from '@/engine/core/events/combat-events'
 
 function createFixture() {
   const heroes: HeroData[] = [{
@@ -71,6 +72,9 @@ describe('dungeon replay records', () => {
     expect(compareDungeonReplayResults(first, second)).toEqual({ matches: true, difference: null })
     expect(first.victory).toBe(true)
     expect(first.loot).toHaveLength(1)
+    expect(first.eventJournal.events.length).toBeGreaterThan(0)
+    expect(validateCombatEventJournal(first.eventJournal)).toEqual([])
+    expect(first.eventJournal).toEqual(second.eventJournal)
   })
 
   it('reports the first gameplay divergence with a precise path', async () => {
