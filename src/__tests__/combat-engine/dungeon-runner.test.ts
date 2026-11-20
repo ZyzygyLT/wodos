@@ -89,6 +89,22 @@ describe('runDungeon', () => {
     expect(result.totalRounds).toBeGreaterThanOrEqual(1)
   })
 
+  it('tracks the exact inventory row when a preliminary consumable is used', async () => {
+    const hero = makeHero({
+      consumables: [{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [{ itemId: 42 }],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+      },
+    })
+    setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
+    await runDungeon([hero], makeDungeon())
+    expect(hero.consumables).toHaveLength(0)
+    expect(hero.consumedConsumableIds).toEqual(['hero-item-potion-1'])
+  })
+
   it('returns defeat when hero dies', async () => {
     const hero = makeHero({ hpMax: 5, attrs: { ...baseAttrs, st: 0, dx: 0, co: 0 } })
     // randoms: init_hero, init_enemy, enemy_hit(0.1<0.75→hit), enemy_crit(0.1<0.21→crit)
