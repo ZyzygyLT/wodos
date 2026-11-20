@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import db from "@/lib/db"
 import { $Enums } from '@/generated/prisma'
 import logger from "@/lib/logger"
+import { assertHeroItemNotListed } from "@/services/bazar-item-guard"
 
 export async function GET() {
   const session = await auth()
@@ -60,30 +61,36 @@ export async function PUT(req: NextRequest) {
   }
 
   const { heroItemId, equipped } = await req.json()
-  if (!heroItemId || typeof equipped !== 'boolean') {
+  if (typeof heroItemId !== "string" || !heroItemId || typeof equipped !== 'boolean') {
     return NextResponse.json({ error: "heroItemId y equipped requeridos" }, { status: 400 })
   }
 
-  const heroItem = await db.heroItem.findUnique({
-    where: { id: heroItemId },
-    include: { item: true },
-  })
-  if (heroItem?.heroId !== hero.id) {
-    return NextResponse.json({ error: "Item no encontrado" }, { status: 404 })
-  }
-
   try {
-    if (equipped) {
-      return await handleEquip(hero, heroItem)
+    return await db.$transaction(async tx => {
+      await assertHeroItemNotListed(tx, heroItemId, hero.id)
+      const heroItem = await tx.heroItem.findFirst({
+        where: { id: heroItemId, heroId: hero.id },
+        include: { item: true },
+      })
+      if (!heroItem) return NextResponse.json({ error: "Item no encontrado" }, { status: 404 })
+
+      if (equipped) return handleEquip(tx, hero, heroItem)
+      return handleUnequip(tx, hero, heroItem)
+    })
+  } catch (error) {
+    const code = error instanceof Error ? error.message : ""
+    if (code === "ITEM_LISTED") {
+      return NextResponse.json({ error: "No podés equipar ni desequipar un objeto mientras esté publicado en el bazar." }, { status: 409 })
     }
-    return await handleUnequip(hero, heroItem)
-  } catch (e) {
-    logger.error('inventory', 'Error equip/unequip:', e)
+    if (code === "ITEM_NOT_FOUND") {
+      return NextResponse.json({ error: "Item no encontrado" }, { status: 404 })
+    }
+    logger.error('inventory', 'Error equip/unequip:', error)
     return NextResponse.json({ error: 'Error al equipar/desequipar' }, { status: 500 })
   }
 }
 
-async function handleEquip(hero: any, heroItem: any) {
+async function handleEquip(tx: any, hero: any, heroItem: any) {
   const item = heroItem.item
 
   if (item.category === 'consumable') {
@@ -96,20 +103,20 @@ async function handleEquip(hero: any, heroItem: any) {
   }
 
   if (item.slot) {
-    await resolveSlotConflict(hero, item, heroItem)
+    await resolveSlotConflict(tx, hero, item, heroItem)
   } else if (item.category === 'accessory') {
-    const limitError = await checkAccessoryLimit(hero)
+    const limitError = await checkAccessoryLimit(tx, hero)
     if (limitError) return limitError
   }
 
   if (item.slot === 'backpack') {
-    await db.hero.update({
+    await tx.hero.update({
       where: { id: hero.id },
       data: { inventoryMaxSize: Math.max(20, (hero.inventoryMaxSize ?? 20) + 15) },
     })
   }
 
-  await db.heroItem.update({
+  await tx.heroItem.update({
     where: { id: heroItem.id },
     data: { equipped: true, slot: item.slot ?? null },
   })
@@ -157,23 +164,23 @@ async function checkSkillRequirements(hero: any, item: any, errors: string[]) {
   }
 }
 
-async function resolveSlotConflict(hero: any, item: any, heroItem: any) {
+async function resolveSlotConflict(tx: any, hero: any, item: any, heroItem: any) {
   const conflictSlots = item.twoHanded
     ? (['mainHand', 'offHand'] as $Enums.EquipmentSlot[])
     : ([item.slot] as $Enums.EquipmentSlot[])
-  const conflicts = await db.heroItem.findMany({
+  const conflicts = await tx.heroItem.findMany({
     where: { heroId: hero.id, equipped: true, slot: { in: conflictSlots }, id: { not: heroItem.id } },
   })
   if (conflicts.length > 0) {
-    await db.heroItem.updateMany({
+    await tx.heroItem.updateMany({
       where: { id: { in: conflicts.map(c => c.id) } },
       data: { equipped: false, slot: null },
     })
   }
 }
 
-async function checkAccessoryLimit(hero: any) {
-  const equippedAccessories = await db.heroItem.count({
+async function checkAccessoryLimit(tx: any, hero: any) {
+  const equippedAccessories = await tx.heroItem.count({
     where: { heroId: hero.id, equipped: true, item: { category: 'accessory' } },
   })
   if (equippedAccessories >= 4) {
@@ -182,10 +189,10 @@ async function checkAccessoryLimit(hero: any) {
   return null
 }
 
-async function handleUnequip(hero: any, heroItem: any) {
+async function handleUnequip(tx: any, hero: any, heroItem: any) {
   const wasBackpack = heroItem.slot === 'backpack'
 
-  await db.heroItem.update({
+  await tx.heroItem.update({
     where: { id: heroItem.id },
     data: { equipped: false, slot: null },
   })
@@ -193,7 +200,7 @@ async function handleUnequip(hero: any, heroItem: any) {
   if (wasBackpack) {
     const currentSize = hero.inventoryMaxSize ?? 20
     const newSize = Math.max(20, currentSize - 15)
-    await db.hero.update({
+    await tx.hero.update({
       where: { id: hero.id },
       data: { inventoryMaxSize: newSize },
     })
