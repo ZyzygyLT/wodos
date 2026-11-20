@@ -1,4 +1,4 @@
-import { nextRandom, randomIntInclusive, type RandomSource } from '@/engine/core/random/random-source'
+import { randomIntInclusive, type RandomSource } from '@/engine/core/random/random-source'
 import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage } from '@/engine/core'
 
 // ─────────────────────────────────────────────────────────────────────────────
