@@ -39,4 +39,28 @@ describe('shared HP change primitives', () => {
     expect(applyHpDamage(50, 0).changed).toBe(false)
     expect(applyHpHealing(50, 100, 0).changed).toBe(false)
   })
+  it('does not allow negative or non-finite damage to heal a unit', () => {
+    expect(applyHpDamage(40, -25)).toMatchObject({
+      currentHp: 40, requested: -25, applied: 0, changed: false,
+    })
+    expect(applyHpDamage(40, Number.NaN)).toMatchObject({
+      currentHp: 40, applied: 0, changed: false,
+    })
+  })
+
+  it('does not allow negative or non-finite healing to damage a unit', () => {
+    expect(applyHpHealing(40, 100, -25)).toMatchObject({
+      currentHp: 40, requested: -25, applied: 0, changed: false,
+    })
+    expect(applyHpHealing(40, 100, Number.NaN)).toMatchObject({
+      currentHp: 40, applied: 0, changed: false,
+    })
+  })
+
+  it('treats an invalid maximum HP as zero for healing', () => {
+    expect(applyHpHealing(40, Number.NaN, 10)).toMatchObject({
+      currentHp: 0, applied: -40, defeated: true,
+    })
+  })
+
 })
