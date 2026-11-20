@@ -1033,7 +1033,7 @@ function executeHeroSingleTargetAttack(
   const aCat = inferAttackCategory(skill, heroUnit.position)
   const atkTotal = adjAttack
   const { total: defVal, dice: defDice } = getDefenseValue(target, aCat)
-  const hit = atkTotal >= defVal
+  const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
     const msg = `${heroUnit.name} usa ${skillName} → fallo`
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, target: target.name, skill: skillName })
