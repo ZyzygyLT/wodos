@@ -114,3 +114,10 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - Normal hero/enemy attacks, enemy post-damage handling, damage-over-time, thorns, counterattacks, and passive damage paths now route defeat transitions through `processUnitDefeat`.
 - The shared handler updates the dead condition, writes one death log entry, and dispatches the existing `on_death` passive effects with the available attacker context.
 - This does not introduce resurrection behavior or change trap deactivation semantics. Trap units that are set to zero HP by the auto-win mechanic remain a separate encounter-state transition.
+
+### Shared incoming damage resolution
+
+- `core/combat/incoming-damage.ts` resolves the existing Wodos defensive reactions: dodge, block, barrier, and no configured reaction.
+- The resolver is pure: it reports final damage, absorbed damage, dodge state, and MP expenditure without mutating a combat unit.
+- Dodge requires an injected `RandomSource`; the current dungeon runner supplies its existing `Math.random` behavior through an adapter. This preserves runtime behavior while allowing deterministic engine tests and future seeded combat.
+- The dungeon runner delegates its shared defense-reaction path to this resolver. Damage formulas, critical calculations, enemy hit rules, and attack selection are intentionally unchanged in this incremental extraction.
