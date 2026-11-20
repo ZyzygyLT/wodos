@@ -102,6 +102,8 @@ export interface EnemyData {
   def: number
   dx: number
   ag: number
+  /** Optional canonical attributes for hero-derived arena opponents. */
+  attrs?: Record<string, number>
   level: number
   baseLevel?: number
   growthFactor?: number
@@ -1573,6 +1575,7 @@ function executeEnemyAction(
     ch: Math.round(lvl * 0.8),
     pe: Math.round(enemy.dx * 0.5 + enemy.ag * 0.5),
     wi: Math.round(lvl * 1.2 + enemy.def * 0.3),
+    ...(enemy.attrs ?? {}),
   }
 
   const chosenSkill = pickEnemySkill(enemy, enemyUnit, state, ctx.round)
