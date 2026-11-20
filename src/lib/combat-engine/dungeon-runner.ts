@@ -43,6 +43,7 @@ import { advanceSkillCooldowns, isSkillOnCooldown, normalizeSkillCooldown, resol
 import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
 import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
+import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -2403,13 +2404,21 @@ export async function runDungeon(
             { target: actorUnit.name })
         },
         execute: (actorUnit, actor, ai, actorCount) => {
-          if (actor.isHero) {
-            const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, actorCount, roundActions, random, roundCtx)
-            if (detail) roundActions.push(detail)
-          } else {
-            const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, actorCount, random, roundCtx)
-            if (detail) roundActions.push(detail)
-          }
+          const detail = dispatchCombatActorTurn({
+            actor,
+            unit: actorUnit,
+            actorIndex: ai,
+            totalActors: actorCount,
+            executeHero: (unit, heroActor, index, total) => runHeroTurn(
+              unit as CombatUnit & { attrs: Record<string, number> },
+              heroActor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number,
+              fallbackSkillId, index, total, roundActions, random, roundCtx
+            ),
+            executeEnemy: (unit, _enemyActor, index, total) => runEnemyTurn(
+              unit, lvl, heroUnits, state, log, round, lvl.number, index, total, random, roundCtx
+            ),
+          })
+          if (detail) roundActions.push(detail)
         },
       })
 
