@@ -1351,7 +1351,7 @@ function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | nu
     const rollBase = fResult.base
     const rollDice = fResult.diceTotal
     const attackTotal = adjAttack
-    return { hit: attackTotal >= (defVal ?? 5), rollBase, rollDice, attackTotal }
+    return { hit: resolveAttackHit({ attackTotal, defenseValue: defVal ?? 5 }).hit, rollBase, rollDice, attackTotal }
   }
   const rollBase = Math.round(enemy.atk)
   const rollDice = Math.floor(Math.random() * 10) + 1
