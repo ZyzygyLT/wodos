@@ -2,6 +2,7 @@ import db from '@/lib/db'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from "@/lib/achievements/checker"
 import logger from '@/lib/logger'
+import { assertHeroItemNotListed } from '@/services/bazar-item-guard'
 
 const RARITY_MATERIAL_MAP: Record<string, { materialId: number; minQty: number; maxQty: number }[]> = {
   common:    [{ materialId: 8, minQty: 1, maxQty: 3 }],
@@ -42,8 +43,10 @@ export async function processDecompose(
 
   const granted: { name: string; icon: string; quantity: number }[] = []
 
-  await db.$transaction(async (tx) => {
-    for (const drop of matDrops) {
+  try {
+    await db.$transaction(async (tx) => {
+      await assertHeroItemNotListed(tx, hi.id, hero.id)
+      for (const drop of matDrops) {
       const qty = drop.minQty + Math.floor(Math.random() * (drop.maxQty - drop.minQty + 1))
       await tx.heroMaterial.upsert({
         where: { heroId_materialId: { heroId: hero.id, materialId: drop.materialId } },
@@ -54,13 +57,22 @@ export async function processDecompose(
       granted.push({ name: mat?.name ?? `Material #${drop.materialId}`, icon: mat?.icon ?? '📦', quantity: qty })
     }
 
-    await tx.hero.update({
-      where: { id: hero.id },
-      data: { gold: { increment: goldReward } },
-    })
+      await tx.hero.update({
+        where: { id: hero.id },
+        data: { gold: { increment: goldReward } },
+      })
 
-    await tx.heroItem.delete({ where: { id: hi.id } })
-  })
+      await tx.heroItem.delete({ where: { id: hi.id, heroId: hero.id } })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'ITEM_LISTED') {
+      return { ok: false, error: 'No podés desmantelar un objeto mientras esté publicado en el bazar.', status: 409 }
+    }
+    if (error instanceof Error && error.message === 'ITEM_NOT_FOUND') {
+      return { ok: false, error: 'Item no encontrado', status: 404 }
+    }
+    throw error
+  }
 
   updateQuestProgress(hero.id, { type: 'craft_items' }).catch(e => logger.error("decompose", "Background operation failed", e))
   checkAchievements(hero.id, { type: 'craft_items' }).catch(e => logger.error("decompose", "Background operation failed", e))
