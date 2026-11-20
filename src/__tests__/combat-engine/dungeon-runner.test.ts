@@ -167,6 +167,42 @@ describe('runDungeon', () => {
     expect(result.loot.length).toBeGreaterThanOrEqual(0)
   })
 
+  it('keeps preliminary group buffs active for all configured rounds', async () => {
+    const getThirdRoundDamage = async (withBuff: boolean) => {
+      setupRand(...Array(200).fill(0.5))
+      const base = makeHero({
+        hpMax: 500,
+        combatProfile: {
+          position: 'front',
+          prelimRules: withBuff ? [{ skillId: 999, effect: 'party_attack_up', multiplier: 1.5 }] : [],
+          roundRules: [
+            { priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
+          ],
+          defenseSkills: {},
+        },
+        skills: withBuff
+          ? [...makeHero().skills, { skillId: 999, multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as any }]
+          : makeHero().skills,
+      })
+      const result = await runDungeon([base], makeDungeon({
+        levels: [{
+          number: 1,
+          enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+          epReward: 100,
+          goldReward: 50,
+        }],
+      }))
+      const thirdRound = result.levelReports[0]?.rounds.find(round => round.roundNumber === 3)
+      const attack = thirdRound?.actions.find(action => action.actorName === 'TestHero')
+      return attack?.damageBreakdown?.reduce((total, entry) => total + entry.value, 0) ?? 0
+    }
+
+    const withoutBuff = await getThirdRoundDamage(false)
+    const withBuff = await getThirdRoundDamage(true)
+    expect(withoutBuff).toBeGreaterThan(0)
+    expect(withBuff).toBeGreaterThan(withoutBuff)
+  })
+
   it('applies prelim round buffs', async () => {
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     const hero = makeHero({
