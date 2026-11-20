@@ -11,6 +11,7 @@ export interface CombatActionTargetResult {
 }
 
 export interface CombatActionResult {
+  readonly actionId?: string
   readonly actorId: string
   readonly skillId: number
   readonly kind: CombatActionKind
@@ -24,6 +25,7 @@ export interface CombatActionResult {
 }
 
 export interface CombatActionResultInput {
+  actionId?: string
   actorId: string
   skillId: number
   kind: CombatActionKind
@@ -57,6 +59,7 @@ export function createCombatActionResult(input: CombatActionResultInput): Combat
     })
   })
   return Object.freeze({
+    ...(input.actionId ? { actionId: input.actionId } : {}),
     actorId: input.actorId,
     skillId: input.skillId,
     kind: input.kind,
