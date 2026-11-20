@@ -138,7 +138,7 @@ export async function getActiveAdventure(heroId: string) {
   }
 }
 
-export async function executeStep(heroId: string, heroAdventureId: string) {
+export async function executeStep(heroId: string, heroAdventureId: string, expectedCurrentStep: number) {
   // Preserve the passive energy recharge behavior; adventure state itself is locked transactionally.
   await getHeroWithEnergy(heroId)
 
@@ -151,6 +151,7 @@ export async function executeStep(heroId: string, heroAdventureId: string) {
     })
     if (!ha || ha.heroId !== heroId) throw new Error("Aventura no encontrada")
     if (ha.status !== "active") throw new Error("Aventura no activa")
+    if (ha.currentStep !== expectedCurrentStep) throw new Error("AVENTURA_STEP_STALE")
     if (ha.currentStep >= ha.totalSteps) throw new Error("Aventura ya completada")
 
     const hero = await tx.hero.findUnique({
@@ -240,7 +241,7 @@ export async function executeStep(heroId: string, heroAdventureId: string) {
 }
 
 export async function makeChoice(
-  heroId: string, heroAdventureId: string, choiceIndex: number
+  heroId: string, heroAdventureId: string, choiceIndex: number, expectedCurrentStep: number
 ) {
   return await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT "id" FROM "hero_adventures" WHERE "id" = ${heroAdventureId} FOR UPDATE`
@@ -251,6 +252,7 @@ export async function makeChoice(
     })
     if (!ha || ha.heroId !== heroId) throw new Error("Aventura no encontrada")
     if (ha.status !== "active") throw new Error("Aventura no activa")
+    if (ha.currentStep !== expectedCurrentStep) throw new Error("AVENTURA_CHOICE_STALE")
 
     const steps = ha.adventure.steps as unknown as AdventureStep[]
     const currentStep = steps[ha.currentStep]
