@@ -1578,37 +1578,37 @@ function applyVampireHeal(
 
 function processDamagePassive(pe: PassiveEffect, value: number, source: CombatUnit, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], attacker: CombatUnit | undefined, ctx: CombatCtx): void {
   if (pe.targetType === 'attacker' && attacker) {
-    damageUnit(attacker, value, source, `🗜️ ${source.name} hiere a ${attacker.name} por ${value} de ${pe.damageType ?? 'physical'}`, ctx)
+    damageUnit(attacker, value, source, `🗜️ ${source.name} hiere a ${attacker.name} por ${value} de ${pe.damageType ?? 'physical'}`, ctx, heroUnits, enemyUnits)
     return
   }
   if (pe.targetType === 'all_heroes') {
-    damageAll(heroUnits, value, source, `💥 ${source.name} explota causando ${value} de ${pe.damageType ?? 'fire'} a todos los héroes`, ctx)
+    damageAll(heroUnits, value, source, `💥 ${source.name} explota causando ${value} de ${pe.damageType ?? 'fire'} a todos los héroes`, ctx, heroUnits, enemyUnits)
     return
   }
   if (pe.targetType === 'all_enemies') {
-    damageAll(enemyUnits, value, source, '', ctx)
+    damageAll(enemyUnits, value, source, '', ctx, heroUnits, enemyUnits)
     return
   }
   if (pe.targetType === 'self') {
-    damageUnit(source, value, source, '', ctx)
+    damageUnit(source, value, source, '', ctx, heroUnits, enemyUnits)
   }
 }
 
-function damageAll(units: CombatUnit[], value: number, source: CombatUnit, logMsg: string, ctx: CombatCtx): void {
+function damageAll(units: CombatUnit[], value: number, source: CombatUnit, logMsg: string, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   for (const u of units) {
     if (u.hp <= 0) continue
     u.hp = applyHpDamage(u.hp, value).currentHp
     u.condition = getCondition(u.hp, u.maxHp)
-    if (u.hp <= 0) processUnitDefeat(u, source, units, units, ctx)
+    if (u.hp <= 0) processUnitDefeat(u, source, heroUnits, enemyUnits, ctx)
   }
   if (logMsg) addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat', logMsg, { target: source.name, value })
 }
 
-function damageUnit(unit: CombatUnit, value: number, source: CombatUnit, logMsg: string, ctx: CombatCtx): void {
+function damageUnit(unit: CombatUnit, value: number, source: CombatUnit, logMsg: string, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   unit.hp = applyHpDamage(unit.hp, value).currentHp
   if (unit.condition) unit.condition = getCondition(unit.hp, unit.maxHp)
   if (logMsg) addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat', logMsg, { target: unit.name, value })
-  if (unit.hp <= 0) processUnitDefeat(unit, source, [unit], [unit], ctx)
+  if (unit.hp <= 0) processUnitDefeat(unit, source, heroUnits, enemyUnits, ctx)
 }
 
 function doPassiveHeal(u: CombatUnit, value: number, source: CombatUnit, pe: PassiveEffect, ctx: CombatCtx): void {
@@ -2119,6 +2119,9 @@ export async function runDungeon(
       // Decaer buffs al inicio de ronda
       decayBuffs(state)
 
+      // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
+      const roundCtx: CombatCtx = { log, round, level: lvl.number, state }
+
       // DoT al inicio de ronda
       for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
       for (const e of enemyUnits) processDotDamage(e, e.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
@@ -2131,7 +2134,6 @@ export async function runDungeon(
       applyDarknessHeal(enemyUnits, state, log, round, lvl.number)
 
       // ─── Pasivos de inicio de ronda ─────────────────
-      const roundCtx: CombatCtx = { log, round, level: lvl.number, state }
       processRoundStartPassives(heroUnits, enemyUnits, roundCtx)
 
       if (allHeroesDead(heroUnits)) break
