@@ -30,6 +30,7 @@ import {
 } from '../../engine/adapters/combat/buff-effect-adapter'
 
 import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passive-effect-adapter'
+import { planPassiveExecution } from '../../engine/core/combat/passive-execution'
 import { dispatchCombatEvent, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
 import { markUnitDefeated } from '../../engine/core/combat/defeat'
@@ -1698,6 +1699,13 @@ function processPassiveEffects(
         passiveEffects: source.passiveEffects,
       })
       for (const command of commands) {
+        const plan = planPassiveExecution(command, {
+          sourceId: source.id,
+          ...(attacker ? { attackerId: attacker.id } : {}),
+          heroIds: heroUnits.map(unit => unit.id),
+          enemyIds: enemyUnits.map(unit => unit.id),
+        })
+        if (plan.targetIds.length === 0) continue
         const passive: PassiveEffect = {
           trigger: command.trigger,
           effectType: command.effectType,
