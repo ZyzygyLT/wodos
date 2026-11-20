@@ -123,7 +123,7 @@ async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   await updateQuestProgressForHero(heroId, dungeon, kills, result, totalHeroes, runId)
   checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => logger.error('dungeon-service', 'Error en achievements', e))
   await trackEventProgressForHero(heroId, result)
-  await adjustFactionRepForHero(heroId, result)
+  await adjustFactionRepForHero(heroId, result, runId)
   await sendNotificationForHero(heroId, result, dungeon, runId, totalHeroes)
 }
 
@@ -165,7 +165,7 @@ async function trackEventProgressForHero(heroId: string, result: RunResult) {
   }
 }
 
-async function adjustFactionRepForHero(heroId: string, result: RunResult) {
+async function adjustFactionRepForHero(heroId: string, result: RunResult, runId: string) {
   try {
     const repGain = result.victory ? 5 : 1
     await adjustRep(heroId, 1, repGain)
