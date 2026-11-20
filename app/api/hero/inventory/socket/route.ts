@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import db from "@/lib/db"
 import { updateQuestProgress } from "@/lib/quests/progress"
 import { checkAchievements } from "@/lib/achievements/checker"
+import { assertHeroItemNotListed } from "@/services/bazar-item-guard"
 
 type SocketEntry = { slotIndex: number; itemId: number }
 
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
         include: { item: true },
       })
       if (!target) throw new Error("TARGET_NOT_FOUND")
+      await assertHeroItemNotListed(tx, target.id, hero.id)
       const runeSlots = target.item.runeSlots
       if (!Number.isInteger(runeSlots) || runeSlots <= 0) throw new Error("NO_RUNE_SLOTS")
       if ((slotIndex as number) >= runeSlots) throw new Error("INVALID_SLOT")
@@ -98,6 +100,7 @@ export async function POST(req: NextRequest) {
         include: { item: true },
       })
       if (!rune || rune.item.category !== "rune") throw new Error("RUNE_NOT_FOUND")
+      await assertHeroItemNotListed(tx, rune.id, hero.id)
       if (rune.equipped) throw new Error("RUNE_EQUIPPED")
 
       await tx.heroItem.update({
@@ -117,6 +120,8 @@ export async function POST(req: NextRequest) {
     const code = error instanceof Error ? error.message : ""
     const responses: Record<string, { error: string; status: number }> = {
       TARGET_NOT_FOUND: { error: "Item no encontrado", status: 404 },
+      ITEM_NOT_FOUND: { error: "Item no encontrado", status: 404 },
+      ITEM_LISTED: { error: "No podés modificar las runas de un objeto mientras esté publicado en el bazar.", status: 409 },
       RUNE_NOT_FOUND: { error: "Runa no encontrada", status: 404 },
       NO_RUNE_SLOTS: { error: "Este objeto no tiene espacios para runas", status: 400 },
       INVALID_SLOT: { error: "Slot inválido", status: 400 },
@@ -166,6 +171,7 @@ export async function PUT(req: NextRequest) {
         include: { item: true },
       })
       if (!target) throw new Error("TARGET_NOT_FOUND")
+      await assertHeroItemNotListed(tx, target.id, hero.id)
       if (!Number.isInteger(target.item.runeSlots) || target.item.runeSlots <= 0 || (slotIndex as number) >= target.item.runeSlots) {
         throw new Error("INVALID_SLOT")
       }
