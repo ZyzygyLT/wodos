@@ -947,6 +947,7 @@ function executeHeroItemAction(
     return makeDetail({ skill: null, heroUnit, target: null, action, initiative, actionNum, total: totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'hp', buffN: null, buffV: null, itemN: itemName, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
   }
   if (item.healMp) {
+    const previousMp = heroUnit.mp
     const actual = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
     heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + actual)
     if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
