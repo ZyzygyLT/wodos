@@ -42,7 +42,7 @@ The engine must never import from `app`, `services`, `generated/prisma`, or infr
 - Unknown attributes are rejected by default; callers can explicitly allow them during controlled migration.
 - Stat modifiers are deterministic: flat additions, then percentage points.
 - Effects describe state; `core/effects/effect-lifecycle.ts` applies explicit stack/refresh/replace policies, advances finite durations and removes expired effects. The caller chooses when a turn/round advances.
-- Randomness is injected. Seeded randomness is for repeatable simulations, tests, and replay tooling; production callers may provide a secure or runtime-specific source.
+- Randomness is injected through `RandomSource`. `nextRandom` enforces the contract at runtime (finite values in `[0, 1)`), and `randomIntInclusive` centralizes inclusive integer rolls. Seeded randomness is for repeatable simulations, tests, and replay tooling; production callers may provide a runtime-specific source.
 
 ## Prisma adapters (compatibility boundary)
 
@@ -145,7 +145,7 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 
 - Combat formulas accept an optional `RandomSource` for skill dice, critical rolls, and initiative. Existing callers that omit it retain `Math.random()` behavior.
 - The tactics layer accepts the same source for random target selection and turn-queue initiative.
-- `runDungeon` accepts `options.random`; pass a seeded source such as `createSeededRandom(seed)` to make combat, enemy targeting, defensive reactions, critical side effects, loot rolls, and loot assignment reproducible.
+- `runDungeon` accepts `options.random`; pass a seeded source such as `createSeededRandom(seed)` to make combat, enemy targeting, defensive reactions, critical side effects, loot rolls, and loot assignment reproducible. Random values are validated as finite numbers in `[0, 1)` before use, and integer dice/selection rolls share the inclusive helper.
 - A random source is stateful: create a fresh seeded instance for each independent run. Reusing the same instance intentionally continues its sequence.
 - The default runtime path remains non-seeded. This extraction does not change probability thresholds, dice ranges, initiative rules, or loot chances.
 - Log timestamps still use wall-clock time and are not part of the deterministic gameplay stream.
