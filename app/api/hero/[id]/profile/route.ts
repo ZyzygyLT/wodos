@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import db from "@/lib/db"
+import { buildHeroData } from "@/lib/dungeon-helpers"
+import { calculateEffectiveResourceMaxima } from "@/engine/core/stats/derived-stats"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -41,5 +43,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
   }
 
-  return NextResponse.json(hero)
+  const profile = hero.combatProfiles?.find((p: any) => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null
+  const combatHero = await buildHeroData(hero, profile)
+  const effectiveResources = calculateEffectiveResourceMaxima({
+    baseHpMax: hero.hpMax,
+    baseMpMax: hero.mpMax,
+    level: hero.level,
+    baseAttributes: hero.attrs as Record<string, number>,
+    effectiveAttributes: Object.fromEntries(
+      Object.entries(hero.attrs as Record<string, number>).map(([key, value]) => [key, value + (combatHero.equipStats[key] ?? 0)])
+    ),
+    equipmentHp: combatHero.equipStats.hp,
+    equipmentMp: combatHero.equipStats.mp,
+    skillEffects: combatHero.skills.map(skill => skill.effect),
+  })
+
+  return NextResponse.json({
+    ...hero,
+    computedHpMax: effectiveResources.hpMax,
+    computedMpMax: effectiveResources.mpMax,
+  })
 }
