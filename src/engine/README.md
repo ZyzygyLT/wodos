@@ -132,6 +132,13 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - The shared handler updates the dead condition, writes one death log entry, and dispatches the existing `on_death` passive effects with the available attacker context.
 - This does not introduce resurrection behavior or change trap deactivation semantics. Trap units that are set to zero HP by the auto-win mechanic remain a separate encounter-state transition.
 
+### Shared effect lifecycle and legacy combat adapters
+
+- Legacy status application and group-buff application now pass through the engine's `applyEffect` lifecycle policy before being translated back to Wodos combat records.
+- The adapters deliberately retain Wodos-specific merge rules: statuses keep the strongest value and longest duration while preserving their original source; buffs retain source/type/side identity and the existing stronger-value/longer-duration behavior, including the permanent-to-finite refresh edge case.
+- Duration advancement for statuses and buffs continues to use `advanceEffects`. Poison/burn/bleed ticks, stun/freeze turn suppression, strongest group-buff selection, and actual combat side effects remain in the legacy combat application.
+- This is a compatibility-boundary integration, not a claim that all combat statuses, passive effects, and skill side effects have become generic engine effects. Passive triggers still resolve to commands through the dedicated adapter and are executed by the combat runner.
+
 ### Shared incoming damage resolution
 
 - `core/combat/incoming-damage.ts` resolves the existing Wodos defensive reactions: dodge, block, barrier, and no configured reaction.
