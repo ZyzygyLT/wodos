@@ -9,8 +9,6 @@ import { trackHeroEventProgress } from "@/services/event.service"
 import { adjustRep } from "@/services/faction.service"
 import db from "@/lib/db"
 
-const DUEL_COOLDOWN_MS = 5 * 60 * 1000
-
 export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -29,21 +27,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No puedes duelarte a ti mismo" }, { status: 400 })
   }
 
-  const lastDuel = await db.duelHistory.findFirst({
-    where: {
-      OR: [{ hero1Id: hero.id }, { hero2Id: hero.id }],
-    },
-    orderBy: { foughtAt: "desc" },
-    select: { foughtAt: true },
-  })
-
-  if (lastDuel) {
-    const elapsed = Date.now() - lastDuel.foughtAt.getTime()
-    if (elapsed < DUEL_COOLDOWN_MS) {
-      const remaining = Math.ceil((DUEL_COOLDOWN_MS - elapsed) / 1000)
-      return NextResponse.json({ error: `Cooldown: esperá ${remaining}s para el próximo duelo` }, { status: 429 })
-    }
-  }
 
   try {
     const result = await runArenaDuel(hero.id, hero2Id)
@@ -63,6 +46,19 @@ export async function POST(req: Request) {
     })
     return NextResponse.json(result)
   } catch (e: any) {
+    if (typeof e?.message === "string" && e.message.startsWith("DUEL_COOLDOWN:")) {
+      const remaining = e.message.split(":")[1]
+      return NextResponse.json({ error: `Cooldown: esperá ${remaining}s para el próximo duelo` }, { status: 429 })
+    }
+    if (e?.message === "No puedes duelarte a ti mismo") {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
+    if (e?.message === "Héroe no encontrado") {
+      return NextResponse.json({ error: e.message }, { status: 404 })
+    }
+    if (typeof e?.message === "string" && e.message.startsWith("Oro insuficiente")) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
