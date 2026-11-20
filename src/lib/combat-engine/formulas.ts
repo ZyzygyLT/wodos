@@ -89,8 +89,9 @@ export const calcInitiativeBase = (attrs: HeroAttrs): number =>
  * Calcula daño final aplicando el resultado de la fórmula, bonus de grupo y defensa.
  * @param formulaResult - { base, diceTotal } de evaluateFormula
  * @param groupAtkBonus - Bonus grupal en % (0-100)
- * @param targetDef - Defensa del objetivo
+ * @param targetDef - Defensa base del objetivo
  * @param armorPen - Si es true, ignora parcialmente la defensa
+ * @param groupDefenseBonus - Bonificación defensiva grupal del bando objetivo (%)
  */
 export const calcActualDamage = (
   adjustedBase: number,
