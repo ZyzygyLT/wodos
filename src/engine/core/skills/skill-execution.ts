@@ -1,3 +1,4 @@
+import type { RandomSource } from '../random/random-source'
 import {
   selectCombatTarget,
   type TargetPosition,
@@ -27,6 +28,7 @@ export interface SkillExecutionInput<T extends TargetableUnit> {
   readonly allies: readonly T[]
   readonly enemies: readonly T[]
   readonly action: SkillExecutionAction
+  readonly random?: RandomSource
 }
 
 export type SkillExecutionPlan<T> =
@@ -78,6 +80,7 @@ export function resolveSkillExecution<T extends TargetableUnit>(
     targetPosition: action.targetPos,
     targetType: action.targetType,
     skillTags: skill.tags,
+    random,
   })
 
   return {
