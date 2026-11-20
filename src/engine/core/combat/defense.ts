@@ -1,4 +1,4 @@
-import type { RandomSource } from '../random/random-source'
+import { randomIntInclusive, type RandomSource }
 
 export interface CombatSkillFormula {
   readonly attrCoeffs?: Readonly<Record<string, number>>
@@ -34,10 +34,6 @@ export interface DefenseCalculationInput {
 export interface DefenseCalculationResult {
   readonly values: Readonly<Record<string, number>>
   readonly breakdown: Readonly<Record<string, readonly string[]>>
-}
-
-function nextRandom(random?: RandomSource): number {
-  return random?.next() ?? Math.random()
 }
 
 /** Pure Wodos-compatible defense calculation; randomness can be injected for replay/tests. */
@@ -78,7 +74,7 @@ export function calculateDefense(input: DefenseCalculationInput): DefenseCalcula
       const diceCount = formula.diceCount ?? 0
       const diceSides = formula.diceSides ?? 0
       for (let i = 0; i < diceCount; i++) {
-        diceTotal += Math.floor(nextRandom(input.random) * Math.max(1, diceSides)) + 1
+        diceTotal += randomIntInclusive(input.random ?? { next: () => Math.random() }, 1, Math.max(1, diceSides))
       }
       values[category] = Math.max(1, base + diceTotal)
     } else {
