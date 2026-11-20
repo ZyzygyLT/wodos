@@ -299,6 +299,15 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - The result contract deliberately does not invent missing action IDs, source IDs, or targets. Event/action correlation remains represented by the event stream's `actionId`; linking that ID into every legacy report shape is a separate migration step.
 - The new field is additive. Consumers can migrate gradually from legacy `DetailedAction` properties to `combatResult` without changing combat resolution.
 
+### Action and event correlation
+
+- Attack actions now carry the same run-local `actionId` in the legacy `DetailedAction` report and normalized `CombatActionResult`.
+- The ID is preserved for hero/enemy single-target attacks (including misses) and hero/enemy area attacks. Every target resolution in an area action retains the same parent action ID in its action-level report.
+- Direct HP damage caused by those four attack paths emits `on_damage.actionId`, matching the corresponding `attack_started`, `attack_resolved`, `DetailedAction.actionId`, and `CombatActionResult.actionId`.
+- `on_damage.actionId` is optional by design. Damage from independent periodic effects, passive reactions, thorns, counters, and other secondary sources is not falsely attributed to the initiating attack. Those events remain independently observable by source and target.
+- The dispatcher continues to deduplicate by event ID, while `actionId` groups multiple event records into one gameplay action; the two identifiers serve different purposes.
+- This step does not yet assign action IDs to every support/item action or correlate every secondary effect. It establishes reliable identity for direct attack resolution without changing the combat order or legacy report shape.
+
 ### Dungeon runner event integration
 
 `runDungeon` accepts optional `combatEventHandlers`. One dispatcher is created for the entire dungeon run and shared by round, hero-action, and enemy-action contexts. Handlers observe `on_round_start`, `attack_started`, `attack_resolved`, `on_damage`, `healing_applied`, and `on_death` notifications across the run.
