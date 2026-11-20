@@ -2037,20 +2037,62 @@ function runEnemyTurn(
   return executeEnemyAction(enemyData, actorUnit, heroUnits, { log, round, level: levelNum, state, random }, 0, ai + 1, totalActors)
 }
 
+function cloneHeroForSimulation(hero: HeroData): HeroData {
+  return {
+    ...hero,
+    attrs: { ...hero.attrs },
+    combatProfile: {
+      ...hero.combatProfile,
+      prelimRules: hero.combatProfile.prelimRules.map(rule => ({ ...rule })),
+      roundRules: hero.combatProfile.roundRules.map(rule => ({ ...rule })),
+      defenseSkills: { ...hero.combatProfile.defenseSkills },
+    },
+    skills: hero.skills.map(skill => ({
+      ...skill,
+      tags: skill.tags ? [...skill.tags] : undefined,
+      formula: skill.formula
+        ? {
+            ...skill.formula,
+            attrCoeffs: skill.formula.attrCoeffs ? { ...skill.formula.attrCoeffs } : undefined,
+          }
+        : undefined,
+    })),
+    equipStats: hero.equipStats ? { ...hero.equipStats } : undefined,
+    consumables: hero.consumables?.map(item => ({ ...item })),
+  }
+}
+
+function cloneDungeonForSimulation(dungeon: DungeonData): DungeonData {
+  return {
+    ...dungeon,
+    lootTable: dungeon.lootTable.map(entry => ({ ...entry })),
+    levels: dungeon.levels.map(level => ({
+      ...level,
+      enemies: level.enemies.map(enemy => ({
+        ...enemy,
+        skills: enemy.skills?.map(skill => ({
+          ...skill,
+          formula: skill.formula
+            ? {
+                ...skill.formula,
+                attrCoeffs: skill.formula.attrCoeffs ? { ...skill.formula.attrCoeffs } : undefined,
+              }
+            : undefined,
+        })),
+        passiveEffects: enemy.passiveEffects?.map(effect => ({ ...effect })),
+      })),
+    })),
+  }
+}
+
 export async function runDungeon(
   inputHeroes: HeroData[],
   inputDungeon: DungeonData,
   options: { firstOfDay?: boolean; groupBonus?: boolean; clanBonuses?: Record<string, number>; random?: RandomSource } = {}
 ): Promise<RunResult> {
-  // Clone mutable inputs so one simulation cannot contaminate a later run or caller state.
-  const heroes = inputHeroes.map(hero => ({ ...hero, attrs: { ...hero.attrs } }))
-  const dungeon: DungeonData = {
-    ...inputDungeon,
-    levels: inputDungeon.levels.map(level => ({
-      ...level,
-      enemies: level.enemies.map(enemy => ({ ...enemy })),
-    })),
-  }
+  // Clone mutable inputs, including nested arrays consumed or transformed during a run.
+  const heroes = inputHeroes.map(cloneHeroForSimulation)
+  const dungeon = cloneDungeonForSimulation(inputDungeon)
   const random = options.random ?? { next: () => Math.random() }
   const clan = options.clanBonuses ?? {}
   const log: LogEntry[] = []
