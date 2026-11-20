@@ -42,7 +42,7 @@ export default function ActiveAdventurePage() {
       const res = await fetch("/api/adventures/step", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heroAdventureId: active.id }),
+        body: JSON.stringify({ heroAdventureId: active.id, expectedCurrentStep: active.currentStep }),
       })
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
       const result = await res.json()
@@ -76,7 +76,7 @@ export default function ActiveAdventurePage() {
       const res = await fetch("/api/adventures/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ heroAdventureId: active.id, choiceIndex }),
+        body: JSON.stringify({ heroAdventureId: active.id, choiceIndex, expectedCurrentStep: active.currentStep }),
       })
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
       const result = await res.json()
