@@ -1,5 +1,6 @@
 import { randomIntInclusive, type RandomSource } from '@/engine/core/random/random-source'
 import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage } from '@/engine/core'
+import { applySkillDiceMultiplier, evaluateSkillFormula } from '@/engine/core/skills/skill-definition'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IRONHOLD — Fórmulas de combate
@@ -51,21 +52,7 @@ export function evaluateFormula(
   skillRank: number,
   random: RandomSource = { next: () => Math.random() }
 ): { base: number; diceTotal: number } {
-  if (!formula) return { base: 0, diceTotal: 0 }
-  let base = formula.flatBonus ?? 0
-  for (const [attr, coeff] of Object.entries(formula.attrCoeffs ?? {})) {
-    base += (attrs[attr] ?? 0) * coeff
-  }
-  base += (skillRank ?? 1) * (formula.skillRankCoeff ?? 0)
-
-  let diceTotal = 0
-  const count = formula.diceCount ?? 0
-  const sides = formula.diceSides ?? 0
-  for (let i = 0; i < count; i++) {
-    diceTotal += randomIntInclusive(random, 1, Math.max(1, sides))
-  }
-
-  return { base: Math.max(0, base), diceTotal }
+  return evaluateSkillFormula(formula, attrs, skillRank, random)
 }
 
 /**
@@ -79,11 +66,7 @@ export function applyDiceMultiplier(
   diceSides: number,
   diceDivisor?: number
 ): number {
-  if (diceTotal === 0 || diceCount === 0 || diceSides === 0) return base
-  const avg = diceCount * (diceSides + 1) / 2
-  const div = diceDivisor ?? diceSides * 1.5
-  const mult = 1 + (diceTotal - avg) / Math.max(1, div)
-  return Math.round(base * Math.max(0.3, mult))
+  return applySkillDiceMultiplier(base, diceTotal, diceCount, diceSides, diceDivisor)
 }
 
 export const calcDefenseBase = (attrs: HeroAttrs): number =>
