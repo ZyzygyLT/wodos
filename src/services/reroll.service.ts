@@ -60,34 +60,53 @@ export async function processReroll(
     return { ok: false, error: 'Falta 1 Fragmento de Gema', status: 400 }
   }
 
-  const range = STAT_RANGES[statKey] ?? { min: 1, max: 10 }
-  const oldValue = effectiveStats[statKey]
-  let newValue: number
-  do {
-    newValue = range.min + Math.floor(Math.random() * (range.max - range.min + 1))
-  } while (newValue === oldValue && range.min !== range.max)
-
-  const newOverrides = { ...overrides, [statKey]: newValue }
-
+  let reroll: RerollResult
   try {
-    await db.$transaction(async tx => {
+    reroll = await db.$transaction(async tx => {
       await assertHeroItemNotListed(tx, hi.id, hero.id)
-      await tx.heroItem.update({
+      const currentItem = await tx.heroItem.findFirst({
         where: { id: hi.id, heroId: hero.id },
-        data: { statOverrides: newOverrides },
+        include: { item: true },
       })
-      await tx.hero.update({
-        where: { id: hero.id },
+      if (!currentItem) throw new Error('ITEM_NOT_FOUND')
+
+      const currentBaseStats = (currentItem.item.stats ?? {}) as Record<string, number>
+      const currentOverrides = (currentItem.statOverrides ?? {}) as Record<string, number>
+      const currentStats = { ...currentBaseStats, ...currentOverrides }
+      if (!(statKey in currentStats)) throw new Error('REROLL_STAT_MISSING')
+
+      const oldValue = currentStats[statKey]
+      const range = STAT_RANGES[statKey] ?? { min: 1, max: 10 }
+      let newValue: number
+      do {
+        newValue = range.min + Math.floor(Math.random() * (range.max - range.min + 1))
+      } while (newValue === oldValue && range.min !== range.max)
+
+      const updatedItem = await tx.heroItem.updateMany({
+        where: { id: hi.id, heroId: hero.id },
+        data: { statOverrides: { ...currentOverrides, [statKey]: newValue } },
+      })
+      if (updatedItem.count !== 1) throw new Error('ITEM_NOT_FOUND')
+
+      const goldUpdate = await tx.hero.updateMany({
+        where: { id: hero.id, gold: { gte: GOLD_COST } },
         data: { gold: { decrement: GOLD_COST } },
       })
-      await tx.heroMaterial.update({
-        where: { heroId_materialId: { heroId: hero.id, materialId: ESSENCE_MATERIAL_ID } },
+      if (goldUpdate.count !== 1) throw new Error('REROLL_INSUFFICIENT_GOLD')
+
+      const essenceUpdate = await tx.heroMaterial.updateMany({
+        where: { heroId: hero.id, materialId: ESSENCE_MATERIAL_ID, quantity: { gte: 2 } },
         data: { quantity: { decrement: 2 } },
       })
-      await tx.heroMaterial.update({
-        where: { heroId_materialId: { heroId: hero.id, materialId: GEM_MATERIAL_ID } },
+      if (essenceUpdate.count !== 1) throw new Error('REROLL_INSUFFICIENT_ESSENCE')
+
+      const gemUpdate = await tx.heroMaterial.updateMany({
+        where: { heroId: hero.id, materialId: GEM_MATERIAL_ID, quantity: { gte: 1 } },
         data: { quantity: { decrement: 1 } },
       })
+      if (gemUpdate.count !== 1) throw new Error('REROLL_INSUFFICIENT_GEM')
+
+      return { statKey, oldValue, newValue }
     })
   } catch (error) {
     if (error instanceof Error && error.message === 'ITEM_LISTED') {
@@ -96,11 +115,23 @@ export async function processReroll(
     if (error instanceof Error && error.message === 'ITEM_NOT_FOUND') {
       return { ok: false, error: 'Item no encontrado', status: 404 }
     }
+    if (error instanceof Error && error.message === 'REROLL_STAT_MISSING') {
+      return { ok: false, error: `El item ya no tiene el stat "${statKey}"`, status: 409 }
+    }
+    if (error instanceof Error && error.message === 'REROLL_INSUFFICIENT_GOLD') {
+      return { ok: false, error: `Oro insuficiente. Necesitás ${GOLD_COST}💰`, status: 400 }
+    }
+    if (error instanceof Error && error.message === 'REROLL_INSUFFICIENT_ESSENCE') {
+      return { ok: false, error: 'Faltan 2 Esencia Mágica', status: 400 }
+    }
+    if (error instanceof Error && error.message === 'REROLL_INSUFFICIENT_GEM') {
+      return { ok: false, error: 'Falta 1 Fragmento de Gema', status: 400 }
+    }
     throw error
   }
 
   updateQuestProgress(hero.id, { type: 'craft_items' }).catch(e => logger.error('reroll', 'Failed to update quest progress for craft_items', e))
   checkAchievements(hero.id, { type: 'craft_items' }).catch(e => logger.error('reroll', 'Failed to check achievements for craft_items', e))
 
-  return { ok: true, data: { statKey, oldValue, newValue } }
+  return { ok: true, data: reroll }
 }
