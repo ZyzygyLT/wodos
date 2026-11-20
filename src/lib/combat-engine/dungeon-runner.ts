@@ -862,6 +862,9 @@ function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, ac
   target.condition = getCondition(target.hp, target.maxHp)
   emitUnitStateChanged(ctx, target, { condition: target.condition })
   ctx.state!.damagedThisRound = true
+  // Every attack route using this helper must notify the damaged unit's passives,
+  // including area attacks from either side. Keep this before defeat handling.
+  processPassiveEffects('on_damage', target, heroUnits, enemyUnits, attacker, ctx)
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
     `${actor} usa ${skillName} → ${dmg} daño (${target.name})${target.hp <= 0 ? ' — DERRIBADO' : ''}`,
     { actor, target: target.name, skill: skillName, value: dmg })
@@ -1386,6 +1389,7 @@ function executeEnemySingleTargetAttack(
   applyDamageWithEvent(target, finalDmg, enemyUnit.id, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
   state.damagedThisRound = finalDmg > 0
+  processPassiveEffects('on_damage', target, heroUnits, allEnemyUnits, enemyUnit, ctx)
 
   applyThornsReflect(target, enemyUnit, finalDmg, ctx, heroUnits, allEnemyUnits)
   applyCritEffects(crit, target, finalDmg, ctx, enemyUnit.name)
