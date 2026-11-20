@@ -41,6 +41,7 @@ import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-reso
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
 import { advanceSkillCooldowns, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
 import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
+import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -2363,15 +2364,26 @@ export async function runDungeon(
       // ─── Pasivos de inicio de ronda ─────────────────
       processRoundStartPassives(heroUnits, enemyUnits, roundCtx)
 
-      if (allHeroesDead(heroUnits)) break
-      if (enemyUnits.filter(e => e.hp > 0).length === 0) {
+      const roundStatus = resolveCombatRoundStatus({
+        livingHeroCount: heroUnits.filter(hero => hero.hp > 0).length,
+        livingEnemyCount: enemyUnits.filter(enemy => enemy.hp > 0).length,
+      })
+      if (roundStatus === 'heroes_defeated') break
+      if (roundStatus === 'level_victory') {
         levelVictory = true
         break
       }
 
       if (processTrapsAutoWin(enemyUnits, log, round, lvl.number, roundCtx)) {
-        levelVictory = true
-        break
+        const trapStatus = resolveCombatRoundStatus({
+          livingHeroCount: heroUnits.filter(hero => hero.hp > 0).length,
+          livingEnemyCount: enemyUnits.filter(enemy => enemy.hp > 0).length,
+          trapsAutoWin: true,
+        })
+        if (trapStatus === 'level_victory') {
+          levelVictory = true
+          break
+        }
       }
 
       const queue = buildTurnQueue(heroUnits, enemyUnits, random)
@@ -2420,11 +2432,15 @@ export async function runDungeon(
         narrative: generateRoundNarrative(round, roundActions),
       })
 
-      if (enemyUnits.filter(e => e.hp > 0).length === 0) {
+      const completedRoundStatus = resolveCombatRoundStatus({
+        livingHeroCount: heroUnits.filter(hero => hero.hp > 0).length,
+        livingEnemyCount: enemyUnits.filter(enemy => enemy.hp > 0).length,
+      })
+      if (completedRoundStatus === 'level_victory') {
         levelVictory = true
         break
       }
-      if (allHeroesDead(heroUnits)) break
+      if (completedRoundStatus === 'heroes_defeated') break
     }
 
     levelResults.push({ level: lvl.number, victory: levelVictory, rounds: totalRounds })
