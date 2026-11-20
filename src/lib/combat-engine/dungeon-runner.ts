@@ -185,6 +185,7 @@ export interface TargetResult {
 }
 
 export interface DetailedAction {
+  actionId?: string
   combatResult?: import('../../engine/core/combat/action-result').CombatActionResult
   initiative: number
   actionNumber: number
@@ -334,11 +335,11 @@ function resolveAttackEvent(ctx: CombatCtx, actorId: string, targetId: string, h
   })
 }
 
-function applyDamageWithEvent(unit: CombatUnit, amount: number, sourceId: string, ctx: CombatCtx): number {
+function applyDamageWithEvent(unit: CombatUnit, amount: number, sourceId: string, ctx: CombatCtx, actionId?: string): number {
   const result = applyHpDamage(unit.hp, amount)
   unit.hp = result.currentHp
   if (result.applied > 0) {
-    dispatchCombatEvent(ctx, { type: 'on_damage', sourceId, targetId: unit.id, damage: result.applied })
+    dispatchCombatEvent(ctx, { type: 'on_damage', sourceId, targetId: unit.id, damage: result.applied, ...(actionId ? { actionId } : {}) })
   }
   return result.applied
 }
@@ -437,6 +438,7 @@ interface DetailOptions {
   attackTotal?: number
   mpCost?: number
   targetResults?: TargetResult[]
+  actionId?: string
 }
 
 function statusIcon(type: string): string {
@@ -831,8 +833,8 @@ function actionResultType(hit: boolean | null, crit: boolean | null): 'failed' |
   return 'failed'
 }
 
-function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, actor: string, skillName: string, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], attacker?: CombatUnit): boolean {
-  applyDamageWithEvent(target, dmg, attacker?.id ?? `actor:${actor}`, ctx)
+function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, actor: string, skillName: string, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], attacker?: CombatUnit, actionId?: string): boolean {
+  applyDamageWithEvent(target, dmg, attacker?.id ?? `actor:${actor}`, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
   ctx.state!.damagedThisRound = true
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
@@ -870,6 +872,7 @@ function makeDetail(o: DetailOptions): DetailedAction {
     })
   }
   const combatResult = createCombatActionResult({
+    ...(o.actionId ? { actionId: o.actionId } : {}),
     actorId: o.heroUnit.id,
     skillId,
     kind,
@@ -882,6 +885,7 @@ function makeDetail(o: DetailOptions): DetailedAction {
     ...(o.mpCost !== undefined ? { mpCost: o.mpCost } : {}),
   })
   return {
+    ...(o.actionId ? { actionId: o.actionId } : {}),
     combatResult,
     initiative: o.initiative, actionNumber: o.actionNum, totalActions: o.total,
     actorId: o.heroUnit.id, actorName: o.heroUnit.name, actorIcon: o.heroUnit.icon,
@@ -1038,7 +1042,7 @@ function processAoeTarget(
   const defEff = enemy.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random)
   const finalDmg = resolved.damage
-  applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName, allHeroUnits, allEnemyUnits, heroUnit)
+  applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName, allHeroUnits, allEnemyUnits, heroUnit, actionId)
   applyCritEffects(critRoll, enemy, finalDmg, ctx, heroUnit.name)
   applyVampireHeal(heroUnit, finalDmg, ctx)
   const tr: TargetResult = {
@@ -1072,7 +1076,7 @@ function executeHeroAoeAttack(
     const tr = processAoeTarget(enemy, heroUnit, aoeCfg, ctx)
     targetResults.push(tr)
   }
-  return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: `${heroUnit.name} usa ${skillName} — ataque múltiple`, mpCost: meta.mpCost, targetResults })
+  return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: `${heroUnit.name} usa ${skillName} — ataque múltiple`, mpCost: meta.mpCost, targetResults, actionId })
 }
 
 function buildHeroAttackLogMessage(heroUnit: CombatUnit & { attrs: Record<string, number> }, skillName: string, critRoll: boolean, isCritAuto: boolean, finalDmg: number, resolved: { dodged: boolean; absorbed: number }, target: CombatUnit): string {
@@ -1116,7 +1120,7 @@ function executeHeroSingleTargetAttack(
     resolveAttackEvent(ctx, heroUnit.id, target.id, false, undefined, actionId)
     const msg = `${heroUnit.name} usa ${skillName} → fallo`
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, target: target.name, skill: skillName })
-    return makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: false, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: target.defenseEffects?.[aCat], defEquip: target.armorName, msg, rollBase: fResult!.base, rollDice: fResult!.diceTotal, attackTotal: atkTotal, mpCost: meta.mpCost })
+    return makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: false, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: target.defenseEffects?.[aCat], defEquip: target.armorName, msg, rollBase: fResult!.base, rollDice: fResult!.diceTotal, attackTotal: atkTotal, mpCost: meta.mpCost, actionId })
   }
 
   const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: ctx.random ?? { next: () => Math.random() } }).critical
@@ -1129,7 +1133,7 @@ function executeHeroSingleTargetAttack(
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random)
   const finalDmg = resolved.damage
 
-  applyDamageWithEvent(target, finalDmg, heroUnit.id, ctx)
+  applyDamageWithEvent(target, finalDmg, heroUnit.id, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
   state.damagedThisRound = finalDmg > 0
 
@@ -1144,7 +1148,7 @@ function executeHeroSingleTargetAttack(
   const msg = buildHeroAttackLogMessage(heroUnit, skillName, critRoll, isCritAuto, finalDmg, resolved, target)
   addLog(ctx.log, critRoll ? 'crit' : 'hit', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, target: target.name, skill: skillName, value: finalDmg })
   if (target.hp <= 0) processUnitDefeat(target, heroUnit, allHeroUnits, allEnemyUnits, ctx)
-  const detail = makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: finalDmg, hit: true, crit: critRoll, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: defEff, defEquip: target.armorName, msg, rollBase: fResult!.base, rollDice: fResult!.diceTotal, attackTotal: atkTotal, mpCost: meta.mpCost })
+  const detail = makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: finalDmg, hit: true, crit: critRoll, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: defEff, defEquip: target.armorName, msg, rollBase: fResult!.base, rollDice: fResult!.diceTotal, attackTotal: atkTotal, mpCost: meta.mpCost, actionId })
   if (resolved.absorbed > 0) detail.absorbed = resolved.absorbed
   return detail
 }
@@ -1287,7 +1291,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const defEff = hero.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random)
   const finalDmg = resolved.damage
-  applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit)
+  applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit, actionId)
   applyCritEffects(critRoll, hero, finalDmg, ctx, enemyUnit.name)
   const tr: TargetResult = {
     targetId: hero.id, targetName: hero.name,
@@ -1323,7 +1327,7 @@ function executeEnemyAoeAttack(
     targetResults.push(tr)
   }
   const sk = makeEnemySkillObj(chosenSkill, enemy, skillName, chosenSkill?.icon ?? enemy.skillIcon, (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType)
-  return makeDetail({ skill: sk, heroUnit: enemyUnit, target: null, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'weakest' }, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: `${enemyUnit.name} usa ${skillName} — ataque múltiple`, targetResults })
+  return makeDetail({ skill: sk, heroUnit: enemyUnit, target: null, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'weakest' }, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: `${enemyUnit.name} usa ${skillName} — ataque múltiple`, targetResults, actionId })
 }
 
 function executeEnemySingleTargetAttack(
@@ -1340,7 +1344,7 @@ function executeEnemySingleTargetAttack(
 
   if (!hit) {
     resolveAttackEvent(ctx, enemyUnit.id, target.id, false, undefined, actionId)
-    return makeEnemyMissDetail(enemy, enemyUnit, chosenSkill, skillName, damageType, target, defVal, defDice, aCat, attackTotal, rollBase, rollDice, ctx, initiative, actionNum, totalActions)
+    return makeEnemyMissDetail(enemy, enemyUnit, chosenSkill, skillName, damageType, target, defVal, defDice, aCat, attackTotal, rollBase, rollDice, ctx, initiative, actionNum, totalActions, actionId)
   }
 
   const crit = resolveCritical({ attackerDexterity: enemy.dx, random: ctx.random ?? { next: () => Math.random() } }).critical
@@ -1352,7 +1356,7 @@ function executeEnemySingleTargetAttack(
   const { absorbed, finalDmg: afterShield } = applyManaShieldAbsorption(target, state, finalDmg, ctx)
   finalDmg = afterShield
 
-  applyDamageWithEvent(target, finalDmg, enemyUnit.id, ctx)
+  applyDamageWithEvent(target, finalDmg, enemyUnit.id, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
   state.damagedThisRound = finalDmg > 0
 
@@ -1366,7 +1370,7 @@ function executeEnemySingleTargetAttack(
   applyEnemyPostDamageEffects(target, damageType, enemy, enemyUnit, resolved, ctx, state, heroUnits, allEnemyUnits)
 
   const sk = makeEnemySkillObj(chosenSkill, enemy, skillName, chosenSkill?.icon ?? enemy.skillIcon, damageType)
-  const detail = makeDetail({ skill: sk, heroUnit: enemyUnit, target, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'weakest' }, initiative, actionNum, total: totalActions, dmg: finalDmg > 0 ? finalDmg : dmg, hit: true, crit, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: defEff, defEquip: target.armorName, msg, rollBase, rollDice, attackTotal })
+  const detail = makeDetail({ skill: sk, heroUnit: enemyUnit, target, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'weakest' }, initiative, actionNum, total: totalActions, dmg: finalDmg > 0 ? finalDmg : dmg, hit: true, crit, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: defEff, defEquip: target.armorName, msg, rollBase, rollDice, attackTotal, actionId })
   if (absorbed > 0) detail.absorbed = absorbed
   if (resolved.absorbed > 0) detail.absorbed = (detail.absorbed ?? 0) + resolved.absorbed
   return detail
@@ -1377,12 +1381,12 @@ function makeEnemyMissDetail(
   skillName: string, damageType: DamageType, target: CombatUnit,
   defVal: number, defDice: number, aCat: string, attackTotal: number,
   rollBase: number, rollDice: number, ctx: CombatCtx,
-  initiative: number, actionNum: number, totalActions: number
+  initiative: number, actionNum: number, totalActions: number, actionId?: string
 ): DetailedAction {
   const msg = `${enemyUnit.name} ataca (${skillName}/${attackTotal}) → ${target.name}: fallo`
   addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat', msg, { actor: enemyUnit.name, target: target.name })
   const sk = makeEnemySkillObj(chosenSkill, enemy, skillName, chosenSkill?.icon ?? enemy.skillIcon, damageType)
-  return makeDetail({ skill: sk, heroUnit: enemyUnit, target, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'weakest' }, initiative, actionNum, total: totalActions, dmg: null, hit: false, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: target.defenseEffects?.[aCat], defEquip: target.armorName, msg, rollBase, rollDice, attackTotal })
+  return makeDetail({ skill: sk, heroUnit: enemyUnit, target, action: { skillId: enemy.id, targetPos: 'auto', targetType: 'weakest' }, initiative, actionNum, total: totalActions, dmg: null, hit: false, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: target.defenseEffects?.[aCat], defEquip: target.armorName, msg, rollBase, rollDice, attackTotal, actionId })
 }
 
 function buildEnemyDefSuffix(resolved: { dodged: boolean; absorbed: number }, absorbed: number): string {
