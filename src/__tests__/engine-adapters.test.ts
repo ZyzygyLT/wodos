@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { toActiveEngineAttributes, toEngineAttributeDefinition, itemStatsToModifiers, equippedItemsToModifiers } from '@/engine/adapters'
+import {
+  toActiveEngineAttributes,
+  toEngineAttributeDefinition,
+  itemStatsToModifiers,
+  equippedItemsToModifiers,
+  resolveWodosUpgradeBonus,
+  createWodosRuneResolver,
+} from '@/engine/adapters'
 import { applyStatModifiers } from '@/engine/core'
 
 describe('Prisma engine adapters', () => {
@@ -38,27 +45,34 @@ describe('Prisma engine adapters', () => {
     expect(modifiers[0]).toMatchObject({ id: 'item:sword-1:strength', operation: 'flat', value: 3 })
   })
 
-  it('supports explicit resolvers for overrides, runes and upgrades without guessing their persisted rules', () => {
+  it('translates Wodos upgrade levels into rounded additive deltas', () => {
     const item = {
-      id: 'hero-item-1',
-      itemId: 42,
-      equipped: true,
-      upgradeLevel: 3,
-      statOverrides: { strength: 4 },
-      runesIn: [{ runeId: 8 }],
-      item: { id: 42, stats: { strength: 2 } },
+      id: 'upgraded-sword', equipped: true, upgradeLevel: 2,
+      item: { stats: { atk: 33, def: 10, healHp: 5 } },
     }
-    const modifiers = equippedItemsToModifiers([item], {
-      resolveStatOverrides: row => row.statOverrides as Record<string, unknown>,
-      resolveRunes: row => row.runesIn ? { intelligence: 2 } : {},
-      resolveUpgrade: row => ({ strength: (row.upgradeLevel ?? 0) * 2 }),
-    })
-
+    expect(resolveWodosUpgradeBonus(item)).toEqual({ atk: 13, def: 4, healHp: 2 })
+    const modifiers = equippedItemsToModifiers([item], { resolveUpgrade: resolveWodosUpgradeBonus })
     expect(modifiers).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'item:hero-item-1:base:strength', value: 2 }),
-      expect.objectContaining({ id: 'item:hero-item-1:override:strength', value: 4 }),
-      expect.objectContaining({ id: 'item:hero-item-1:rune:intelligence', value: 2 }),
-      expect.objectContaining({ id: 'item:hero-item-1:upgrade:strength', value: 6 }),
+      expect.objectContaining({ id: 'item:upgraded-sword:base:atk', value: 33 }),
+      expect.objectContaining({ id: 'item:upgraded-sword:upgrade:atk', value: 13 }),
+    ]))
+    expect(applyStatModifiers(0, modifiers.filter(modifier => modifier.stat === 'atk'))).toBe(46)
+  })
+
+  it('resolves socketed runes by persisted itemId and sums duplicate stats', () => {
+    const resolveRunes = createWodosRuneResolver(new Map([
+      [101, { strength: 2, critChance: 1 }],
+      [102, { strength: 3, intelligence: 4 }],
+    ]))
+    const item = {
+      id: 'host-item', equipped: true,
+      runesIn: [{ slotIndex: 0, itemId: 101 }, { slotIndex: 1, itemId: 102 }, { slotIndex: 2, itemId: 101 }],
+      item: { stats: {} },
+    }
+    expect(resolveRunes(item)).toEqual({ strength: 7, critChance: 2, intelligence: 4 })
+    const modifiers = equippedItemsToModifiers([item], { resolveRunes })
+    expect(modifiers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'item:host-item:rune:strength', value: 7 }),
     ]))
   })
 
