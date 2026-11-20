@@ -48,6 +48,7 @@ import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
 import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
 import { executeEnemyTurnPipeline, executeHeroTurnPipeline } from '../../engine/core/combat/actor-action'
 import { resolveStatusApplication } from '../../engine/core/effects/status-application'
+import { applyStatModifiersToRecord, statRecordToFlatModifiers } from '../../engine/core/stats/stat-modifier'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -524,12 +525,8 @@ function scaleEnemy(enemy: EnemyData, effectiveLevel: number, difficultyMod: num
 }
 
 function mergeHeroAttrs(hero: HeroData, equip: Record<string, number>): Record<string, number> {
-  const merged: Record<string, number> = {}
-  const allKeys = new Set([...Object.keys(hero.attrs), ...Object.keys(equip)])
-  for (const k of allKeys) {
-    merged[k] = (hero.attrs[k] ?? 0) + (equip[k] ?? 0)
-  }
-  return merged
+  const equipmentModifiers = statRecordToFlatModifiers(equip, 'equipment')
+  return applyStatModifiersToRecord(hero.attrs, equipmentModifiers)
 }
 
 function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; thornsPct: number; vampirePct: number; counterPct: number } {
