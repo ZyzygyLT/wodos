@@ -16,6 +16,7 @@ describe('hero combat profile stats', () => {
       ranged: 49,
       magic: 49,
     })
+    expect(result.armorDefense).toBe(49)
     expect(result.breakdown.melee).toContain('bono fijo de equipo/pasiva = +25')
   })
 
