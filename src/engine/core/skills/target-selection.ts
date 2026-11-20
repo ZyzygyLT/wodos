@@ -24,7 +24,7 @@ export interface TargetSelectionInput<T extends TargetableUnit> {
 export interface TargetSelectionResult<T> {
   readonly target: T | null
   readonly candidates: readonly T[]
-  readonly reason: 'self' | 'most_injured_ally' | 'trap_priority' | 'exact_position' | 'position_priority' | 'fallback' | 'no_valid_target'
+  readonly reason: 'most_injured_ally' | 'trap_priority' | 'exact_position' | 'position_priority' | 'fallback' | 'no_valid_target'
 }
 
 export function getTargetPositionPriority(actorPosition: string, isRanged: boolean): string[] {
@@ -76,10 +76,6 @@ export function selectCombatTarget<T extends TargetableUnit>(
   input: TargetSelectionInput<T>,
 ): TargetSelectionResult<T> {
   const { actor, allies, enemies, targetPosition, targetType, skillTags, random } = input
-  if (targetType === 'self') {
-    return { target: actor, candidates: [actor], reason: 'self' }
-  }
-
   if (targetType === 'most_injured_ally') {
     const candidates = [actor, ...allies.filter(unit => unit.hp > 0)]
     const target = mostInjured(candidates)
