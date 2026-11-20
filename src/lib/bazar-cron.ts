@@ -61,7 +61,7 @@ async function settleListing(listingId: string, now: Date): Promise<SettlementRe
 
     const transfer = await tx.heroItem.updateMany({
       where: { id: listing.heroItemId, heroId: listing.sellerId, equipped: false },
-      data: { heroId: winningBid.buyerId, equipped: false },
+      data: { heroId: winningBid.buyerId, equipped: false, slot: null },
     })
     if (transfer.count !== 1) {
       throw new Error(`BAZAR_SETTLEMENT_ITEM_TRANSFER_FAILED:${listing.id}`)
