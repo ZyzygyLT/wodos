@@ -1339,12 +1339,15 @@ function computeEnemyDamageWithFallback(params: EnemyDamageParams, ctx: CombatCt
     return calcActualDamage(critAdj, state.groupAtkBonus, target.def ?? 5, isArmorPen, dt, target.resistances)
   }
   const skillMult = chosenSkill?.multiplier ?? 1
-  const raw = Math.max(1, Math.round(
-    (enemy.atk * skillMult * (crit ? CRIT_MULTIPLIER : 1))
-    - (target.def ?? 5) * 0.8 * (1 + state.groupDefBonus / 100)
-  ))
-  const resistPct = (target.resistances?.[dt] ?? 0) / 100
-  return Math.max(1, Math.round(raw * (1 - resistPct)))
+  return resolveEnemyFallbackDamage({
+    enemyAttack: enemy.atk,
+    skillMultiplier: skillMult,
+    critical: crit,
+    targetDefense: target.def ?? 5,
+    groupDefenseBonus: state.groupDefBonus,
+    damageType: dt,
+    resistances: target.resistances,
+  }).finalDamage
 }
 
 function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | null, adjAttack: number, enemy: EnemyData, defVal: number): { hit: boolean; rollBase: number; rollDice: number; attackTotal: number } {
