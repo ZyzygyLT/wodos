@@ -13,8 +13,10 @@ export interface SkillManaResolution<T extends SkillManaCandidate> {
 
 /** Preserves Wodos' current rank-based MP scaling. */
 export function calculateSkillManaCost(baseMana: number, rank = 1): number {
-  if (baseMana <= 0) return 0
-  return baseMana + Math.round(baseMana * 0.2 * (rank - 1))
+  const safeBaseMana = Number.isFinite(baseMana) ? Math.max(0, baseMana) : 0
+  const safeRank = Number.isFinite(rank) && rank > 0 ? rank : 1
+  if (safeBaseMana <= 0) return 0
+  return safeBaseMana + Math.round(safeBaseMana * 0.2 * (safeRank - 1))
 }
 
 /**
@@ -28,11 +30,12 @@ export function resolveSkillMana<T extends SkillManaCandidate>(input: {
   readonly currentMp: number
   readonly rank?: number
 }): SkillManaResolution<T> {
-  const { selectedSkill, availableSkills, currentMp } = input
+  const { selectedSkill, availableSkills } = input
+  const currentMp = Number.isFinite(input.currentMp) ? Math.max(0, input.currentMp) : 0
   const baseMana = selectedSkill.manaCost ?? 0
   const mpCost = calculateSkillManaCost(baseMana, input.rank ?? 1)
 
-  if (baseMana <= 0 || currentMp >= mpCost) {
+  if (mpCost <= 0 || currentMp >= mpCost) {
     return {
       skill: selectedSkill,
       mpCost,
