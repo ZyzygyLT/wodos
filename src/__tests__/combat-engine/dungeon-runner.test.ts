@@ -547,6 +547,36 @@ describe('runDungeon', () => {
       expect(result.victory).toBe(true)
     })
 
+    it('applies flat equipment defense and fortitude to the defense used against attacks', async () => {
+      const getEnemyAttackDefense = async (overrides: Partial<HeroData> = {}) => {
+        setupRand(...Array(30).fill(0.5))
+        const result = await runDungeon([makeHero({ hpMax: 500, ...overrides })], makeDungeon({
+          levels: [{
+            number: 1,
+            enemies: [{ id: 1, name: 'Rat', icon: '🐀', hp: 999, mp: 0, atk: 10, def: 3, dx: 3, ag: 3, level: 1, position: 'front' }],
+            epReward: 100,
+            goldReward: 50,
+          }],
+        }))
+        const attacks = result.levelReports.flatMap(level => level.rounds.flatMap(round => round.actions))
+          .filter(action => action.actorName === 'Rat')
+        expect(attacks.length).toBeGreaterThan(0)
+        return attacks[0].defenseValue ?? 0
+      }
+
+      const baseDefense = await getEnemyAttackDefense()
+      const equippedDefense = await getEnemyAttackDefense({ equipStats: { def: 25 } })
+      const fortitudeDefense = await getEnemyAttackDefense({
+        skills: [
+          ...makeHero().skills,
+          { skillId: 2, multiplier: 1, manaCost: 0, effect: 'fortitude', rank: 1, formula: null as any },
+        ],
+      })
+
+      expect(equippedDefense).toBeGreaterThan(baseDefense)
+      expect(fortitudeDefense).toBeGreaterThan(baseDefense)
+    })
+
     it('enemy with defense skill blocks hero attacks', async () => {
       setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
       const result = await runDungeon([makeHero({ hpMax: 500 })], makeDungeon({
