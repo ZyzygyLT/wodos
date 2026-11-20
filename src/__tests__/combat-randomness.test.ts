@@ -55,13 +55,38 @@ describe('reproducible combat randomness', () => {
       hpMax: 100,
       mpMax: 40,
       gold: 0,
-      combatProfile: { position: 'front', prelimRules: [], roundRules: [], defenseSkills: {} },
-      skills: [{ skillId: 1, multiplier: 1, manaCost: 0, effect: 'attack', name: 'Basic attack' }],
+      combatProfile: { position: 'front', prelimRules: [{ itemId: 7 }], roundRules: [], defenseSkills: {} },
+      skills: [{
+        skillId: 1,
+        multiplier: 1,
+        manaCost: 0,
+        effect: 'attack',
+        name: 'Basic attack',
+        formula: { attrCoeffs: { st: 10 }, skillRankCoeff: 0, diceCount: 0, diceSides: 0, flatBonus: 100 },
+      }],
+      consumables: [{ itemId: 7, healHp: 10 }],
     }]
     const dungeon: DungeonData = {
       id: 1,
       name: 'Determinism Test',
-      levels: [{ number: 1, enemies: [], epReward: 10, goldReward: 5 }],
+      levels: [{
+        number: 1,
+        enemies: [{
+          id: 10,
+          name: 'Training Dummy',
+          icon: '🎯',
+          hp: 1,
+          mp: 0,
+          atk: 0,
+          def: 0,
+          dx: 0,
+          ag: 0,
+          level: 1,
+          position: 'front',
+        }],
+        epReward: 10,
+        goldReward: 5,
+      }],
       epReward: 10,
       goldReward: 5,
       fameReward: 2,
@@ -81,8 +106,11 @@ describe('reproducible combat randomness', () => {
     expect(withoutTimestamps(first)).toEqual(withoutTimestamps(second))
     expect(heroes).toEqual(heroBefore)
     expect(dungeon).toEqual(dungeonBefore)
+    expect(first.victory).toBe(true)
+    expect(first.levelReports[0].rounds.some(round => round.actions.length > 0)).toBe(true)
     expect(first.loot).toHaveLength(1)
     expect(first.loot[0]).toMatchObject({ itemId: 99, qty: 1, heroId: 'hero-1' })
+    expect(heroes[0].consumables).toEqual([{ itemId: 7, healHp: 10 }])
   })
 
 })
