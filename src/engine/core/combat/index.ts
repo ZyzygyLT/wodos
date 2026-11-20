@@ -1,4 +1,5 @@
 export * from './defense'
+export * from './attack-resolution'
 export * from './health'
 export * from './defeat'
 export * from './incoming-damage'
