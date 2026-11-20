@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
       const listing = await tx.bazarListing.findUnique({
         where: { id: listingId },
         include: {
-          purchases: { orderBy: { pricePaid: "desc" }, take: 1 },
           heroItem: { include: { item: true } },
           seller: { select: { userId: true } },
         },
@@ -105,7 +104,10 @@ export async function POST(req: NextRequest) {
         return { error: "Usá la compra directa para listings fixed", status: 400 }
       }
 
-      const previousBid = listing.purchases[0] ?? null
+      const previousBid = await tx.bazarPurchase.findFirst({
+        where: { listingId: listing.id, cycle: listing.cycle },
+        orderBy: { pricePaid: "desc" },
+      })
       const minBid = (previousBid?.pricePaid ?? listing.startPrice ?? listing.price) + 1
       const bidAmount = amount === undefined ? minBid : amount as number
       if (bidAmount < minBid) {
@@ -140,7 +142,7 @@ export async function POST(req: NextRequest) {
       }
 
       await tx.bazarPurchase.create({
-        data: { listingId: listing.id, buyerId, pricePaid: bidAmount },
+        data: { listingId: listing.id, buyerId, pricePaid: bidAmount, cycle: listing.cycle },
       })
 
       const autoSold = listing.buyNowPrice !== null && bidAmount >= listing.buyNowPrice
@@ -250,18 +252,23 @@ export async function PUT(req: NextRequest) {
         ? listing.price
         : listing.buyNowPrice ?? listing.price
 
-      const previousBid = listing.purchases[0] ?? null
+      const previousBid = listing.listingType === "auction"
+        ? await tx.bazarPurchase.findFirst({
+            where: { listingId: listing.id, cycle: listing.cycle },
+            orderBy: { pricePaid: "desc" },
+          })
+        : null
+
+      // Lock buyer, seller and previous bidder wallets before any refund or debit.
+      const walletIds = [...new Set([buyerId, listing.sellerId, ...(previousBid ? [previousBid.buyerId] : [])])].sort()
+      await tx.$queryRaw`SELECT id FROM heroes WHERE id = ANY(${walletIds}::text[]) ORDER BY id FOR UPDATE`
+
       if (listing.listingType === "auction" && previousBid && previousBid.buyerId !== buyerId) {
         await tx.hero.update({
           where: { id: previousBid.buyerId },
           data: { gold: { increment: previousBid.pricePaid } },
         })
       }
-
-      // Lock buyer, seller and previous bidder wallets in a stable order.
-      const walletIds = [...new Set([buyerId, listing.sellerId, ...(previousBid ? [previousBid.buyerId] : [])])].sort()
-      await tx.$queryRaw`SELECT id FROM heroes WHERE id = ANY(${walletIds}::text[]) ORDER BY id FOR UPDATE`
-
       const charge = listing.listingType === "auction" && previousBid?.buyerId === buyerId
         ? Math.max(0, price - previousBid.pricePaid)
         : price
@@ -291,7 +298,7 @@ export async function PUT(req: NextRequest) {
       })
 
       await tx.bazarPurchase.create({
-        data: { listingId: listing.id, buyerId, pricePaid: price },
+        data: { listingId: listing.id, buyerId, pricePaid: price, cycle: listing.cycle },
       })
 
       return {
