@@ -91,3 +91,10 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - The adapter preserves the existing identity key (source name + buff type + side), stronger-value replacement, longer finite-duration refresh, and the legacy permanent-to-finite refresh edge case.
 - Finite group buffs tick at the beginning of each round, matching the current runner order. Group ATK/DEF bonuses remain the maximum active value, not a sum.
 - The dungeon runner now delegates buff application, ticking and group-bonus aggregation to this adapter. Passive-effect trigger execution remains in the legacy runner for a later, separately characterized migration.
+
+### Combat events and passive-effect compatibility
+
+- `core/events/combat-events.ts` defines runtime-neutral `on_damage`, `on_death`, and `on_round_start` event contracts plus ordered handler dispatch.
+- `adapters/combat/passive-effect-adapter.ts` resolves Wodos passive definitions into commands. It preserves trigger filtering, numeric and attribute-scaled values, legacy rounding/coefficient fallback, targets, damage type, buff type, and the legacy truthiness filter for zero/NaN values.
+- The dungeon runner now dispatches the three legacy triggers through the engine event contract and executes the resolved commands using its existing damage/heal/buff handlers. Side-effect semantics and combat timing remain in the runner; this phase does not change damage formulas or target rules.
+- Event dispatch is synchronous and ordered. The event contract allows the legacy damage trigger to omit an amount because the existing passive call site does not pass the resolved damage value.
