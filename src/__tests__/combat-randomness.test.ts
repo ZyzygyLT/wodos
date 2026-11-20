@@ -116,7 +116,7 @@ describe('reproducible combat randomness', () => {
     expect(first.victory).toBe(true)
     expect(first.levelReports[0].rounds.some(round => round.actions.length > 0)).toBe(true)
     expect(observedEvents.some(event => event.startsWith('round:'))).toBe(true)
-    expect(observedEvents.some(event => event.startsWith('damage:hero-1->enemy_10_0:') && Number(event.split(':').at(-1)) > 0)).toBe(true)
+    expect(observedEvents.some(event => event.startsWith('damage:hero-1->enemy_10_0:') && Number(event.split(':')[2]) > 0)).toBe(true)
     expect(observedEvents).toContain('death:enemy_10_0')
     expect(first.loot).toHaveLength(1)
     expect(first.loot[0]).toMatchObject({ itemId: 99, qty: 1, heroId: 'hero-1' })
