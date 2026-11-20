@@ -118,13 +118,13 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     ? await db.item.findMany({ where: { id: { in: runeItemIds } } })
     : []
   const runeStatsByItemId = new Map<number, Record<string, unknown>>(
-    runeItems.map(ri => [ri.id, (ri.stats ?? {}) as Record<string, unknown>])
+    runeItems.map(ri => [ri.id, (ri.stats ?? {}) as Record<string, unknown>] as const)
   )
 
   const equipStats = calculateHeroStatsFromPersistedItems({
     heroId: asEntityId(hero.id),
     baseStats: {},
-    items: (hero.items ?? []) as PersistedHeroItem[],
+    items: (hero.items ?? []) as unknown as PersistedHeroItem[],
     itemResolvers: {
       resolveStatOverrides: resolveWodosStatOverrideBonus,
       resolveUpgrade: resolveWodosUpgradeBonus,
