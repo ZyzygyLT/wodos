@@ -1068,7 +1068,7 @@ function processAoeTarget(
   resolveAttackEvent(ctx, heroUnit.id, enemy.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
-  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), state.groupAtkBonus, applyLegacyStatusStatModifiers(enemy.def ?? 5, enemy.statusEffects ?? [], 'defense'), isArmorPen, dt, enemy.resistances)
+  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'hero').atk, applyLegacyStatusStatModifiers(enemy.def ?? 5, enemy.statusEffects ?? [], 'defense'), isArmorPen, dt, enemy.resistances)
   const defEff = enemy.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
@@ -1260,8 +1260,8 @@ function pickEnemySkill(enemy: EnemyData, enemyUnit: CombatUnit, state: CombatSt
   if (enemyUnit.hp > enemyUnit.maxHp * 0.7) {
     const buffSkill = enemySkills.find(s => s.effect === 'party_attack_up' || s.effect === 'defense_up')
     if (buffSkill && (
-      (buffSkill.effect === 'party_attack_up' && state.groupAtkBonus === 0) ||
-      (buffSkill.effect === 'defense_up' && state.groupDefBonus === 0)
+      (buffSkill.effect === 'party_attack_up' && groupBuffBonusesForSide(state, 'enemy').atk === 0) ||
+      (buffSkill.effect === 'defense_up' && groupBuffBonusesForSide(state, 'enemy').def === 0)
     )) {
       return buffSkill
     }
@@ -1314,7 +1314,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   resolveAttackEvent(ctx, enemyUnit.id, hero.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt: DamageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
-  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, enemyUnit.statusEffects ?? [], 'attack'), state.groupAtkBonus, applyLegacyStatusStatModifiers(hero.def ?? 5, hero.statusEffects ?? [], 'defense'), isArmorPen, dt, hero.resistances)
+  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, enemyUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'enemy').atk, applyLegacyStatusStatModifiers(hero.def ?? 5, hero.statusEffects ?? [], 'defense'), isArmorPen, dt, hero.resistances)
   const defEff = hero.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
@@ -1455,7 +1455,7 @@ function computeEnemyDamageWithFallback(params: EnemyDamageParams, ctx: CombatCt
     skillMultiplier: skillMult,
     critical: crit,
     targetDefense: applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'),
-    groupDefenseBonus: state.groupDefBonus,
+    groupDefenseBonus: groupBuffBonusesForSide(state, target.isHero ? 'hero' : 'enemy').def,
     damageType: dt,
     resistances: target.resistances,
   }).finalDamage
@@ -1663,6 +1663,17 @@ function decayStatusEffects(unit: CombatUnit, ctx: CombatCtx) {
 
 
 const BUFF_DURATION = 3  // rondas que duran los buffs de party_attack_up / defense_up
+
+function groupBuffBonusesForSide(state: CombatState, side: 'hero' | 'enemy'): { atk: number; def: number } {
+  const allBuffBonuses = calculateLegacyGroupBuffBonuses(state.buffs ?? [])
+  const sideBuffBonuses = calculateLegacyGroupBuffBonuses(state.buffs ?? [], side)
+  // Preserve non-buff contributions (hero loadout, clan and faction bonuses)
+  // while excluding buffs belonging to the opposing combat side.
+  return {
+    atk: state.groupAtkBonus - allBuffBonuses.atk + sideBuffBonuses.atk,
+    def: state.groupDefBonus - allBuffBonuses.def + sideBuffBonuses.def,
+  }
+}
 
 function recalcGroupBuffs(state: CombatState) {
   if (!state.buffs) state.buffs = []
@@ -2026,7 +2037,8 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   const chosenBuffSkill = hero.skills.find(s => s.skillId === action.skillId)
   if (!chosenBuffSkill || (chosenBuffSkill.effect !== 'party_attack_up' && chosenBuffSkill.effect !== 'defense_up')) return action
   const isAtk = chosenBuffSkill.effect === 'party_attack_up'
-  if (isAtk ? state.groupAtkBonus <= 0 : state.groupDefBonus <= 0) return action
+  const heroBuffBonuses = groupBuffBonusesForSide(state, 'hero')
+  if (isAtk ? heroBuffBonuses.atk <= 0 : heroBuffBonuses.def <= 0) return action
   const ataque = hero.skills.find(s => s.effect === 'attack' || !s.effect)
   if (!ataque) return action
   const override: TacticAction = { skillId: ataque.skillId, targetPos: 'front', targetType: 'weakest' }
