@@ -7,7 +7,8 @@ export interface PersistedHeroStatInput {
   readonly heroId: EntityId
   readonly baseStats: Readonly<Record<string, number>>
   readonly items?: readonly PersistedHeroItem[]
-  readonly effects?: readonly GameEffect[]\n  readonly itemResolvers?: EquippedItemModifierResolvers
+  readonly effects?: readonly GameEffect[]
+  readonly itemResolvers?: EquippedItemModifierResolvers
 }
 
 /** Compatibility entry point for read models that already load hero.items and item.stats. */
