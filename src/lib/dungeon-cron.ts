@@ -80,6 +80,12 @@ async function processScheduledRun(run: any) {
   const timerReduction = clanBonuses.timer_reduction_hours ?? 0
   if (!hasPassed(times, run.registeredAt, timerReduction)) return
 
+  const claim = await db.dungeonRun.updateMany({
+    where: { id: run.id, status: 'registered' },
+    data: { status: 'running' },
+  })
+  if (claim.count !== 1) return
+
   const dungeonData = await enrichDungeonLevels(dungeon)
 
   const firstOfDay = isGroup
