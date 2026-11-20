@@ -82,6 +82,18 @@ describe('SkillTree', () => {
     expect(onUpgrade).toHaveBeenCalledWith(1)
   })
 
+  it('does not offer upgrades after a skill reaches its maximum rank', () => {
+    const cappedSkills = mockSkills.map(skill =>
+      skill.id === 1 ? { ...skill, rank: 10, maxRank: 10 } : skill
+    )
+    render(
+      <SkillTree skills={cappedSkills} epAvailable={500} gold={500} classId={1} onUnlock={vi.fn()} onUpgrade={vi.fn()} />
+    )
+    fireEvent.click(screen.getByText('Golpe básico'))
+    expect(screen.getByText('Rango máximo alcanzado')).toBeTruthy()
+    expect(screen.queryByText(/Mejorar/)).toBeNull()
+  })
+
   it('shows requirement message when prerequisites not met', () => {
     render(
       <SkillTree skills={mockSkills} epAvailable={0} gold={0} classId={1} onUnlock={vi.fn()} onUpgrade={vi.fn()} />
