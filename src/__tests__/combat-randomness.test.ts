@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSeededRandom } from '@/engine/core/random/random-source'
+import type { CombatEventHandler } from '@/engine/core/events/combat-events'
 import { evaluateFormula, rollInitiative } from '@/lib/combat-engine/formulas'
 import { buildTurnQueue, resolveTarget, type CombatUnit, type CombatState } from '@/lib/combat-engine/tactics-evaluator'
 import { runDungeon, type HeroData, type DungeonData } from '@/lib/combat-engine/dungeon-runner'
@@ -94,8 +95,14 @@ describe('reproducible combat randomness', () => {
     const heroBefore = structuredClone(heroes)
     const dungeonBefore = structuredClone(dungeon)
     const options = { clanBonuses: { all_stats_pct: 10 } }
+    const observedEvents: string[] = []
+    const combatEventHandlers: CombatEventHandler[] = [
+      { eventType: 'on_round_start', handle: event => observedEvents.push(`round:${event.unitId}`) },
+      { eventType: 'on_damage', handle: event => observedEvents.push(`damage:${event.sourceId}->${event.targetId}`) },
+      { eventType: 'on_death', handle: event => observedEvents.push(`death:${event.targetId}`) },
+    ]
 
-    const first = await runDungeon(heroes, dungeon, { ...options, random: createSeededRandom(2026) })
+    const first = await runDungeon(heroes, dungeon, { ...options, random: createSeededRandom(2026), combatEventHandlers })
     const second = await runDungeon(heroes, dungeon, { ...options, random: createSeededRandom(2026) })
     const withoutTimestamps = (result: Awaited<ReturnType<typeof runDungeon>>) => ({
       ...result,
@@ -107,6 +114,9 @@ describe('reproducible combat randomness', () => {
     expect(dungeon).toEqual(dungeonBefore)
     expect(first.victory).toBe(true)
     expect(first.levelReports[0].rounds.some(round => round.actions.length > 0)).toBe(true)
+    expect(observedEvents.some(event => event.startsWith('round:'))).toBe(true)
+    expect(observedEvents).toContain('damage:hero-1->enemy_10_0')
+    expect(observedEvents).toContain('death:enemy_10_0')
     expect(first.loot).toHaveLength(1)
     expect(first.loot[0]).toMatchObject({ itemId: 99, qty: 1, heroId: 'hero-1' })
     expect(heroes[0].consumables).toEqual([{ itemId: 7, healHp: 10 }])
