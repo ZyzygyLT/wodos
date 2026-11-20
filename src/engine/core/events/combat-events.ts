@@ -66,6 +66,12 @@ function cloneCombatEvent(event: CombatEvent): CombatEvent {
       ...event,
       changes: {
         ...event.changes,
+        ...(event.changes.units === undefined ? {} : {
+          units: event.changes.units.map(unit => ({
+            ...unit,
+            statusEffects: unit.statusEffects.map(effect => ({ ...effect })),
+          })),
+        }),
         ...(event.changes.buffs === undefined ? {} : { buffs: event.changes.buffs.map(buff => ({ ...buff })) }),
         ...(event.changes.cooldowns === undefined ? {} : {
           cooldowns: Object.fromEntries(Object.entries(event.changes.cooldowns).map(([unitId, entries]) => [
@@ -88,6 +94,12 @@ function freezeCombatEvent(event: CombatEvent): CombatEvent {
     }
     Object.freeze(event.changes)
   } else if (event.type === 'combat_state_changed') {
+    event.changes.units?.forEach(unit => {
+      unit.statusEffects.forEach(effect => Object.freeze(effect))
+      Object.freeze(unit.statusEffects)
+      Object.freeze(unit)
+    })
+    if (event.changes.units) Object.freeze(event.changes.units)
     event.changes.buffs?.forEach(buff => Object.freeze(buff))
     if (event.changes.buffs) Object.freeze(event.changes.buffs)
     if (event.changes.cooldowns) {
