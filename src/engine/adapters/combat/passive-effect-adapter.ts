@@ -43,15 +43,25 @@ export function resolveLegacyPassiveEffects(
     if (typeof effect.value === 'number') {
       value = effect.value
     } else {
-      value = effect.value.base
-      if (effect.value.attrScale && source.attrs?.[effect.value.attrScale]) {
-        value += Math.round(source.attrs[effect.value.attrScale] * (effect.value.coeff ?? 0.5))
-      } else if (effect.value.coeff) {
-        value = Math.round(value * effect.value.coeff)
+      const base = effect.value.base
+      const coeff = effect.value.coeff
+      const scaledAttribute = effect.value.attrScale
+        ? source.attrs?.[effect.value.attrScale]
+        : undefined
+      if (!Number.isFinite(base) ||
+        (coeff !== undefined && !Number.isFinite(coeff)) ||
+        (scaledAttribute !== undefined && !Number.isFinite(scaledAttribute))) {
+        continue
+      }
+      value = base
+      if (effect.value.attrScale && scaledAttribute) {
+        value += Math.round(scaledAttribute * (coeff ?? 0.5))
+      } else if (coeff) {
+        value = Math.round(value * coeff)
       }
     }
-    // Legacy combat ignores zero/NaN values through its truthiness check.
-    if (!value) continue
+    // Reject malformed numeric data before it can reach HP or buff mutation.
+    if (!Number.isFinite(value) || value === 0) continue
     commands.push({
       trigger,
       effectType: effect.effectType,
