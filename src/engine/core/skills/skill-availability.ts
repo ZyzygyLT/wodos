@@ -49,7 +49,7 @@ export function resolveSkillMana<T extends SkillManaCandidate>(input: {
 
   const basicSkill = availableSkills.find(isBasicAttack)
   if (basicSkill) {
-    return { skill: basicSkill, mpCost: 0, remainingMp: 0, fallback: 'basic' }
+    return { skill: basicSkill, mpCost: 0, remainingMp: currentMp, fallback: 'basic' }
   }
 
   return { skill: selectedSkill, mpCost: 0, remainingMp: 0, fallback: 'forced' }
