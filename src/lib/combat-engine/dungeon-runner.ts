@@ -769,7 +769,7 @@ function resolveDefenseEffect(
     damage,
     defense: defenseEffect,
     currentMp: target.mp,
-    random: { next: () => Math.random() },
+    random,
   })
   target.mp -= result.mpSpent
   return { damage: result.finalDamage, absorbed: result.absorbedByBarrier, dodged: result.dodged }
@@ -1265,7 +1265,7 @@ function executeEnemySingleTargetAttack(
     return makeEnemyMissDetail(enemy, enemyUnit, chosenSkill, skillName, damageType, target, defVal, defDice, aCat, attackTotal, rollBase, rollDice, ctx, initiative, actionNum, totalActions)
   }
 
-  const crit = resolveCritical({ attackerDexterity: enemy.dx, random: { next: () => Math.random() } }).critical
+  const crit = resolveCritical({ attackerDexterity: enemy.dx, random: ctx.random ?? { next: () => Math.random() } }).critical
   const dmg = computeEnemyDamageWithFallback({ fResult, adjAttack, crit, enemy, chosenSkill, isArmorPen, dt: damageType }, ctx, target)
   const defEff = target.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random)
