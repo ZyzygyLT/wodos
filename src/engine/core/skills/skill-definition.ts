@@ -108,20 +108,31 @@ export function evaluateSkillFormula(
 ): SkillFormulaResult {
   if (!formula) return { base: 0, diceTotal: 0 }
 
-  const validation = validateSkillFormula(formula)
+  // Legacy persisted JSON may omit formula members; retain the former zero/empty defaults.
+  const normalized: SkillFormulaDefinition = {
+    attrCoeffs: formula.attrCoeffs ?? {},
+    skillRankCoeff: formula.skillRankCoeff ?? 0,
+    diceSides: formula.diceSides ?? 0,
+    diceCount: formula.diceCount ?? 0,
+    diceDivisor: formula.diceDivisor,
+    flatBonus: formula.flatBonus ?? 0,
+    damageType: formula.damageType,
+    healPct: formula.healPct,
+  }
+  const validation = validateSkillFormula(normalized)
   if (!validation.valid) {
     throw new RangeError(`Invalid skill formula: ${validation.errors.join('; ')}`)
   }
 
-  let base = formula.flatBonus
-  for (const [attribute, coefficient] of Object.entries(formula.attrCoeffs)) {
+  let base = normalized.flatBonus
+  for (const [attribute, coefficient] of Object.entries(normalized.attrCoeffs)) {
     base += (attributes[attribute] ?? 0) * coefficient
   }
-  base += skillRank * formula.skillRankCoeff
+  base += (skillRank ?? 1) * normalized.skillRankCoeff
 
   let diceTotal = 0
-  for (let index = 0; index < formula.diceCount; index += 1) {
-    diceTotal += randomIntInclusive(random, 1, Math.max(1, formula.diceSides))
+  for (let index = 0; index < normalized.diceCount; index += 1) {
+    diceTotal += randomIntInclusive(random, 1, Math.max(1, normalized.diceSides))
   }
 
   return { base: Math.max(0, base), diceTotal }
