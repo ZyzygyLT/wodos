@@ -50,6 +50,7 @@ import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
 import { executeEnemyTurnPipeline, executeHeroTurnPipeline } from '../../engine/core/combat/actor-action'
 import { resolveStatusApplication } from '../../engine/core/effects/status-application'
 import { applyStatModifiers, applyStatModifiersToRecord, statRecordToFlatModifiers, type StatModifier } from '../../engine/core/stats/stat-modifier'
+import { calculateMaxHp, calculateMaxMp } from '../../engine/core/stats/derived-stats'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -603,7 +604,19 @@ function buildHeroResistances(equip: Record<string, number>): Partial<Record<Dam
 function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): CombatUnit & { attrs: Record<string, number> } {
   const equip = hero.equipStats ?? {}
   const merged = mergeHeroAttrs(hero, equip)
-  const { finalHp, finalMp, merged: mergedMod, heroDef, thornsPct, vampirePct, counterPct } = applyHeroSkillModifiers(hero.skills, merged, hp + (equip.hp ?? 0), mp + (equip.mp ?? 0), hero.level)
+  // Preserve persisted maxima and all legacy flat bonuses, while applying the
+  // derived HP/MP delta from equipped classic attributes exactly once.
+  const derivedHpBonus = calculateMaxHp({ co: merged.co ?? 0 }, hero.level)
+    - calculateMaxHp({ co: hero.attrs.co ?? 0 }, hero.level)
+  const derivedMpBonus = calculateMaxMp({ wi: merged.wi ?? 0, in: merged.in ?? 0 })
+    - calculateMaxMp({ wi: hero.attrs.wi ?? 0, in: hero.attrs.in ?? 0 })
+  const { finalHp, finalMp, merged: mergedMod, heroDef, thornsPct, vampirePct, counterPct } = applyHeroSkillModifiers(
+    hero.skills,
+    merged,
+    hp + (equip.hp ?? 0) + derivedHpBonus,
+    mp + (equip.mp ?? 0) + derivedMpBonus,
+    hero.level
+  )
   const { defenseValues, defenseSkillNames, defenseEffects } = buildHeroDefenseValues(hero.combatProfile.defenseSkills ?? {}, hero.skills, mergedMod, random)
   const resistances = buildHeroResistances(equip)
   return {
