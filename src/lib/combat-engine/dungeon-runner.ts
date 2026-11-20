@@ -307,6 +307,31 @@ interface CombatCtx {
   eventSequence?: { value: number }
 }
 
+
+function dispatchCombatEvent(ctx: CombatCtx, event: CombatEvent): void {
+  if (!ctx.events) return
+  const sequence = ctx.eventSequence ?? (ctx.eventSequence = { value: 0 })
+  ctx.events.dispatch(event, `combat:${ctx.level}:${ctx.round}:${sequence.value++}`)
+}
+
+function applyDamageWithEvent(unit: CombatUnit, amount: number, sourceId: string, ctx: CombatCtx): number {
+  const result = applyHpDamage(unit.hp, amount)
+  unit.hp = result.currentHp
+  if (result.applied > 0) {
+    dispatchCombatEvent(ctx, { type: 'on_damage', sourceId, targetId: unit.id, damage: result.applied })
+  }
+  return result.applied
+}
+
+function applyHealingWithEvent(unit: CombatUnit, amount: number, sourceId: string, ctx: CombatCtx): number {
+  const result = applyHpHealing(unit.hp, unit.maxHp, amount)
+  unit.hp = result.currentHp
+  if (result.applied > 0) {
+    dispatchCombatEvent(ctx, { type: 'healing_applied', sourceId, targetId: unit.id, healing: result.applied })
+  }
+  return result.applied
+}
+
 interface ActionMeta {
   action?: TacticAction
   initiative: number
@@ -722,7 +747,7 @@ function applyPrelimItem(
   if (!item) return
   if (item.healHp) {
     const actual = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
-    heroUnit.hp = applyHpHealing(heroUnit.hp, heroUnit.maxHp, actual).currentHp
+    applyHealingWithEvent(heroUnit, actual, heroUnit.id, ctx)
     addLog(log, 'heal', 0, level, 'prelim', `${heroUnit.name} usa item_${item.itemId} → recupera ${actual} HP`, { actor: heroUnit.name, skill: `item_${item.itemId}`, value: actual })
   }
   if (item.healMp) {
@@ -785,7 +810,7 @@ function actionResultType(hit: boolean | null, crit: boolean | null): 'failed' |
 }
 
 function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, actor: string, skillName: string, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], attacker?: CombatUnit): boolean {
-  target.hp = applyHpDamage(target.hp, dmg).currentHp
+  applyDamageWithEvent(target, dmg, attacker?.id ?? `actor:${actor}`, ctx)
   target.condition = getCondition(target.hp, target.maxHp)
   ctx.state!.damagedThisRound = true
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
@@ -902,7 +927,7 @@ function executeHeroHealAction(
   }
   const healed = calcHeal(target.maxHp, skill.healPct!)
   const actual = Math.min(healed, target.maxHp - target.hp)
-  target.hp = applyHpHealing(target.hp, target.maxHp, actual).currentHp
+  applyHealingWithEvent(target, actual, heroUnit.id, ctx)
   target.condition = getCondition(target.hp, target.maxHp)
   const msg = `${heroUnit.name} usa ${skillName} → ${target.name} recupera ${actual} HP`
   addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg,
@@ -1043,7 +1068,7 @@ function executeHeroSingleTargetAttack(
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random)
   const finalDmg = resolved.damage
 
-  target.hp = applyHpDamage(target.hp, finalDmg).currentHp
+  applyDamageWithEvent(target, finalDmg, heroUnit.id, ctx)
   target.condition = getCondition(target.hp, target.maxHp)
   state.damagedThisRound = finalDmg > 0
 
@@ -1171,7 +1196,7 @@ function executeEnemyHealEffect(enemy: EnemyData, enemyUnit: CombatUnit, target:
   if (target.hp >= target.maxHp || target.hp <= 0) return null
   const healed = calcHeal(target.maxHp, healPct)
   const actual = Math.min(healed, target.maxHp - target.hp)
-  target.hp = applyHpHealing(target.hp, target.maxHp, actual).currentHp
+  applyHealingWithEvent(target, actual, enemyUnit.id, ctx)
   const msg = enemyUnit.name + ' usa ' + skillName + ' → recupera ' + actual + ' HP'
   addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: enemyUnit.name, target: target.name, skill: skillName, value: actual })
   const sk = makeEnemySkillObj(chosenSkill, enemy, skillName, chosenSkill.icon, (chosenSkill.damageType ?? 'physical') as DamageType)
@@ -1260,7 +1285,7 @@ function executeEnemySingleTargetAttack(
   const { absorbed, finalDmg: afterShield } = applyManaShieldAbsorption(target, state, finalDmg, ctx)
   finalDmg = afterShield
 
-  target.hp = applyHpDamage(target.hp, finalDmg).currentHp
+  applyDamageWithEvent(target, finalDmg, enemyUnit.id, ctx)
   target.condition = getCondition(target.hp, target.maxHp)
   state.damagedThisRound = finalDmg > 0
 
@@ -1368,7 +1393,7 @@ function applyManaShieldAbsorption(target: CombatUnit, state: CombatState, dmg: 
 function applyThornsReflect(target: CombatUnit, enemyUnit: CombatUnit, finalDmg: number, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   if (!target.thornsPct || finalDmg <= 0 || enemyUnit.hp <= 0) return
   const reflected = Math.max(1, Math.round(finalDmg * target.thornsPct / 100))
-  enemyUnit.hp = applyHpDamage(enemyUnit.hp, reflected).currentHp
+  applyDamageWithEvent(enemyUnit, reflected, target.id, ctx)
   enemyUnit.condition = getCondition(enemyUnit.hp, enemyUnit.maxHp)
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
     `🌵 ${target.name} refleja ${reflected} daño a ${enemyUnit.name}`,
@@ -1379,7 +1404,7 @@ function applyThornsReflect(target: CombatUnit, enemyUnit: CombatUnit, finalDmg:
 function applyCounterAttack(target: CombatUnit, enemyUnit: CombatUnit, finalDmg: number, aCat: string, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   if (!target.counterPct || finalDmg <= 0 || target.hp <= 0 || enemyUnit.hp <= 0 || aCat !== 'melee') return
   const countered = Math.max(1, Math.round(finalDmg * target.counterPct / 100))
-  enemyUnit.hp = applyHpDamage(enemyUnit.hp, countered).currentHp
+  applyDamageWithEvent(enemyUnit, countered, target.id, ctx)
   enemyUnit.condition = getCondition(enemyUnit.hp, enemyUnit.maxHp)
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
     `🔄 ${target.name} contraataca causando ${countered} de daño`,
@@ -1502,7 +1527,7 @@ function processDotDamage(
   if (!unit.statusEffects || unit.hp <= 0) return 0
   const doT = calculateLegacyStatusDamage(unit.statusEffects)
   if (doT > 0) {
-    unit.hp = applyHpDamage(unit.hp, doT).currentHp
+    applyDamageWithEvent(unit, doT, `status:${unit.id}`, ctx)
     unit.condition = getCondition(unit.hp, unit.maxHp)
     addLog(log, 'hit', round, level, 'combat',
       `☠️ ${unitName} recibe ${doT} daño de efectos`,
@@ -1596,7 +1621,7 @@ function applyVampireHeal(
   if (!source.vampirePct || damage <= 0 || source.hp <= 0) return
   const healed = Math.min(source.maxHp - source.hp, Math.max(1, Math.round(damage * source.vampirePct / 100)))
   if (healed <= 0) return
-  source.hp = applyHpHealing(source.hp, source.maxHp, healed).currentHp
+  applyHealingWithEvent(source, healed, source.id, ctx)
   source.condition = getCondition(source.hp, source.maxHp)
   addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
     `🩸 ${source.name} absorbe ${healed} HP (vampirismo)`,
@@ -1624,7 +1649,7 @@ function processDamagePassive(pe: PassiveEffect, value: number, source: CombatUn
 function damageAll(units: CombatUnit[], value: number, source: CombatUnit, logMsg: string, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
   for (const u of units) {
     if (u.hp <= 0) continue
-    u.hp = applyHpDamage(u.hp, value).currentHp
+    applyDamageWithEvent(u, value, source.id, ctx)
     u.condition = getCondition(u.hp, u.maxHp)
     if (u.hp <= 0) processUnitDefeat(u, source, heroUnits, enemyUnits, ctx)
   }
@@ -1632,7 +1657,7 @@ function damageAll(units: CombatUnit[], value: number, source: CombatUnit, logMs
 }
 
 function damageUnit(unit: CombatUnit, value: number, source: CombatUnit, logMsg: string, ctx: CombatCtx, heroUnits: CombatUnit[], enemyUnits: CombatUnit[]): void {
-  unit.hp = applyHpDamage(unit.hp, value).currentHp
+  applyDamageWithEvent(unit, value, source.id, ctx)
   if (unit.condition) unit.condition = getCondition(unit.hp, unit.maxHp)
   if (logMsg) addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat', logMsg, { target: unit.name, value })
   if (unit.hp <= 0) processUnitDefeat(unit, source, heroUnits, enemyUnits, ctx)
@@ -1642,7 +1667,7 @@ function doPassiveHeal(u: CombatUnit, value: number, source: CombatUnit, pe: Pas
   if (u.hp <= 0) return
   const actual = Math.min(value, u.maxHp - u.hp)
   if (actual <= 0) return
-  u.hp = applyHpHealing(u.hp, u.maxHp, actual).currentHp
+  applyHealingWithEvent(u, actual, source.id, ctx)
   u.condition = getCondition(u.hp, u.maxHp)
   addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
     `💚 ${source.name} recupera ${actual} HP (${pe.sourceName})`,
@@ -1691,10 +1716,9 @@ function processPassiveEffects(
       ? { type: trigger, sourceId: attacker?.id ?? source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
       : { type: trigger, sourceId: attacker?.id ?? source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
 
-  if (ctx?.events) {
-    const sequence = ctx.eventSequence ?? (ctx.eventSequence = { value: 0 })
-    ctx.events.dispatch(event, `combat:${ctx.level}:${ctx.round}:${sequence.value++}`)
-  }
+  // Damage observers are notified at the exact HP mutation site with effective damage.
+  // Keep the legacy passive trigger dispatch below, but avoid emitting a second observer event.
+  if (trigger !== 'on_damage' && ctx) dispatchCombatEvent(ctx, event)
 
   const handler: CombatEventHandler = {
     eventType: trigger,
