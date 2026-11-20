@@ -481,7 +481,7 @@ function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, num
   return { finalHp, finalMp, merged, heroDef, thornsPct, vampirePct, counterPct }
 }
 
-function buildHeroDefenseValues(ds: Record<string, number | null>, skills: HeroSkill[], merged: Record<string, number>): { defenseValues: Record<string, number>; defenseSkillNames: Record<string, string>; defenseEffects: Record<string, string> } {
+function buildHeroDefenseValues(ds: Record<string, number | null>, skills: HeroSkill[], merged: Record<string, number>, random: RandomSource): { defenseValues: Record<string, number>; defenseSkillNames: Record<string, string>; defenseEffects: Record<string, string> } {
   const defenseValues: Record<string, number> = {}
   const defenseSkillNames: Record<string, string> = {}
   const defenseEffects: Record<string, string> = {}
@@ -489,7 +489,7 @@ function buildHeroDefenseValues(ds: Record<string, number | null>, skills: HeroS
     const skillId = ds[cat]
     const heroSkill = skillId ? skills.find(s => s.skillId === skillId) : null
     defenseValues[cat] = heroSkill?.formula
-      ? evalDefenseFormula(heroSkill.formula, merged, heroSkill.rank ?? 1)
+      ? evalDefenseFormula(heroSkill.formula, merged, heroSkill.rank ?? 1, random)
       : (merged.dx ?? 5) * 2
     if (heroSkill) {
       defenseSkillNames[cat] = heroSkill.name ?? ''
@@ -515,11 +515,11 @@ function buildHeroResistances(equip: Record<string, number>): Partial<Record<Dam
   return resistances
 }
 
-function toUnit(hero: HeroData, hp: number, mp: number): CombatUnit & { attrs: Record<string, number> } {
+function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): CombatUnit & { attrs: Record<string, number> } {
   const equip = hero.equipStats ?? {}
   const merged = mergeHeroAttrs(hero, equip)
   const { finalHp, finalMp, merged: mergedMod, heroDef, thornsPct, vampirePct, counterPct } = applyHeroSkillModifiers(hero.skills, merged, hp + (equip.hp ?? 0), mp + (equip.mp ?? 0), hero.level)
-  const { defenseValues, defenseSkillNames, defenseEffects } = buildHeroDefenseValues(hero.combatProfile.defenseSkills ?? {}, hero.skills, mergedMod)
+  const { defenseValues, defenseSkillNames, defenseEffects } = buildHeroDefenseValues(hero.combatProfile.defenseSkills ?? {}, hero.skills, mergedMod, random)
   const resistances = buildHeroResistances(equip)
   return {
     id: hero.id, name: hero.name, icon: '🧙', level: hero.level,
@@ -541,14 +541,14 @@ function toUnit(hero: HeroData, hp: number, mp: number): CombatUnit & { attrs: R
   }
 }
 
-function enemyToUnit(e: EnemyData, idx: number): CombatUnit {
+function enemyToUnit(e: EnemyData, idx: number, random: RandomSource): CombatUnit {
   const defenseValues: Record<string, number> = {}
   const defenseSkillNames: Record<string, string> = {}
   const defenseEffects: Record<string, string> = {}
   for (const cat of ['melee', 'ranged', 'magic']) {
     const defSkill = (e.skills ?? []).find(s => s.defenseCategory === cat || s.defenseCategory === 'all')
     defenseValues[cat] = defSkill?.formula
-      ? evalDefenseFormula(defSkill.formula, { atk: e.atk, def: e.def, dx: e.dx, ag: e.ag, level: e.level }, 1)
+      ? evalDefenseFormula(defSkill.formula, { atk: e.atk, def: e.def, dx: e.dx, ag: e.ag, level: e.level }, 1, random)
       : (e.dx ?? 5) * 2
     if (defSkill) {
       defenseSkillNames[cat] = defSkill.name ?? ''
@@ -2067,7 +2067,7 @@ export async function runDungeon(
 
   // Estado inicial de todos los héroes
   const heroUnits: Array<CombatUnit & { attrs: Record<string, number> }> = heroes.map(h =>
-    toUnit(h, h.hpMax, h.mpMax)
+    toUnit(h, h.hpMax, h.mpMax, random)
   )
 
   // Skill básica del primer héroe para fallback táctico
@@ -2084,7 +2084,7 @@ export async function runDungeon(
     addLog(log, 'level_start', 0, lvl.number, 'prelim',
       `━━━ Nivel ${lvl.number} — ${dungeon.name} ━━━`)
 
-    const enemyUnits = lvl.enemies.map((e, i) => enemyToUnit(e, i))
+    const enemyUnits = lvl.enemies.map((e, i) => enemyToUnit(e, i, random))
 
     // Usamos el primer héroe como 'hero' en CombatState para compatibilidad
     const firstAlive = heroUnits.find(h => h.hp > 0) ?? heroUnits[0]
