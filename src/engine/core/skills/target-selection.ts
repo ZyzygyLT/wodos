@@ -19,6 +19,8 @@ export interface TargetSelectionInput<T extends TargetableUnit> {
   readonly targetType: TargetType
   readonly skillTags?: readonly string[]
   readonly random?: RandomSource
+  /** Select across all living opponents without positional priority. */
+  readonly globalTargeting?: boolean
 }
 
 export interface TargetSelectionResult<T> {
@@ -75,7 +77,7 @@ function mostInjured<T extends TargetableUnit>(units: readonly T[]): T | null {
 export function selectCombatTarget<T extends TargetableUnit>(
   input: TargetSelectionInput<T>,
 ): TargetSelectionResult<T> {
-  const { actor, allies, enemies, targetPosition, targetType, skillTags, random } = input
+  const { actor, allies, enemies, targetPosition, targetType, skillTags, random, globalTargeting } = input
   if (targetType === 'most_injured_ally') {
     const candidates = [actor, ...allies.filter(unit => unit.hp > 0)]
     const target = mostInjured(candidates)
@@ -90,6 +92,10 @@ export function selectCombatTarget<T extends TargetableUnit>(
   const traps = aliveEnemies.filter(unit => unit.trap)
   if (traps.length > 0) {
     return { target: chooseByType(traps, targetType, random), candidates: traps, reason: 'trap_priority' }
+  }
+
+  if (globalTargeting) {
+    return { target: chooseByType(aliveEnemies, targetType, random), candidates: aliveEnemies, reason: 'fallback' }
   }
 
   if (targetPosition !== 'auto') {
