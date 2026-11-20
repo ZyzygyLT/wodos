@@ -1042,7 +1042,7 @@ function executeHeroSingleTargetAttack(
     return makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: false, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal, defRoll: defDice, defSkill: undefined, defEffect: target.defenseEffects?.[aCat], defEquip: target.armorName, msg, rollBase: fResult!.base, rollDice: fResult!.diceTotal, attackTotal: atkTotal, mpCost: meta.mpCost })
   }
 
-  const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: { next: () => Math.random() } }).critical
+  const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: ctx.random ?? { next: () => Math.random() } }).critical
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, target.def ?? 5, isArmorPen, dt, target.resistances)
@@ -1258,7 +1258,7 @@ function executeEnemySingleTargetAttack(
   initiative: number, actionNum: number, totalActions: number,
   aCat: string
 ): DetailedAction | null {
-  const { total: defVal, dice: defDice } = getDefenseValue(target, aCat)
+  const { total: defVal, dice: defDice } = getDefenseValue(target, aCat, ctx.random)
   const { hit, rollBase, rollDice, attackTotal } = computeEnemyHitValues(fResult, adjAttack, enemy, defVal, ctx.random)
 
   if (!hit) {
@@ -1268,7 +1268,7 @@ function executeEnemySingleTargetAttack(
   const crit = resolveCritical({ attackerDexterity: enemy.dx, random: { next: () => Math.random() } }).critical
   const dmg = computeEnemyDamageWithFallback({ fResult, adjAttack, crit, enemy, chosenSkill, isArmorPen, dt: damageType }, ctx, target)
   const defEff = target.defenseEffects?.[aCat]
-  const resolved = resolveDefenseEffect(target, dmg, defEff)
+  const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random)
   let finalDmg = resolved.damage
   const { absorbed, finalDmg: afterShield } = applyManaShieldAbsorption(target, state, finalDmg, ctx)
   finalDmg = afterShield
@@ -2172,7 +2172,7 @@ export async function runDungeon(
           const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions, random)
           if (detail) roundActions.push(detail)
         } else {
-          const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, totalActors)
+          const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, totalActors, random)
           if (detail) roundActions.push(detail)
         }
       }
