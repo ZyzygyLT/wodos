@@ -386,3 +386,11 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - The enemy pipeline guards defeated actors, resolves the matching level enemy definition, skips unmapped actors and invokes the existing enemy action executor only when both checks pass.
 - `dungeon-runner.ts` now delegates these orchestration stages to the engine contracts. Wodos-specific tactical evaluation, overrides, logs, cooldown mutation, skill execution, enemy selection and combat state changes remain injected adapter behavior; no gameplay formulas or balance rules were moved or altered.
 - Tests cover stage ordering, null-result handling, error propagation, defeated/unmapped enemies and successful enemy execution. The pipeline is an orchestration boundary, not a claim that all hero/enemy combat rules have migrated into the engine.
+
+
+## Skill plan dispatch extraction
+
+- `core/skills/skill-plan-dispatch.ts` provides exhaustive routing for the four resolved plan variants: healing, party buffs, area attacks and single-target attacks.
+- Both hero and enemy action execution now delegate plan-kind selection to this engine contract. Wodos handlers still perform all state mutation, damage/healing calculations, cooldowns, event emission, status effects and combat reporting.
+- Hero formula evaluation remains before target resolution where required by the legacy seeded-random sequence. Enemy formula evaluation and the no-formula area-attack fallback also retain their previous ordering and behavior.
+- Handler contracts deliberately receive resolved targets and plan flags without prescribing how a game applies them. This keeps the engine independent of Wodos models and effect side effects.
