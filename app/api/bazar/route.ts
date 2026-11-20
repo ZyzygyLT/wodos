@@ -21,7 +21,7 @@ export async function GET() {
     ...listing,
     purchases: await db.bazarPurchase.findMany({
       where: { listingId: listing.id, cycle: listing.cycle },
-      orderBy: { pricePaid: "desc" },
+      orderBy: [{ pricePaid: "desc" }, { purchasedAt: "desc" }],
       take: 1,
     }),
   })))
