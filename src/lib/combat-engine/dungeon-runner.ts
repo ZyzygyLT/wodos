@@ -298,6 +298,7 @@ interface CombatCtx {
   round: number
   level: number
   state?: CombatState
+  random?: RandomSource
   processedDeaths?: Set<string>
 }
 
