@@ -944,7 +944,7 @@ function processAoeTarget(
   const { skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula } = cfg
   const state = ctx.state!
   const { total: defVal, dice: defDice } = getDefenseValue(enemy, aCat)
-  const hit = defVal <= atkTotal
+  const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat',
       `${heroUnit.name} usa ${skillName} → fallo (${enemy.name})`,
