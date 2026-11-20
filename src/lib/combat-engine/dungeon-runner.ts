@@ -2106,6 +2106,7 @@ export async function runDungeon(
     let levelVictory = false
     const MAX_ROUNDS = 30
     const roundReports: RoundReport[] = []
+    const processedDeaths = new Set<string>()
 
     for (let round = 1; round <= MAX_ROUNDS; round++) {
       state.round = round
@@ -2120,7 +2121,7 @@ export async function runDungeon(
       decayBuffs(state)
 
       // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
-      const roundCtx: CombatCtx = { log, round, level: lvl.number, state }
+      const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths }
 
       // DoT al inicio de ronda
       for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
