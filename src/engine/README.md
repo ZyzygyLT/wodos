@@ -147,5 +147,6 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - The tactics layer accepts the same source for random target selection and turn-queue initiative.
 - `runDungeon` accepts `options.random`; pass a seeded source such as `createSeededRandom(seed)` to make combat, enemy targeting, defensive reactions, critical side effects, loot rolls, and loot assignment reproducible. Random values are validated as finite numbers in `[0, 1)` before use, and integer dice/selection rolls share the inclusive helper.
 - A random source is stateful: create a fresh seeded instance for each independent run. Reusing the same instance intentionally continues its sequence.
+- `runDungeon` clones the hero attribute maps and dungeon level/enemy containers before applying clan bonuses or party scaling, so these simulation preparations do not mutate the caller's input objects. Loot assignment receives the same run-scoped random source explicitly.
 - The default runtime path remains non-seeded. This extraction does not change probability thresholds, dice ranges, initiative rules, or loot chances.
 - Log timestamps still use wall-clock time and are not part of the deterministic gameplay stream.
