@@ -2442,7 +2442,6 @@ export async function runDungeon(
       addLog(log, 'round_start', round, lvl.number, 'combat',
         `── Ronda ${round} ──`)
 
-      // Decaer buffs al inicio de ronda
       // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
       const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths, random, events, eventSequence }
       // A full checkpoint bootstraps reconstruction for this level after all preliminary actions.
@@ -2460,7 +2459,6 @@ export async function runDungeon(
         buffs: (state.buffs ?? []).map(buff => ({ ...buff })),
         cooldowns: state.skillCooldowns ?? {},
       })
-      decayBuffs(state, roundCtx)
       emitCombatStateChanged(roundCtx, { level: lvl.number, round, buffs: state.buffs ?? [], cooldowns: state.skillCooldowns ?? {} })
 
       // DoT al inicio de ronda
@@ -2534,6 +2532,9 @@ export async function runDungeon(
       })
 
       totalRounds++
+
+      // Los buffs duran rondas completas: se consumen después de que ambos bandos actuaron.
+      decayBuffs(state, roundCtx)
 
       // Decaer efectos
       for (const hu of heroUnits) decayStatusEffects(hu, roundCtx)
