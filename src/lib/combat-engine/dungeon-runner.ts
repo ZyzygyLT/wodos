@@ -1205,7 +1205,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
       resultType: 'failed',
     }
   }
-  const critRoll = resolveCritical({ attackerDexterity: enemy.dx, random: { next: () => Math.random() } }).critical
+  const critRoll = resolveCritical({ attackerDexterity: enemy.dx, random: ctx.random ?? { next: () => Math.random() } }).critical
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt: DamageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, hero.def ?? 5, isArmorPen, dt, hero.resistances)
