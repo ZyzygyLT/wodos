@@ -599,6 +599,7 @@ function rollLoot(table: DungeonData['lootTable'], random: RandomSource = { next
 function assignLootToHeroes(
   rawLoot: Array<{ itemId: number; qty: number }>,
   heroUnits: CombatUnit[],
+  random: RandomSource,
 ): Array<{ itemId: number; qty: number; heroId: string; heroName: string }> {
   const alive = heroUnits.filter(h => h.hp > 0)
   if (alive.length === 0) return rawLoot.map(l => ({ ...l, heroId: '', heroName: '' }))
@@ -2037,10 +2038,19 @@ function runEnemyTurn(
 }
 
 export async function runDungeon(
-  heroes: HeroData[],
-  dungeon: DungeonData,
+  inputHeroes: HeroData[],
+  inputDungeon: DungeonData,
   options: { firstOfDay?: boolean; groupBonus?: boolean; clanBonuses?: Record<string, number>; random?: RandomSource } = {}
 ): Promise<RunResult> {
+  // Clone mutable inputs so one simulation cannot contaminate a later run or caller state.
+  const heroes = inputHeroes.map(hero => ({ ...hero, attrs: { ...hero.attrs } }))
+  const dungeon: DungeonData = {
+    ...inputDungeon,
+    levels: inputDungeon.levels.map(level => ({
+      ...level,
+      enemies: level.enemies.map(enemy => ({ ...enemy })),
+    })),
+  }
   const random = options.random ?? { next: () => Math.random() }
   const clan = options.clanBonuses ?? {}
   const log: LogEntry[] = []
