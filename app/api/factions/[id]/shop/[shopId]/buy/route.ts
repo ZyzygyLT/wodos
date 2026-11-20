@@ -34,19 +34,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!item) return NextResponse.json({ error: "Item no encontrado en la tienda" }, { status: 400 })
 
   const goldCost = item.goldCost ?? 100
-  if (hero.gold < goldCost) {
-    return NextResponse.json({ error: `Oro insuficiente. Necesitás ${goldCost}💰` }, { status: 400 })
-  }
+  try {
+    await db.$transaction(async tx => {
+      const debit = await tx.hero.updateMany({
+        where: { id: hero.id, gold: { gte: goldCost } },
+        data: { gold: { decrement: goldCost } },
+      })
+      if (debit.count !== 1) throw new Error("FACTION_SHOP_INSUFFICIENT_GOLD")
 
-  await db.$transaction([
-    db.hero.update({
-      where: { id: hero.id },
-      data: { gold: { decrement: goldCost } },
-    }),
-    db.heroItem.create({
-      data: { heroId: hero.id, itemId: item.itemId, equipped: false },
-    }),
-  ])
+      await tx.heroItem.create({
+        data: { heroId: hero.id, itemId: item.itemId, equipped: false },
+      })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "FACTION_SHOP_INSUFFICIENT_GOLD") {
+      return NextResponse.json({ error: `Oro insuficiente. Necesitás ${goldCost}💰` }, { status: 400 })
+    }
+    throw error
+  }
 
   return NextResponse.json({ success: true, item: item.name, goldSpent: goldCost })
 }
