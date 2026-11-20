@@ -99,11 +99,12 @@ export const calcActualDamage = (
   armorPen: boolean = false,
   damageType: DamageType = 'physical',
   resistances: Partial<Record<DamageType, number>> = {},
+  groupDefenseBonus: number = 0,
 ): number => {
   return resolveFormulaDamage({
     adjustedBase,
     groupAttackBonus: groupAtkBonus,
-    targetDefense: targetDef,
+    targetDefense: targetDef * (1 + groupDefenseBonus / 100),
     armorPenetration: armorPen,
     damageType,
     resistances,
