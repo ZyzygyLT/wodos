@@ -1,5 +1,6 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
+import { advanceEffects } from '../../core/effects/effect-lifecycle'
 
 export type LegacyCombatStatusType =
   | 'poison' | 'burn' | 'bleed' | 'stun' | 'freeze'
@@ -94,8 +95,9 @@ export function isLegacyCombatUnitDisabled(statuses: readonly LegacyCombatStatus
 export function advanceLegacyStatusRound(
   statuses: readonly LegacyCombatStatusEffect[]
 ): readonly LegacyCombatStatusEffect[] {
-  return statuses.map(effect => ({ ...effect, remainingRounds: effect.remainingRounds - 1 }))
-    .filter(effect => effect.remainingRounds > 0)
+  const effects = statuses.map(status => legacyStatusToGameEffect('legacy-combat-unit', status))
+  const advanced = advanceEffects(effects, 1)
+  return advanced.effects.map(gameEffectToLegacyStatus)
 }
 
 export function legacyStatusTargetId(value: string): EntityId {
