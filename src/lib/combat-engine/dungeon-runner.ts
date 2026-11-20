@@ -341,6 +341,11 @@ function applyDamageWithEvent(unit: CombatUnit, amount: number, sourceId: string
   unit.hp = result.currentHp
   if (result.applied > 0) {
     dispatchCombatEvent(ctx, { type: 'on_damage', sourceId, targetId: unit.id, damage: result.applied, ...(actionId ? { actionId } : {}) })
+    dispatchCombatEvent(ctx, {
+      type: 'unit_state_changed',
+      unitId: unit.id,
+      changes: { hp: result.currentHp, defeated: result.defeated },
+    })
   }
   return result.applied
 }
@@ -350,6 +355,11 @@ function applyHealingWithEvent(unit: CombatUnit, amount: number, sourceId: strin
   unit.hp = result.currentHp
   if (result.applied > 0) {
     dispatchCombatEvent(ctx, { type: 'healing_applied', sourceId, targetId: unit.id, healing: result.applied })
+    dispatchCombatEvent(ctx, {
+      type: 'unit_state_changed',
+      unitId: unit.id,
+      changes: { hp: result.currentHp, defeated: result.defeated },
+    })
   }
   return result.applied
 }
