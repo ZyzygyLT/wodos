@@ -11,3 +11,5 @@ export * from './action-result'
 export * from './round-control'
 export * from './turn-scheduler'
 export * from './initiative'
+
+export * from './actor-turn'
