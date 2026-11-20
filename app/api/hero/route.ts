@@ -4,6 +4,7 @@ import db from "@/lib/db"
 import { getHeroByUserId } from "@/lib/hero-utils"
 import { computeDefenseForHero } from "@/lib/combat-engine/hero-stats"
 import { buildHeroData } from "@/lib/dungeon-helpers"
+import { calculateEffectiveResourceMaxima } from "@/engine/core/stats/derived-stats"
 
 export async function GET() {
   const session = await auth()
@@ -27,10 +28,24 @@ export async function GET() {
     ?? null
   const combatHero = await buildHeroData(hero, profile)
   const defData = computeDefenseForHero({ ...hero, equipStats: combatHero.equipStats })
+  const effectiveResources = calculateEffectiveResourceMaxima({
+    baseHpMax: hero.hpMax,
+    baseMpMax: hero.mpMax,
+    level: hero.level,
+    baseAttributes: hero.attrs as Record<string, number>,
+    effectiveAttributes: Object.fromEntries(
+      Object.entries(hero.attrs as Record<string, number>).map(([key, value]) => [key, value + (combatHero.equipStats[key] ?? 0)])
+    ),
+    equipmentHp: combatHero.equipStats.hp,
+    equipmentMp: combatHero.equipStats.mp,
+    skillEffects: combatHero.skills.map(skill => skill.effect),
+  })
 
   return NextResponse.json({
     ...hero,
     computedDefense: defData.values,
+    computedHpMax: effectiveResources.hpMax,
+    computedMpMax: effectiveResources.mpMax,
     defenseBreakdown: defData.breakdown,
     heroCount: user?._count?.heroes ?? 1,
     maxHeroes: user?.maxHeroes ?? 3,
