@@ -89,8 +89,27 @@ describe('evalCondition', () => {
     expect(evalCondition({ type: 'damaged_this_round' }, makeState({ damagedThisRound: false }))).toBe(false)
   })
 
+  it('does not trigger resource conditions when maximum HP or MP is invalid', () => {
+    const state = makeState({
+      hero: makeHero({ hp: 10, maxHp: 0, mp: 0, maxMp: 0 }),
+    })
+    expect(evalCondition({ type: 'hp_self_lt', value: 30 }, state)).toBe(false)
+    expect(evalCondition({ type: 'hp_self_gt', value: 70 }, state)).toBe(false)
+    expect(evalCondition({ type: 'mana_lt', value: 20 }, state)).toBe(false)
+  })
+
+  it('bounds resource percentages to the valid range', () => {
+    const state = makeState({
+      hero: makeHero({ hp: 150, maxHp: 100, mp: -5, maxMp: 50 }),
+      enemies: [makeEnemy('e1', { hp: 80, maxHp: 0 })],
+    })
+    expect(evalCondition({ type: 'hp_self_gt', value: 99 }, state)).toBe(true)
+    expect(evalCondition({ type: 'mana_lt', value: 1 }, state)).toBe(true)
+    expect(evalCondition({ type: 'hp_enemy_lt', value: 25 }, state)).toBe(false)
+  })
+
   it('unknown condition type returns false', () => {
-    expect(evalCondition({ type: 'always' as any, value: 999 }, makeState())).toBe(true)
+    expect(evalCondition({ type: 'unknown' as any, value: 999 }, makeState())).toBe(false)
   })
 })
 
