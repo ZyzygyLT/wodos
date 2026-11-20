@@ -336,16 +336,18 @@ function resolveAttackEvent(ctx: CombatCtx, actorId: string, targetId: string, h
   })
 }
 
+function emitUnitStateChanged(ctx: CombatCtx, unit: CombatUnit, changes: Extract<CombatEvent, { type: 'unit_state_changed' }>['changes']): void {
+  dispatchCombatEvent(ctx, { type: 'unit_state_changed', unitId: unit.id, changes })
+}
+function emitCombatStateChanged(ctx: CombatCtx, changes: Extract<CombatEvent, { type: 'combat_state_changed' }>['changes']): void {
+  dispatchCombatEvent(ctx, { type: 'combat_state_changed', changes })
+}
 function applyDamageWithEvent(unit: CombatUnit, amount: number, sourceId: string, ctx: CombatCtx, actionId?: string): number {
   const result = applyHpDamage(unit.hp, amount)
   unit.hp = result.currentHp
   if (result.applied > 0) {
     dispatchCombatEvent(ctx, { type: 'on_damage', sourceId, targetId: unit.id, damage: result.applied, ...(actionId ? { actionId } : {}) })
-    dispatchCombatEvent(ctx, {
-      type: 'unit_state_changed',
-      unitId: unit.id,
-      changes: { hp: result.currentHp, defeated: result.defeated },
-    })
+    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, defeated: result.defeated })
   }
   return result.applied
 }
@@ -355,11 +357,7 @@ function applyHealingWithEvent(unit: CombatUnit, amount: number, sourceId: strin
   unit.hp = result.currentHp
   if (result.applied > 0) {
     dispatchCombatEvent(ctx, { type: 'healing_applied', sourceId, targetId: unit.id, healing: result.applied })
-    dispatchCombatEvent(ctx, {
-      type: 'unit_state_changed',
-      unitId: unit.id,
-      changes: { hp: result.currentHp, defeated: result.defeated },
-    })
+    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, defeated: result.defeated })
   }
   return result.applied
 }
@@ -827,6 +825,7 @@ function resolveDefenseEffect(
   damage: number,
   defenseEffect: string | undefined,
   random: RandomSource = { next: () => Math.random() },
+  ctx?: CombatCtx,
 ): { damage: number; absorbed: number; dodged: boolean } {
   const result = resolveIncomingDamage({
     damage,
@@ -834,7 +833,7 @@ function resolveDefenseEffect(
     currentMp: target.mp,
     random,
   })
-  target.mp -= result.mpSpent
+  if (result.mpSpent > 0) { target.mp -= result.mpSpent; emitUnitStateChanged(ctx!, target, { mp: target.mp }) }
   return { damage: result.finalDamage, absorbed: result.absorbedByBarrier, dodged: result.dodged }
 }
 
@@ -847,6 +846,7 @@ function actionResultType(hit: boolean | null, crit: boolean | null): 'failed' |
 function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, actor: string, skillName: string, heroUnits: CombatUnit[], enemyUnits: CombatUnit[], attacker?: CombatUnit, actionId?: string): boolean {
   applyDamageWithEvent(target, dmg, attacker?.id ?? `actor:${actor}`, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
+  emitUnitStateChanged(ctx, target, { condition: target.condition })
   ctx.state!.damagedThisRound = true
   addLog(ctx.log, 'hit', ctx.round, ctx.level, 'combat',
     `${actor} usa ${skillName} → ${dmg} daño (${target.name})${target.hp <= 0 ? ' — DERRIBADO' : ''}`,
@@ -999,6 +999,7 @@ function executeHeroHealAction(
   const actual = Math.min(healed, target.maxHp - target.hp)
   applyHealingWithEvent(target, actual, heroUnit.id, ctx)
   target.condition = getCondition(target.hp, target.maxHp)
+  emitUnitStateChanged(ctx, target, { condition: target.condition })
   const msg = `${heroUnit.name} usa ${skillName} → ${target.name} recupera ${actual} HP`
   addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg,
     { actor: heroUnit.name, target: target.name, skill: skillName, value: actual })
@@ -1051,7 +1052,7 @@ function processAoeTarget(
   const dt = formula?.damageType ?? 'physical'
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, enemy.def ?? 5, isArmorPen, dt, enemy.resistances)
   const defEff = enemy.defenseEffects?.[aCat]
-  const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random)
+  const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
   applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName, allHeroUnits, allEnemyUnits, heroUnit, actionId)
   applyCritEffects(critRoll, enemy, finalDmg, ctx, heroUnit.name)
@@ -1141,7 +1142,7 @@ function executeHeroSingleTargetAttack(
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, target.def ?? 5, isArmorPen, dt, target.resistances)
 
   const defEff = target.defenseEffects?.[aCat]
-  const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random)
+  const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
 
   applyDamageWithEvent(target, finalDmg, heroUnit.id, ctx, actionId)
@@ -1300,7 +1301,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const dt: DamageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, hero.def ?? 5, isArmorPen, dt, hero.resistances)
   const defEff = hero.defenseEffects?.[aCat]
-  const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random)
+  const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
   applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit, actionId)
   applyCritEffects(critRoll, hero, finalDmg, ctx, enemyUnit.name)
@@ -1462,6 +1463,7 @@ function applyManaShieldAbsorption(target: CombatUnit, state: CombatState, dmg: 
   if (state.manaShield && target.mp > 0 && dmg > 0) {
     const absorbed = Math.min(target.mp, dmg)
     target.mp -= absorbed
+    emitUnitStateChanged(ctx, target, { mp: target.mp })
     const finalDmg = dmg - absorbed
     if (absorbed > 0) {
       addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat',
@@ -1520,7 +1522,7 @@ function executeEnemyAction(
   const damageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
 
   if (chosenSkill) {
-    applySkillCooldown(state, enemyUnit, null, chosenSkill.skillId, chosenSkill.cooldownRounds ?? 0)
+    applySkillCooldown(state, enemyUnit, null, chosenSkill.skillId, chosenSkill.cooldownRounds ?? 0, ctx)
   }
 
   const executionSkill = chosenSkill
@@ -1595,6 +1597,7 @@ function applyStatusEffect(
 ) {
   const incoming: StatusEffect = { type, remainingRounds: rounds, value, source: sourceName, sourceName }
   target.statusEffects = [...applyLegacyStatusEffect(target.statusEffects ?? [], incoming)]
+  emitUnitStateChanged(ctx, target, { statusEffects: target.statusEffects.map(effect => ({ ...effect })) })
   const icon = statusIcon(type)
   addLog(ctx.log, 'condition_change', ctx.round, ctx.level, 'combat',
     `${icon} ${target.name} sufre ${type} (${rounds}r, ${value}/ronda)`,
@@ -1625,9 +1628,10 @@ function isUnitStunned(unit: CombatUnit): boolean {
   return isLegacyCombatUnitDisabled(unit.statusEffects ?? [])
 }
 
-function decayStatusEffects(unit: CombatUnit) {
+function decayStatusEffects(unit: CombatUnit, ctx: CombatCtx) {
   if (!unit.statusEffects) return
   unit.statusEffects = [...advanceLegacyStatusRound(unit.statusEffects)]
+  emitUnitStateChanged(ctx, unit, { statusEffects: unit.statusEffects.map(effect => ({ ...effect })) })
 }
 
 function statusEffectFromDamageType(dt: DamageType, atk: number): { type: StatusEffect['type']; value: number; rounds: number } | null {
@@ -1654,15 +1658,17 @@ function recalcGroupBuffs(state: CombatState) {
   state.groupDefBonus = bonuses.def
 }
 
-function addBuff(state: CombatState, type: 'atk' | 'def', value: number, sourceName: string, side: 'hero' | 'enemy', duration: number | null) {
+function addBuff(state: CombatState, type: 'atk' | 'def', value: number, sourceName: string, side: 'hero' | 'enemy', duration: number | null, ctx?: CombatCtx) {
   state.buffs = [...applyLegacyCombatBuff(state.buffs ?? [], { type, value, sourceName, side, remainingRounds: duration })]
   recalcGroupBuffs(state)
+  if (ctx) emitCombatStateChanged(ctx, { buffs: state.buffs.map(buff => ({ ...buff })) })
 }
 
-function decayBuffs(state: CombatState) {
+function decayBuffs(state: CombatState, ctx?: CombatCtx) {
   if (!state.buffs) return
   state.buffs = [...advanceLegacyCombatBuffs(state.buffs)]
   recalcGroupBuffs(state)
+  if (ctx) emitCombatStateChanged(ctx, { buffs: state.buffs.map(buff => ({ ...buff })) })
 }
 
 function buildNaturalResistances(faction?: string): Partial<Record<DamageType, number>> {
@@ -1854,6 +1860,7 @@ function processUnitDefeat(
   const processed = ctx.processedDeaths ?? (ctx.processedDeaths = new Set<string>())
   if (!markUnitDefeated(processed, unit.id, unit.hp <= 0)) return false
   unit.condition = getCondition(unit.hp, unit.maxHp)
+  emitUnitStateChanged(ctx, unit, { condition: unit.condition, defeated: true })
   addLog(ctx.log, 'death', ctx.round, ctx.level, 'combat', message, { target: unit.name, targetId: unit.id })
   processPassiveEffects('on_death', unit, heroUnits, enemyUnits, attacker, ctx)
   return true
@@ -2016,7 +2023,7 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   return override
 }
 
-function applySkillCooldown(state: CombatState, actorUnit: CombatUnit, hero: HeroData | null, skillId: number, cooldownOverride?: number): void {
+function applySkillCooldown(state: CombatState, actorUnit: CombatUnit, hero: HeroData | null, skillId: number, cooldownOverride?: number, ctx?: CombatCtx): void {
   let cd = cooldownOverride
   if (cd === undefined && hero) {
     const skillObj = getSkill(hero, skillId)
@@ -2025,10 +2032,12 @@ function applySkillCooldown(state: CombatState, actorUnit: CombatUnit, hero: Her
   cd = normalizeSkillCooldown(cd)
   if (cd <= 0) return
   state.skillCooldowns = setSkillCooldown(state.skillCooldowns, actorUnit.id, skillId, cd)
+  if (ctx) emitCombatStateChanged(ctx, { cooldowns: state.skillCooldowns })
 }
 
-function decaySkillCooldowns(state: CombatState): void {
+function decaySkillCooldowns(state: CombatState, ctx?: CombatCtx): void {
   state.skillCooldowns = advanceSkillCooldowns(state.skillCooldowns)
+  if (ctx) emitCombatStateChanged(ctx, { cooldowns: state.skillCooldowns })
 }
 
 function applyDarknessHeal(enemyUnits: CombatUnit[], state: CombatState, log: LogEntry[], round: number, levelNum: number, ctx: CombatCtx): void {
@@ -2053,11 +2062,13 @@ function processRoundStartPassives(heroUnits: CombatUnit[], enemyUnits: CombatUn
   }
 }
 
-function applyManaRegen(heroUnits: CombatUnit[]): void {
+function applyManaRegen(heroUnits: CombatUnit[], ctx: CombatCtx): void {
   for (const hu of heroUnits) {
     if (hu.hp <= 0) continue
     const regen = 5 + Math.floor(hu.maxMp * 0.02)
+    const previousMp = hu.mp
     hu.mp = Math.min(hu.maxMp, hu.mp + regen)
+    if (hu.mp !== previousMp) emitUnitStateChanged(ctx, hu, { mp: hu.mp })
   }
 }
 
@@ -2139,7 +2150,7 @@ function runHeroTurn(
   finalAction = resolveBuffOverride(hero, finalAction, state, actorUnit, log, round, levelNum)
 
   const detail = executeHeroAction(actorUnit, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { ...combatCtx, state: perHeroState }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
-  if (detail) applySkillCooldown(state, actorUnit, hero, finalAction.skillId)
+  if (detail) applySkillCooldown(state, actorUnit, hero, finalAction.skillId, undefined, combatCtx)
   return detail
 }
 
@@ -2313,12 +2324,13 @@ export async function runDungeon(
 
       // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
       const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths, random, events, eventSequence }
+      emitCombatStateChanged(roundCtx, { level: lvl.number, round, buffs: state.buffs ?? [], cooldowns: state.skillCooldowns ?? {} })
 
       // DoT al inicio de ronda
       for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
       for (const e of enemyUnits) processDotDamage(e, e.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
 
-      applyManaRegen(heroUnits)
+      applyManaRegen(heroUnits, roundCtx)
 
       // ─── Bonificaciones de facción ─────────────────
       applyFactionBonusesWrapper()
@@ -2370,10 +2382,10 @@ export async function runDungeon(
       totalRounds++
 
       // Decaer efectos
-      for (const hu of heroUnits) decayStatusEffects(hu)
-      for (const e of enemyUnits) decayStatusEffects(e)
+      for (const hu of heroUnits) decayStatusEffects(hu, roundCtx)
+      for (const e of enemyUnits) decayStatusEffects(e, roundCtx)
 
-      decaySkillCooldowns(state)
+      decaySkillCooldowns(state, roundCtx)
 
       const stateAfter = buildStateSnapshot(heroUnits, enemyUnits, state.buffs, state.groupAtkBonus, state.groupDefBonus, state.factionBonuses)
 
