@@ -20,7 +20,7 @@ export interface EquippedItemModifierResolvers {
   /**
    * Translate Wodos override semantics into the final additive delta from
    * item.stats. The result must not be the replacement value itself.
-   * No active Wodos consumer for statOverrides was found in the audited paths.
+   * resolveWodosStatOverrideBonus implements the legacy buildHeroData rule.
    */
   readonly resolveStatOverrides?: (item: PersistedHeroItem) => NumericStatRecord | null | undefined
   /** Resolve inserted rune item IDs through the Wodos item catalogue. */
