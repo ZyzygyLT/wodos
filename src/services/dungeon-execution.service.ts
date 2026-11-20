@@ -168,8 +168,9 @@ async function trackEventProgressForHero(heroId: string, result: RunResult) {
 async function adjustFactionRepForHero(heroId: string, result: RunResult, runId: string) {
   try {
     const repGain = result.victory ? 5 : 1
-    await adjustRep(heroId, 1, repGain)
-    if (result.victory) await adjustRep(heroId, 5, 2)
+    const source = { sourceType: "dungeon_run", sourceId: runId }
+    await adjustRep(heroId, 1, repGain, undefined, source)
+    if (result.victory) await adjustRep(heroId, 5, 2, undefined, source)
   } catch (e) {
     logger.error('dungeon-service', 'Error en faction rep', e)
   }
