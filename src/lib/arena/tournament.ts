@@ -112,35 +112,45 @@ export async function executeRound(tournamentId: string, round: number) {
 }
 
 export async function distributeRewards(tournamentId: string) {
-  const tournament = await db.tournament.findUnique({
-    where: { id: tournamentId },
-    include: { matches: { orderBy: [{ round: "desc" }, { matchNumber: "asc" }] } },
-  })
-  if (!tournament) return
-
-  const rewards = tournament.rewards as { position: number; fame: number; gold: number }[]
-  const matches = tournament.matches
-  if (matches.length === 0) return
-
-  const maxRound = matches[0].round
-
-  // Final match (highest round)
-  const finalMatch = matches.find(m => m.round === maxRound)
-  if (!finalMatch?.winnerId) return
-  const championId = finalMatch.winnerId
-  const runnerUpId = finalMatch.hero1Id === championId ? finalMatch.hero2Id : finalMatch.hero1Id
-
-  const semiLosers = findSemiFinalLosers(matches, maxRound)
-
-  const heroUpdates = buildRewardUpdates(rewards, championId, runnerUpId, semiLosers)
-
-  for (const u of heroUpdates) {
-    if (!u.heroId) continue
-    await db.hero.update({
-      where: { id: u.heroId },
-      data: { fame: { increment: u.fame }, gold: { increment: u.gold } },
+  return await db.$transaction(async tx => {
+    // A tournament can be completed by more than one worker/caller. Lock it
+    // and mark the payout in the same transaction as the hero credits.
+    await tx.$queryRaw`SELECT id FROM tournaments WHERE id = ${tournamentId} FOR UPDATE`
+    const tournament = await tx.tournament.findUnique({
+      where: { id: tournamentId },
+      include: { matches: { orderBy: [{ round: "desc" }, { matchNumber: "asc" }] } },
     })
-  }
+    if (!tournament || tournament.rewardsDistributedAt) return { distributed: false }
+
+    const rewards = tournament.rewards as { position: number; fame: number; gold: number }[]
+    const matches = tournament.matches
+    if (matches.length === 0) return { distributed: false }
+
+    const maxRound = matches[0].round
+    const finalMatch = matches.find(m => m.round === maxRound)
+    if (!finalMatch?.winnerId) return { distributed: false }
+
+    const championId = finalMatch.winnerId
+    const runnerUpId = finalMatch.hero1Id === championId ? finalMatch.hero2Id : finalMatch.hero1Id
+    const semiLosers = findSemiFinalLosers(matches, maxRound)
+    const heroUpdates = buildRewardUpdates(rewards, championId, runnerUpId, semiLosers)
+
+    const claim = await tx.tournament.updateMany({
+      where: { id: tournamentId, rewardsDistributedAt: null },
+      data: { rewardsDistributedAt: new Date() },
+    })
+    if (claim.count !== 1) return { distributed: false }
+
+    for (const update of heroUpdates) {
+      if (!update.heroId) continue
+      await tx.hero.update({
+        where: { id: update.heroId },
+        data: { fame: { increment: update.fame }, gold: { increment: update.gold } },
+      })
+    }
+
+    return { distributed: true, recipients: heroUpdates.length }
+  })
 }
 
 function findSemiFinalLosers(matches: any[], maxRound: number): string[] {
