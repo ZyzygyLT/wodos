@@ -58,22 +58,47 @@ const MATERIAL_DROPS: Record<number, Array<{ materialId: number; chance: number;
   ],
 }
 
-export async function grantMaterialDrops(heroId: string, dungeonId: number) {
+export async function grantMaterialDrops(heroId: string, dungeonId: number, runId: string) {
   const drops = MATERIAL_DROPS[dungeonId]
-  if (!drops) return
+  if (!drops || !runId) return
 
-  const granted = rollMaterialDrops(drops)
-  if (granted.length > 0) {
-    for (const g of granted) {
-      await db.heroMaterial.upsert({
-        where: { heroId_materialId: { heroId, materialId: g.materialId } },
-        update: { quantity: { increment: g.quantity } },
-        create: { heroId, materialId: g.materialId, quantity: g.quantity },
+  try {
+    await db.$transaction(async tx => {
+      // A unique (run, hero, kind) claim makes retries and duplicate workers harmless.
+      await tx.dungeonRunRewardGrant.create({
+        data: { runId, heroId, kind: "material_and_rune_drops" },
       })
-    }
-  }
 
-  await rollRuneDrops(heroId, dungeonId)
+      const granted = rollMaterialDrops(drops)
+      for (const g of granted) {
+        await tx.heroMaterial.upsert({
+          where: { heroId_materialId: { heroId, materialId: g.materialId } },
+          update: { quantity: { increment: g.quantity } },
+          create: { heroId, materialId: g.materialId, quantity: g.quantity },
+        })
+      }
+
+      const runeDrops = RUNE_DROPS[dungeonId] ?? []
+      if (runeDrops.length > 0) {
+        const runeItems = await tx.item.findMany({
+          where: { slug: { in: runeDrops.map(r => r.slug) } },
+          select: { id: true, slug: true },
+        })
+        const runeMap = new Map(runeItems.map(r => [r.slug, r.id]))
+        for (const rd of runeDrops) {
+          if (Math.random() >= rd.chance) continue
+          const itemId = runeMap.get(rd.slug)
+          if (itemId) await tx.heroItem.create({ data: { heroId, itemId, equipped: false } })
+        }
+      }
+    })
+    return true
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      return false
+    }
+    throw error
+  }
 }
 
 function rollMaterialDrops(drops: Array<{ materialId: number; chance: number; minQty: number; maxQty: number }>) {
@@ -85,20 +110,4 @@ function rollMaterialDrops(drops: Array<{ materialId: number; chance: number; mi
     }
   }
   return granted
-}
-
-async function rollRuneDrops(heroId: string, dungeonId: number) {
-  const runeDrops = RUNE_DROPS[dungeonId]
-  if (!runeDrops) return
-  const runeSlugs = runeDrops.map(r => r.slug)
-  const runeItems = await db.item.findMany({ where: { slug: { in: runeSlugs } }, select: { id: true, slug: true } })
-  const runeMap = new Map(runeItems.map(r => [r.slug, r.id]))
-  for (const rd of runeDrops) {
-    if (Math.random() < rd.chance) {
-      const itemId = runeMap.get(rd.slug)
-      if (itemId) {
-        await db.heroItem.create({ data: { heroId, itemId, equipped: false } })
-      }
-    }
-  }
 }
