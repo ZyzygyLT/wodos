@@ -57,7 +57,13 @@ The engine must not import generated Prisma types or query the database. Adapter
 - `createWodosRuneResolver` resolves each persisted `{ slotIndex, itemId }` entry against a caller-loaded rune item catalogue and sums the rune stats. The socket endpoint consumes the separate rune inventory row and stores only its item ID on the host item, so the resolver must receive the catalogue map. Supply it as `resolveRunes`.
 - Each source is preserved in modifier IDs and breakdown metadata.
 
-These adapters are deliberately one-way and do not query Prisma. The dungeon/arena preparation path in `src/lib/dungeon-helpers.ts` now loads the rune catalogue and passes the persisted hero items through this adapter before combat. The adapter preserves the legacy calculation order: base stats, replacement overrides, upgrade scaling, then rune additions. The separate `computeDefenseForHero` helper remains legacy and is not yet migrated.
+These adapters are deliberately one-way and do not query Prisma. The dungeon/arena preparation path in `src/lib/dungeon-helpers.ts` now loads the rune catalogue and passes the persisted hero items through this adapter before combat. The adapter preserves the legacy calculation order: base stats, replacement overrides, upgrade scaling, then rune additions. `computeDefenseForHero` now delegates formula/rank/dice/fallback handling to `core/combat/defense.ts`. It accepts pre-resolved `equipStats` from the dungeon preparation path; callers that only provide inventory rows retain the prior base `item.stats` aggregation.
+
+## Derived combat statistics and defense
+
+- `core/stats/derived-stats.ts` owns the Wodos profile formulas for HP, MP, base defense and initiative. Existing exports in `lib/combat-engine/formulas.ts` delegate to these functions, preserving the public API and formula values.
+- `core/combat/defense.ts` calculates configured defense skills, rank coefficients, dice and the DX fallback. It accepts an injectable `RandomSource` for deterministic simulations; when omitted it preserves runtime randomness.
+- The current defense rule uses the selected profile (null dungeon level first), minimum 1 for formula-based defense, and no minimum for the DX fallback, matching the existing implementation.
 
 ## Pure stat pipeline
 
