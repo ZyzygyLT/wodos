@@ -91,6 +91,14 @@ export function validateSkillDefinition(skill: SkillDefinition): SkillValidation
   if (skill.requiresSkills?.some(id => !Number.isSafeInteger(id) || id <= 0)) {
     errors.push('skill.requiresSkills must contain positive safe integers')
   }
+  if (skill.requiresSkills) {
+    if (new Set(skill.requiresSkills).size !== skill.requiresSkills.length) {
+      errors.push('skill.requiresSkills cannot contain duplicate IDs')
+    }
+    if (skill.requiresSkills.includes(skill.id)) {
+      errors.push('skill.requiresSkills cannot include the skill itself')
+    }
+  }
   if (skill.tags?.some(tag => typeof tag !== 'string' || !tag.trim())) {
     errors.push('skill.tags must contain non-empty strings')
   }
