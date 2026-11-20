@@ -46,14 +46,65 @@ export interface CombatTimeline {
   readonly actions: readonly CombatActionTrace[]
 }
 
+function cloneCombatEvent(event: CombatEvent): CombatEvent {
+  if (event.type === 'attack_started' || event.type === 'attack_resolved') {
+    return { ...event, targetIds: [...event.targetIds] }
+  }
+  if (event.type === 'unit_state_changed') {
+    return {
+      ...event,
+      changes: {
+        ...event.changes,
+        ...(event.changes.statusEffects === undefined
+          ? {}
+          : { statusEffects: event.changes.statusEffects.map(effect => ({ ...effect })) }),
+      },
+    }
+  }
+  if (event.type === 'combat_state_changed') {
+    return {
+      ...event,
+      changes: {
+        ...event.changes,
+        ...(event.changes.buffs === undefined ? {} : { buffs: event.changes.buffs.map(buff => ({ ...buff })) }),
+        ...(event.changes.cooldowns === undefined ? {} : {
+          cooldowns: Object.fromEntries(Object.entries(event.changes.cooldowns).map(([unitId, entries]) => [
+            unitId, { ...entries },
+          ])),
+        }),
+      },
+    }
+  }
+  return { ...event }
+}
+
+function freezeCombatEvent(event: CombatEvent): CombatEvent {
+  if (event.type === 'attack_started' || event.type === 'attack_resolved') {
+    Object.freeze(event.targetIds)
+  } else if (event.type === 'unit_state_changed') {
+    if (event.changes.statusEffects) {
+      event.changes.statusEffects.forEach(effect => Object.freeze(effect))
+      Object.freeze(event.changes.statusEffects)
+    }
+    Object.freeze(event.changes)
+  } else if (event.type === 'combat_state_changed') {
+    event.changes.buffs?.forEach(buff => Object.freeze(buff))
+    if (event.changes.buffs) Object.freeze(event.changes.buffs)
+    if (event.changes.cooldowns) {
+      Object.values(event.changes.cooldowns).forEach(entries => Object.freeze(entries))
+      Object.freeze(event.changes.cooldowns)
+    }
+    Object.freeze(event.changes)
+  }
+  return Object.freeze(event)
+}
+
 export class CombatEventRecorder {
   private readonly records: CombatEventEnvelope[] = []
 
   record(envelope: CombatEventEnvelope): void {
-    const event = envelope.event.type === 'attack_started' || envelope.event.type === 'attack_resolved'
-      ? { ...envelope.event, targetIds: Object.freeze([...envelope.event.targetIds]) } as CombatEvent
-      : { ...envelope.event } as CombatEvent
-    this.records.push(Object.freeze({ ...envelope, event: Object.freeze(event) }))
+    const event = freezeCombatEvent(cloneCombatEvent(envelope.event))
+    this.records.push(Object.freeze({ ...envelope, event }))
   }
 
   snapshot(): CombatEventJournal {
@@ -61,9 +112,7 @@ export class CombatEventRecorder {
       schemaVersion: 1,
       events: this.records.map(record => ({
         ...record,
-        event: record.event.type === 'attack_started' || record.event.type === 'attack_resolved'
-          ? { ...record.event, targetIds: [...record.event.targetIds] } as CombatEvent
-          : { ...record.event } as CombatEvent,
+        event: cloneCombatEvent(record.event),
       })),
     }
   }
