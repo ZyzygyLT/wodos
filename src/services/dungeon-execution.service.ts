@@ -120,7 +120,7 @@ async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   await checkLevelUp(heroId).catch(e => logger.error('dungeon-service', 'Error en level up', e))
   await grantMaterialDrops(heroId, dungeon.id, runId).catch(e => logger.error('dungeon-service', 'Error en material drops', e))
   await contributeToEvent(heroId, dungeon, clanMemberRec, kills)
-  await updateQuestProgressForHero(heroId, dungeon, kills, result, totalHeroes)
+  await updateQuestProgressForHero(heroId, dungeon, kills, result, totalHeroes, runId)
   checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => logger.error('dungeon-service', 'Error en achievements', e))
   await trackEventProgressForHero(heroId, result)
   await adjustFactionRepForHero(heroId, result)
@@ -143,13 +143,13 @@ async function contributeToEvent(heroId: string, dungeon: { id: number; name: st
   }
 }
 
-async function updateQuestProgressForHero(heroId: string, dungeon: { id: number; name: string; slug: string }, kills: number, result: RunResult, totalHeroes: number) {
+async function updateQuestProgressForHero(heroId: string, dungeon: { id: number; name: string; slug: string }, kills: number, result: RunResult, totalHeroes: number, runId: string) {
   try {
-    await updateQuestProgress(heroId, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
+    await updateQuestProgress(heroId, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills, sourceRunId: runId }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
     if (kills > 0) {
-      await updateQuestProgress(heroId, { type: 'total_kills', kills }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
+      await updateQuestProgress(heroId, { type: 'total_kills', kills, sourceRunId: runId }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
     }
-    await updateQuestProgress(heroId, { type: 'ep_total', value: result.epGained / totalHeroes }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
+    await updateQuestProgress(heroId, { type: 'ep_total', value: result.epGained / totalHeroes, sourceRunId: runId }).catch(e => logger.error("dungeon-execution", "Background operation failed", e))
   } catch (e) {
     logger.error('dungeon-service', 'Error en quest progress', e)
   }
