@@ -8,3 +8,4 @@ export * from './incoming-damage'
 export * from './passive-execution'
 
 export * from './action-result'
+export * from './round-control'
