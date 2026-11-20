@@ -355,3 +355,10 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - `core/combat/round-control.ts` owns the pure `resolveCombatRoundStatus` decision: continue, hero defeat, or level victory. It preserves the legacy precedence (hero defeat before enemy defeat, then trap auto-win) and validates living-unit counts.
 - `dungeon-runner.ts` delegates its round-boundary termination decisions to this engine contract. The turn queue, action execution, damage/status mutation, reward calculation and reporting remain in the legacy runner for now; this first extraction deliberately does not reorder or relocate those phases.
 - `combat-round-control.test.ts` covers both-side survival, victory, simultaneous defeat precedence, trap auto-win and invalid inputs. The existing seeded dungeon integration test continues to exercise the runner path.
+
+## Combat turn scheduling extraction
+
+- `core/combat/turn-scheduler.ts` executes an already ordered initiative queue through explicit ports: resolve the current unit, check liveness, evaluate stop conditions, skip disabled actors and execute a domain-specific turn.
+- Queue indices and total actor count are preserved, including skipped actors, so legacy action numbering and reporting remain stable. Callback errors propagate; the scheduler does not catch or reinterpret domain failures.
+- The dungeon runner now delegates its actor loop to this scheduler. Wodos-specific initiative rolls and queue construction remain in `lib/combat-engine/tactics-evaluator.ts`; hero/enemy action rules, logs, state mutations and reports remain in the legacy runner.
+- Tests cover queue order, skipped/dead actors, stop conditions, empty queues, error propagation and input immutability. This is an execution-loop extraction, not yet a complete initiative or combat-action extraction.
