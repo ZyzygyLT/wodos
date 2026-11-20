@@ -147,44 +147,50 @@ export const evalCondition = (
   state: CombatState
 ): boolean => {
   const { hero, enemies, allies, round } = state
-  const heroHpPct = (hero.hp / hero.maxHp) * 100
-  const heroMpPct = (hero.mp / hero.maxMp) * 100
+  const heroHpPct = getResourcePercent(hero.hp, hero.maxHp)
+  const heroMpPct = getResourcePercent(hero.mp, hero.maxMp)
+  const aliveEnemies = enemies.filter(e => Number.isFinite(e.hp) && e.hp > 0)
 
-  const aliveEnemies = enemies.filter(e => e.hp > 0)
+  const threshold = (fallback: number) =>
+    typeof cond.value === 'number' && Number.isFinite(cond.value) ? cond.value : fallback
 
   switch (cond.type) {
     case 'always':
       return true
 
     case 'hp_self_lt':
-      return heroHpPct < (cond.value ?? 30)
+      return heroHpPct !== null && heroHpPct < threshold(30)
 
     case 'hp_self_gt':
-      return heroHpPct > (cond.value ?? 70)
+      return heroHpPct !== null && heroHpPct > threshold(70)
 
     case 'hp_enemy_lt': {
       const weakest = getWeakest(aliveEnemies)
       if (!weakest) return false
-      return (weakest.hp / weakest.maxHp) * 100 < (cond.value ?? 25)
+      const hpPct = getResourcePercent(weakest.hp, weakest.maxHp)
+      return hpPct !== null && hpPct < threshold(25)
     }
 
     case 'hp_ally_lt': {
-      const threshold = cond.value ?? 50
-      if (heroHpPct < threshold) return true
-      return allies.some(a => (a.hp / a.maxHp) * 100 < threshold)
+      const limit = threshold(50)
+      if (heroHpPct !== null && heroHpPct < limit) return true
+      return allies.some(ally => {
+        const hpPct = getResourcePercent(ally.hp, ally.maxHp)
+        return hpPct !== null && hpPct < limit
+      })
     }
 
     case 'round_gt':
-      return round > (cond.value ?? 3)
+      return Number.isFinite(round) && round > threshold(3)
 
     case 'mana_lt':
-      return heroMpPct < (cond.value ?? 20)
+      return heroMpPct !== null && heroMpPct < threshold(20)
 
     case 'ally_down':
-      return allies.some(a => a.hp <= 0)
+      return allies.some(a => Number.isFinite(a.hp) && a.hp <= 0)
 
     case 'damaged_this_round':
-      return state.damagedThisRound
+      return state.damagedThisRound === true
 
     default:
       return false
@@ -215,6 +221,12 @@ export const resolveTarget = (
 }
 
 // ─── UTILIDADES ──────────────────────────────────────────────────────────────
+
+/** Returns a bounded resource percentage, or null when persisted combat data is invalid. */
+const getResourcePercent = (current: number, maximum: number): number | null => {
+  if (!Number.isFinite(current) || !Number.isFinite(maximum) || maximum <= 0) return null
+  return Math.max(0, Math.min(100, (current / maximum) * 100))
+}
 
 const getWeakest = (units: CombatUnit[]): CombatUnit | null =>
   units.reduce<CombatUnit | null>(
