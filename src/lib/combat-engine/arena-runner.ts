@@ -34,6 +34,12 @@ export function heroDataToArenaOpponent(hero: HeroData, position: string): Enemy
       manaCost: s.manaCost,
       cooldownRounds: s.cooldownRounds,
       formula: s.formula,
+      ...(['melee', 'ranged', 'magic'] as const).reduce((result, category) => {
+        if (hero.combatProfile.defenseSkills[category] === s.skillId && !result.defenseCategory) {
+          result.defenseCategory = category
+        }
+        return result
+      }, {} as { defenseCategory?: 'melee' | 'ranged' | 'magic' }),
     })),
   }
 }
