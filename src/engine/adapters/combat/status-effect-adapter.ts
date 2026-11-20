@@ -162,7 +162,9 @@ function advanceSelectedLegacyStatuses(
   const selected = statuses.filter(shouldAdvance)
   const effects = selected.map(status => legacyStatusToGameEffect('legacy-combat-unit', status))
   const advanced = advanceEffects(effects, 1)
-  const advancedById = new Map(advanced.effects.map(effect => [effect.id, gameEffectToLegacyStatus(effect)]))
+  const advancedById = new Map<string, LegacyCombatStatusEffect>(
+    advanced.effects.map(effect => [effect.id, gameEffectToLegacyStatus(effect)] as const)
+  )
 
   return statuses.flatMap(status => {
     if (!shouldAdvance(status)) return [status]
