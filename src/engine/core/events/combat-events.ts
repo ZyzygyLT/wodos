@@ -14,6 +14,134 @@ export interface CombatEventHandler<T extends CombatEvent = CombatEvent> {
   handle(event: T): void
 }
 
+export interface CombatEventEnvelope {
+  readonly sequence: number
+  readonly eventId: string
+  readonly event: CombatEvent
+}
+
+export interface CombatEventJournal {
+  readonly schemaVersion: 1
+  readonly events: readonly CombatEventEnvelope[]
+}
+
+export interface CombatEventJournalIssue {
+  readonly code: 'invalid_sequence' | 'duplicate_event_id' | 'duplicate_action_start' | 'missing_action_start' | 'unknown_action_target'
+  readonly sequence: number
+  readonly message: string
+}
+
+export interface CombatActionTrace {
+  readonly actionId: string
+  readonly actorId: string
+  readonly targetIds: readonly string[]
+  readonly startedAt: number
+  readonly events: readonly CombatEventEnvelope[]
+}
+
+export interface CombatTimeline {
+  readonly events: readonly CombatEventEnvelope[]
+  readonly actions: readonly CombatActionTrace[]
+}
+
+export class CombatEventRecorder {
+  private readonly records: CombatEventEnvelope[] = []
+
+  record(envelope: CombatEventEnvelope): void {
+    const event = envelope.event.type === 'attack_started' || envelope.event.type === 'attack_resolved'
+      ? { ...envelope.event, targetIds: [...envelope.event.targetIds] } as CombatEvent
+      : { ...envelope.event } as CombatEvent
+    this.records.push(Object.freeze({ ...envelope, event: Object.freeze(event) }))
+  }
+
+  snapshot(): CombatEventJournal {
+    return {
+      schemaVersion: 1,
+      events: this.records.map(record => ({
+        ...record,
+        event: record.event.type === 'attack_started' || record.event.type === 'attack_resolved'
+          ? { ...record.event, targetIds: [...record.event.targetIds] } as CombatEvent
+          : { ...record.event } as CombatEvent,
+      })),
+    }
+  }
+
+  get size(): number {
+    return this.records.length
+  }
+}
+
+export function validateCombatEventJournal(journal: CombatEventJournal): CombatEventJournalIssue[] {
+  const issues: CombatEventJournalIssue[] = []
+  if (journal.schemaVersion !== 1) {
+    return [{ code: 'invalid_sequence', sequence: 0, message: 'Unsupported combat event journal schema' }]
+  }
+  const eventIds = new Set<string>()
+  const actions = new Map<string, Set<string>>()
+  for (let index = 0; index < journal.events.length; index += 1) {
+    const envelope = journal.events[index]
+    const expectedSequence = index + 1
+    if (envelope.sequence !== expectedSequence) {
+      issues.push({ code: 'invalid_sequence', sequence: envelope.sequence, message: 'Expected event sequence ' + expectedSequence })
+    }
+    if (!envelope.eventId || eventIds.has(envelope.eventId)) {
+      issues.push({ code: 'duplicate_event_id', sequence: envelope.sequence, message: 'Event ID is empty or duplicated' })
+    }
+    eventIds.add(envelope.eventId)
+    const event = envelope.event
+    if (event.type === 'attack_started' && event.actionId) {
+      if (actions.has(event.actionId)) {
+        issues.push({ code: 'duplicate_action_start', sequence: envelope.sequence, message: 'Action ' + event.actionId + ' starts more than once' })
+      } else {
+        actions.set(event.actionId, new Set(event.targetIds))
+      }
+    }
+  }
+  for (const envelope of journal.events) {
+    const event = envelope.event
+    if (!('actionId' in event) || !event.actionId) continue
+    const targets = actions.get(event.actionId)
+    if (!targets) {
+      issues.push({ code: 'missing_action_start', sequence: envelope.sequence, message: 'No attack_started event for action ' + event.actionId })
+      continue
+    }
+    if (event.type === 'attack_resolved') {
+      for (const targetId of event.targetIds) {
+        if (!targets.has(targetId)) issues.push({ code: 'unknown_action_target', sequence: envelope.sequence, message: 'Target ' + targetId + ' was not declared by action ' + event.actionId })
+      }
+    } else if (event.type === 'on_damage' || event.type === 'healing_applied') {
+      if (!targets.has(event.targetId)) issues.push({ code: 'unknown_action_target', sequence: envelope.sequence, message: 'Target ' + event.targetId + ' was not declared by action ' + event.actionId })
+    }
+  }
+  return issues
+}
+
+export function reconstructCombatTimeline(journal: CombatEventJournal): CombatTimeline {
+  const grouped = new Map<string, CombatEventEnvelope[]>()
+  const starts = new Map<string, { actorId: string; targetIds: readonly string[]; sequence: number }>()
+  for (const envelope of journal.events) {
+    const event = envelope.event
+    if (!('actionId' in event) || !event.actionId) continue
+    const group = grouped.get(event.actionId) ?? []
+    group.push(envelope)
+    grouped.set(event.actionId, group)
+    if (event.type === 'attack_started') {
+      starts.set(event.actionId, { actorId: event.actorId, targetIds: [...event.targetIds], sequence: envelope.sequence })
+    }
+  }
+  const actions: CombatActionTrace[] = []
+  for (const [actionId, start] of starts) {
+    actions.push({
+      actionId,
+      actorId: start.actorId,
+      targetIds: start.targetIds,
+      startedAt: start.sequence,
+      events: grouped.get(actionId) ?? [],
+    })
+  }
+  return { events: journal.events.map(envelope => ({ ...envelope })), actions }
+}
+
 export interface CombatEventDispatchResult {
   readonly dispatched: number
   readonly skippedDuplicates: number
@@ -34,6 +162,7 @@ export class CombatEventDispatcher {
   constructor(
     handlers: readonly CombatEventHandler[] = [],
     private readonly maxEventsPerDrain = 1000,
+    private readonly onDispatched?: (envelope: CombatEventEnvelope) => void,
   ) {
     if (!Number.isSafeInteger(maxEventsPerDrain) || maxEventsPerDrain < 1) {
       throw new RangeError('maxEventsPerDrain must be a positive safe integer')
@@ -71,6 +200,7 @@ export class CombatEventDispatcher {
         }
         if (next.eventId) this.processedEventIds.add(next.eventId)
         this.nextSequence++
+        this.onDispatched?.({ sequence: this.nextSequence, eventId: next.eventId ?? 'combat-event:' + this.nextSequence, event: next.event })
         for (const handler of [...this.handlers]) {
           if (handler.eventType === next.event.type) {
             handler.handle(next.event)
