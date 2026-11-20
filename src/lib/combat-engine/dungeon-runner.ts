@@ -1263,7 +1263,7 @@ function executeEnemySingleTargetAttack(
     return makeEnemyMissDetail(enemy, enemyUnit, chosenSkill, skillName, damageType, target, defVal, defDice, aCat, attackTotal, rollBase, rollDice, ctx, initiative, actionNum, totalActions)
   }
 
-  const crit = rollCrit(enemy.dx)
+  const crit = resolveCritical({ attackerDexterity: enemy.dx, random: { next: () => Math.random() } }).critical
   const dmg = computeEnemyDamageWithFallback({ fResult, adjAttack, crit, enemy, chosenSkill, isArmorPen, dt: damageType }, ctx, target)
   const defEff = target.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(target, dmg, defEff)
