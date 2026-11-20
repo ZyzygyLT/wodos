@@ -43,7 +43,7 @@ export type SkillExecutionPlan<T> =
 export function resolveSkillExecution<T extends TargetableUnit>(
   input: SkillExecutionInput<T>,
 ): SkillExecutionPlan<T> {
-  const { skill, actor, allies, enemies, action } = input
+  const { skill, actor, allies, enemies, action, random } = input
   const effect = skill.effect ?? 'attack'
   const rank = skill.rank ?? 1
 
