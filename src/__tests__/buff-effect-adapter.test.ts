@@ -87,6 +87,20 @@ describe('legacy combat buff adapter', () => {
     ])).toEqual({ atk: 25, def: 8 })
   })
 
+  it('resolves group bonuses independently for heroes and enemies', () => {
+    const buffs = [
+      buff('atk', 25, 2, 'Hero rally', 'hero'),
+      buff('atk', 40, 2, 'Enemy frenzy', 'enemy'),
+      buff('def', 12, 2, 'Hero guard', 'hero'),
+      buff('def', 30, 0, 'Expired enemy guard', 'enemy'),
+    ]
+
+    expect(calculateLegacyGroupBuffBonuses(buffs, 'hero')).toEqual({ atk: 25, def: 12 })
+    expect(calculateLegacyGroupBuffBonuses(buffs, 'enemy')).toEqual({ atk: 40, def: 0 })
+    // Omitting side preserves the aggregate reporting/legacy API.
+    expect(calculateLegacyGroupBuffBonuses(buffs)).toEqual({ atk: 40, def: 12 })
+  })
+
   it('rejects invalid incoming buff data', () => {
     expect(() => legacyBuffToGameEffect(buff('atk', Number.NaN, 2))).toThrow(RangeError)
     expect(() => legacyBuffToGameEffect(buff('def', 2, -1))).toThrow(RangeError)
