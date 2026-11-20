@@ -1430,7 +1430,7 @@ function executeEnemyAction(
       ? 'weakest' as const
       : enemy.ai?.type === 'strongest'
         ? 'strongest' as const
-        : 'random' as const,
+        : 'enemy_ai' as const,
     globalTargeting: true,
   }
   const executionInput = {
