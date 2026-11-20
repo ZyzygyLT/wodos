@@ -243,3 +243,14 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - `setSkillCooldown` and `advanceSkillCooldowns` now own immutable cooldown assignment and round advancement for both heroes and enemies. The dungeon runner remains the state adapter.
 - Formula-less area skills retain the legacy single-target fallback. Enemy healing remains self-only; no new ally-healing behavior is introduced.
 - Tests cover enemy-perspective targeting, self-only healing, AOE filtering, seeded target choice, and immutable cooldown lifecycle. Execution remains unverified until tests and TypeScript checks can be run.
+
+
+## Skill prerequisites and shared legacy effect lifecycle
+
+- `core/skills/skill-requirements.ts` evaluates direct `requiresSkills` prerequisites against an entity's unlocked skill IDs without querying persistence or mutating state.
+- `validateSkillPrerequisiteGraph` validates catalogue-wide prerequisite references, duplicate skill IDs, repeated prerequisite IDs, self-dependencies and cycles. `validateSkillDefinition` also rejects duplicate and self-referential prerequisite IDs.
+- The Prisma `Skill.requiresSkills` field already matches this contract; no schema migration is required. The evaluator is intended for skill-unlock/progression services. Dungeon combat receives the hero's already-unlocked skill list, so this phase deliberately does not add a second runtime lock check to every combat action.
+- Legacy status and group-buff adapters now convert their current entries to `GameEffect`, advance finite durations with `advanceEffects`, and map the remaining effects back to the existing combat read models.
+- Legacy status application still preserves Wodos' one-per-type, max-value/max-duration/source-retention rule. Legacy buff application still preserves its source/type/side identity and max-value/max-duration rule. These are not replaced by generic `applyEffect` stacking policies because those policies are not semantically identical.
+- The shared lifecycle owns duration decrement and expiry; combat adapters continue to own legacy application semantics, damage ticks, crowd-control behavior, buff aggregation, logs and combat timing.
+- Tests cover prerequisite evaluation and graph validation, plus status/buff duration advancement, expiry, permanence, metadata preservation and immutability. Test execution and TypeScript validation remain pending.
