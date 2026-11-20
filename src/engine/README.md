@@ -167,3 +167,17 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - `runDungeon` clones the hero attribute maps and dungeon level/enemy containers before applying clan bonuses or party scaling, so these simulation preparations do not mutate the caller's input objects. Loot assignment receives the same run-scoped random source explicitly.
 - The default runtime path remains non-seeded. This extraction does not change probability thresholds, dice ranges, initiative rules, or loot chances.
 - Log timestamps still use wall-clock time and are not part of the deterministic gameplay stream.
+
+
+## Batch combat simulation and balance analysis
+
+The application-layer helper `src/lib/combat-engine/dungeon-batch-simulator.ts` runs repeatable batches through the same `runDungeon` production simulation path:
+
+- `simulateDungeonBatch(heroes, dungeon, options)` accepts 1–10,000 iterations and an unsigned 32-bit starting seed. Each run receives a fresh seeded generator and the next consecutive uint32 seed (wrapping at the uint32 boundary).
+- Results include wins/losses, win rate, average levels cleared and rounds, average damage by side, average and total deaths, and per-combatant/per-skill action, hit, critical and damage aggregates.
+- Attack, miss, critical and dodge rates are computed from attack outcomes only. Healing/support actions are excluded from the attack denominator. AOE outcomes are counted per target.
+- `compareDungeonConfigurations` runs a baseline and candidate with the same iteration count and seed range, returning absolute deltas for win rate, rounds, damage and deaths. Keep the party, dungeon and seed range fixed when comparing balance changes.
+- Batches run sequentially to keep execution predictable and avoid introducing concurrency effects into the simulation runner. The helper does not persist results or export files; callers can serialize the returned JSON.
+- This is an observational tool, not an optimizer. It does not change gameplay values, infer class strength from a single sample, or guarantee statistical significance. Use larger batches and multiple seed ranges for consequential balance decisions.
+
+Damage totals are derived from the damage breakdowns exposed by action reports. The simulator reports only what the current runner exposes; it does not reconstruct hidden damage, attribute damage to individual equipment pieces, or infer class identity. Death totals use the runner's `death` log events.
