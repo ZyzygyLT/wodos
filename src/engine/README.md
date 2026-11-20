@@ -394,3 +394,11 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - Both hero and enemy action execution now delegate plan-kind selection to this engine contract. Wodos handlers still perform all state mutation, damage/healing calculations, cooldowns, event emission, status effects and combat reporting.
 - Hero formula evaluation remains before target resolution where required by the legacy seeded-random sequence. Enemy formula evaluation and the no-formula area-attack fallback also retain their previous ordering and behavior.
 - Handler contracts deliberately receive resolved targets and plan flags without prescribing how a game applies them. This keeps the engine independent of Wodos models and effect side effects.
+
+
+## Pure combat effect resolution
+
+- `core/combat/effect-resolution.ts` now owns deterministic arithmetic for mana-shield absorption, thorns reflection and effective healing caps.
+- The dungeon runner consumes these results and remains responsible for mutating HP/MP, emitting unit-state events, logging, applying reflected damage and processing defeat. This preserves the separation between pure rules and Wodos application side effects.
+- Existing damage/healing event dispatch and status/buff lifecycle adapters remain unchanged. This phase does not claim to extract all combat effects; it establishes a safe boundary for the calculation layer.
+- Unit tests cover shield enabled/disabled and resource boundaries, reflection rounding and guards, and healing caps.
