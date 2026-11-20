@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import db from "@/lib/db"
 import { buildHeroData } from "@/lib/dungeon-helpers"
 import { calculateEffectiveResourceMaxima, calculateInitiativeBase } from "@/engine/core/stats/derived-stats"
+import { computeDefenseForHero, computeResistancesForHero } from "@/lib/combat-engine/hero-stats"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -59,6 +60,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     pe: computedAttrs.pe ?? 0,
   })
 
+  const computedDefense = computeDefenseForHero({
+    ...hero,
+    ...combatHero,
+    combatProfiles: hero.combatProfiles,
+    equipStats: combatHero.equipStats,
+  })
+  const computedResistances = computeResistancesForHero({
+    ...hero,
+    ...combatHero,
+    equipStats: combatHero.equipStats,
+  })
+
   const effectiveResources = calculateEffectiveResourceMaxima({
     baseHpMax: hero.hpMax,
     baseMpMax: hero.mpMax,
@@ -76,6 +89,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ...hero,
     computedAttrs,
     computedInitiativeBase,
+    computedDefense: computedDefense.values,
+    computedDefenseBreakdown: computedDefense.breakdown,
+    computedResistances,
     computedHpMax: effectiveResources.hpMax,
     computedMpMax: effectiveResources.mpMax,
   })
