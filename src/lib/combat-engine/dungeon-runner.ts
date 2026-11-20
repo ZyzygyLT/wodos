@@ -34,6 +34,7 @@ import { dispatchCombatEvent, type CombatEvent, type CombatEventHandler } from '
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
 import { markUnitDefeated } from '../../engine/core/combat/defeat'
 import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
+import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
