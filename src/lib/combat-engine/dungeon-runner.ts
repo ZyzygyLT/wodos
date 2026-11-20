@@ -31,7 +31,7 @@ import {
 
 import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passive-effect-adapter'
 import { planPassiveExecution } from '../../engine/core/combat/passive-execution'
-import { CombatEventDispatcher, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
+import { CombatEventDispatcher, CombatEventRecorder, type CombatEvent, type CombatEventHandler, type CombatEventJournal } from '../../engine/core/events/combat-events'
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
 import { createCombatActionResult, type CombatActionKind, type CombatActionOutcome, type CombatActionTargetResult } from '../../engine/core/combat/action-result'
 import { markUnitDefeated } from '../../engine/core/combat/defeat'
@@ -281,6 +281,7 @@ export interface RunResult {
   log: LogEntry[]
   levelResults: Array<{ level: number; victory: boolean; rounds: number }>
   levelReports: LevelReport[]
+  eventJournal: CombatEventJournal
 }
 
 type HeroSkill = {
@@ -2218,7 +2219,8 @@ export async function runDungeon(
   const random = options.random ?? { next: () => Math.random() }
   const clan = options.clanBonuses ?? {}
   const log: LogEntry[] = []
-  const events = new CombatEventDispatcher(options.combatEventHandlers ?? [])
+  const eventRecorder = new CombatEventRecorder()
+  const events = new CombatEventDispatcher(options.combatEventHandlers ?? [], 1000, envelope => eventRecorder.record(envelope))
   const eventSequence = { value: 0 }
   const levelResults: RunResult['levelResults'] = []
   let totalRounds = 0
@@ -2432,6 +2434,7 @@ export async function runDungeon(
     log,
     levelResults,
     levelReports,
+    eventJournal: eventRecorder.snapshot(),
   }
 }
 
