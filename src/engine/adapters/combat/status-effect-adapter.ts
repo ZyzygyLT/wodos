@@ -133,6 +133,45 @@ export function advanceLegacyStatusRound(
   return advanced.effects.map(gameEffectToLegacyStatus)
 }
 
+/**
+ * Periodic effects consume duration when their round-start tick is resolved.
+ * This ensures an effect applied after the current tick receives its full
+ * number of future damage ticks.
+ */
+export function advanceLegacyPeriodicStatusRound(
+  statuses: readonly LegacyCombatStatusEffect[]
+): readonly LegacyCombatStatusEffect[] {
+  return advanceSelectedLegacyStatuses(statuses, status =>
+    status.type === 'poison' || status.type === 'burn' || status.type === 'bleed'
+  )
+}
+
+/** Non-periodic statuses retain their legacy end-of-round duration lifecycle. */
+export function advanceLegacyNonPeriodicStatusRound(
+  statuses: readonly LegacyCombatStatusEffect[]
+): readonly LegacyCombatStatusEffect[] {
+  return advanceSelectedLegacyStatuses(statuses, status =>
+    status.type !== 'poison' && status.type !== 'burn' && status.type !== 'bleed'
+  )
+}
+
+function advanceSelectedLegacyStatuses(
+  statuses: readonly LegacyCombatStatusEffect[],
+  shouldAdvance: (status: LegacyCombatStatusEffect) => boolean,
+): readonly LegacyCombatStatusEffect[] {
+  const selected = statuses.filter(shouldAdvance)
+  const effects = selected.map(status => legacyStatusToGameEffect('legacy-combat-unit', status))
+  const advanced = advanceEffects(effects, 1)
+  const advancedById = new Map(advanced.effects.map(effect => [effect.id, gameEffectToLegacyStatus(effect)]))
+
+  return statuses.flatMap(status => {
+    if (!shouldAdvance(status)) return [status]
+    const id = `legacy-status:legacy-combat-unit:${status.type}`
+    const next = advancedById.get(id)
+    return next ? [next] : []
+  })
+}
+
 export function legacyStatusTargetId(value: string): EntityId {
   return asEntityId(value)
 }
