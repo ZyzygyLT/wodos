@@ -32,6 +32,7 @@ import {
 import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passive-effect-adapter'
 import { dispatchCombatEvent, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
 import { applyHpDamage, applyHpHealing } from '../../engine/core/combat/health'
+import { markUnitDefeated } from '../../engine/core/combat/defeat'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -1707,8 +1708,7 @@ function processUnitDefeat(
 ): boolean {
   if (unit.hp > 0) return false
   const processed = ctx.processedDeaths ?? (ctx.processedDeaths = new Set<string>())
-  if (processed.has(unit.id)) return false
-  processed.add(unit.id)
+  if (!markUnitDefeated(processed, unit.id, unit.hp <= 0)) return false
   unit.condition = getCondition(unit.hp, unit.maxHp)
   addLog(ctx.log, 'death', ctx.round, ctx.level, 'combat', message, { target: unit.name, targetId: unit.id })
   processPassiveEffects('on_death', unit, heroUnits, enemyUnits, attacker, ctx)
