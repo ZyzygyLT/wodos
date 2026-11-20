@@ -45,7 +45,7 @@ describe('skill availability and resource rules', () => {
     })
   })
 
-  it('uses a paid basic attack and depletes MP when no free attack exists', () => {
+  it('uses a paid basic attack without further MP deduction when no free attack exists', () => {
     const paidBasic = { ...basic, skillId: 3, manaCost: 2 }
     expect(resolveSkillMana({
       selectedSkill: costly,
