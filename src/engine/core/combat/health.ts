@@ -26,7 +26,7 @@ export function applyHpDamage(currentHp: number, damage: number): HpChangeResult
 /** Applies non-negative healing with Wodos' existing maximum-HP ceiling behavior. */
 export function applyHpHealing(currentHp: number, maxHp: number, healing: number): HpChangeResult {
   const safeHealing = Number.isFinite(healing) ? Math.max(0, healing) : 0
-  const safeMaxHp = Number.isFinite(maxHp) ? Math.max(0, maxHp) : 0
+  const safeMaxHp = Number.isFinite(maxHp) ? Math.max(0, maxHp) : Math.max(0, currentHp)
   const nextHp = Math.min(safeMaxHp, currentHp + safeHealing)
   return {
     previousHp: currentHp,
