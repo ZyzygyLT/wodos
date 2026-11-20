@@ -5,7 +5,7 @@ import { skillUpgradeCost } from "@/lib/skill-cost"
 
 interface SkillNode {
   id: number; name: string; icon: string
-  tier: number; epCost: number; goldCost: number
+  tier: number; epCost: number; goldCost: number; maxRank: number
   type: string; description: string
   requiresSkills: number[]
   unlocked: boolean; rank: number
@@ -83,6 +83,9 @@ export default function SkillTree({ skills, epAvailable, gold, classId, onUnlock
   }
 
   function renderActionButton(skill: SkillNode) {
+    if (skill.unlocked && skill.rank >= skill.maxRank) {
+      return <p className="text-xs text-gray-500 text-center">Rango máximo alcanzado</p>
+    }
     if (skill.unlocked) {
       return (
         <button onClick={() => handleAction(skill)} disabled={actionLoading}
