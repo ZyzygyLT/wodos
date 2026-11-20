@@ -12,8 +12,9 @@ export interface ManaShieldResult {
 
 /** Resolves mana-shield arithmetic without mutating combat state or emitting events. */
 export function resolveManaShield(input: ManaShieldInput): ManaShieldResult {
-  const { enabled, currentMp, incomingDamage } = input
-  if (!enabled || currentMp <= 0 || incomingDamage <= 0) {
+  const currentMp = Number.isFinite(input.currentMp) ? Math.max(0, input.currentMp) : 0
+  const incomingDamage = Number.isFinite(input.incomingDamage) ? Math.max(0, input.incomingDamage) : 0
+  if (!input.enabled || currentMp <= 0 || incomingDamage <= 0) {
     return { absorbed: 0, remainingDamage: incomingDamage, mpRemaining: currentMp }
   }
   const absorbed = Math.min(currentMp, incomingDamage)
