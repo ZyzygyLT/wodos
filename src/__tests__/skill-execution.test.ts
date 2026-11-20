@@ -24,6 +24,20 @@ describe('central skill execution planning', () => {
     expect(plan).toEqual({ kind: 'heal', target: base.allies[0], healPct: 35 })
   })
 
+  it('supports self-only healing for enemy skills', () => {
+    const enemy = unit('enemy', 40)
+    const ally = unit('enemy-ally', 5)
+    const plan = resolveSkillExecution({
+      skill: { skillId: 10, effect: 'heal', healPct: 30, healTarget: 'self' },
+      actor: enemy,
+      allies: [ally],
+      enemies: [unit('hero', 100)],
+      action: base.action,
+    })
+    expect(plan.kind).toBe('heal')
+    if (plan.kind === 'heal') expect(plan.target?.id).toBe('enemy')
+  })
+
   it('returns no healing target when every ally is full or defeated', () => {
     const plan = resolve(
       { skillId: 1, effect: 'heal', healPct: 20 },
@@ -41,11 +55,24 @@ describe('central skill execution planning', () => {
   })
 
   it('returns all living enemies for area attacks', () => {
-    const plan = resolve({ skillId: 4, effect: 'aoe_attack' })
+    const plan = resolve({ skillId: 4, effect: 'aoe_attack' }, { enemies: [...base.enemies, unit('defeated', 0)] })
     expect(plan.kind).toBe('area_attack')
     if (plan.kind === 'area_attack') {
       expect(plan.targets.map(target => target.id)).toEqual(['enemy-front', 'enemy-rear'])
     }
+  })
+
+  it('resolves enemy targeting against the opposing hero team', () => {
+    const enemy = unit('enemy', 100)
+    const plan = resolveSkillExecution({
+      skill: { skillId: 11, effect: 'attack' },
+      actor: enemy,
+      allies: [unit('enemy-ally', 80)],
+      enemies: [unit('hero-strong', 90), unit('hero-weak', 10)],
+      action: { targetPos: 'auto', targetType: 'weakest' },
+    })
+    expect(plan.kind).toBe('single_attack')
+    if (plan.kind === 'single_attack') expect(plan.target?.id).toBe('hero-weak')
   })
 
   it('resolves a single target and preserves armor penetration / automatic critical flags', () => {
