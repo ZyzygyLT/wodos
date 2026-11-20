@@ -97,9 +97,9 @@ describe('reproducible combat randomness', () => {
     const options = { clanBonuses: { all_stats_pct: 10 } }
     const observedEvents: string[] = []
     const combatEventHandlers: CombatEventHandler[] = [
-      { eventType: 'on_round_start', handle: event => observedEvents.push(`round:${event.unitId}`) },
-      { eventType: 'on_damage', handle: event => observedEvents.push(`damage:${event.sourceId}->${event.targetId}`) },
-      { eventType: 'on_death', handle: event => observedEvents.push(`death:${event.targetId}`) },
+      { eventType: 'on_round_start', handle: event => { if (event.type === 'on_round_start') observedEvents.push(`round:${event.unitId}`) } },
+      { eventType: 'on_damage', handle: event => { if (event.type === 'on_damage') observedEvents.push(`damage:${event.sourceId}->${event.targetId}`) } },
+      { eventType: 'on_death', handle: event => { if (event.type === 'on_death') observedEvents.push(`death:${event.targetId}`) } },
     ]
 
     const first = await runDungeon(heroes, dungeon, { ...options, random: createSeededRandom(2026), combatEventHandlers })
