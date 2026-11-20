@@ -37,6 +37,19 @@ function sideEntityId(side: LegacyCombatBuffSide): EntityId {
   return asEntityId(`combat-side:${side}`)
 }
 
+/** Represents one active Wodos buff as a percentage-point stat modifier. */
+export function legacyBuffToStatModifier(buff: LegacyCombatBuff): StatModifier {
+  assertBuff(buff)
+  const id = `legacy-buff:${buff.side}:${buff.type}:${encodeURIComponent(buff.sourceName)}`
+  return {
+    id: `${id}:modifier`,
+    stat: buff.type === 'atk' ? 'attack' : 'defense',
+    operation: 'percent',
+    value: buff.value,
+    source: 'legacy-group-buffs',
+  }
+}
+
 /** Maps a Wodos group buff to a neutral engine effect attached to its combat side. */
 export function legacyBuffToGameEffect(buff: LegacyCombatBuff): GameEffect {
   assertBuff(buff)
@@ -50,7 +63,7 @@ export function legacyBuffToGameEffect(buff: LegacyCombatBuff): GameEffect {
     targetId,
     duration,
     stacking: 'refresh',
-    modifiers: [],
+    modifiers: [legacyBuffToStatModifier(buff)],
     metadata: {
       legacyType: buff.type,
       value: buff.value,
