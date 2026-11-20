@@ -198,6 +198,13 @@ async function createRunTransaction(heroId: string, dungeon: any, profile: any, 
     })
     runId = run.id
 
+    for (const heroData of heroesData) {
+      const consumedIds = heroData.consumedConsumableIds ?? []
+      if (consumedIds.length === 0) continue
+      const consumed = await tx.heroItem.deleteMany({ where: { id: { in: consumedIds }, heroId: heroData.id } })
+      if (consumed.count !== consumedIds.length) throw new Error('DUNGEON_CONSUMABLE_INVENTORY_MISMATCH')
+    }
+
     for (const fs of result.heroesFinalState) {
       const hData = heroesData.find((h: any) => h.id === fs.id)
       if (!hData) continue
