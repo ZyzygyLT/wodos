@@ -5,6 +5,7 @@ import {
   calculateLegacyGroupBuffBonuses,
   gameEffectToLegacyBuff,
   legacyBuffToGameEffect,
+  legacyBuffToStatModifier,
 } from '@/engine/adapters/combat/buff-effect-adapter'
 
 const buff = (
@@ -21,6 +22,29 @@ describe('legacy combat buff adapter', () => {
     expect(gameEffectToLegacyBuff(legacyBuffToGameEffect(finite))).toEqual(finite)
     const permanent = buff('def', 10, null, 'Fortress', 'enemy')
     expect(gameEffectToLegacyBuff(legacyBuffToGameEffect(permanent))).toEqual(permanent)
+  })
+
+  it('attaches a typed percentage stat modifier to each active buff effect', () => {
+    const attack = buff('atk', 15, 2, 'Battle cry', 'hero')
+    const defense = buff('def', 20, null, 'Fortress', 'enemy')
+
+    expect(legacyBuffToGameEffect(attack).modifiers).toEqual([
+      legacyBuffToStatModifier(attack),
+    ])
+    expect(legacyBuffToGameEffect(defense).modifiers).toEqual([
+      legacyBuffToStatModifier(defense),
+    ])
+    expect(legacyBuffToStatModifier(attack)).toMatchObject({
+      stat: 'attack',
+      operation: 'percent',
+      value: 15,
+      source: 'legacy-group-buffs',
+    })
+    expect(legacyBuffToStatModifier(defense)).toMatchObject({
+      stat: 'defense',
+      operation: 'percent',
+      value: 20,
+    })
   })
 
   it('keeps source, type and side as independent buff identities', () => {
