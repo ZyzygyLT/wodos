@@ -296,7 +296,7 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - `CombatEventRecorder` captures immutable event snapshots without changing handler order or gameplay state. `validateCombatEventJournal` checks sequence continuity, duplicate IDs, unique action starts, action references, and target membership.
 - `reconstructCombatTimeline` preserves the full ordered stream and additionally groups events by their parent `actionId`. This is a diagnostic projection; it does not re-run formulas, random rolls, AI decisions, or mutate combat state.
 - The journal is deterministic for the same seeded run and is included in replay-result comparison. It is suitable for JSON persistence and later viewer/debugger tooling.
-- Schema version 1 records both semantic combat events and the state deltas instrumented in the runner. The journal does not include its own initial snapshot and remains unsuitable as a standalone authoritative save-game state; see **Combat state reconstruction** below for the required bootstrap and coverage boundary.
+- Schema version 1 records both semantic combat events and the state deltas instrumented in the runner. The journal includes per-level state checkpoints and can bootstrap reconstruction of the tracked combat fields; it is not a complete save-game state. See **Combat state reconstruction** below for the coverage boundary.
 
 ### Normalized combat action results
 
@@ -338,7 +338,7 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - `reconstructCombatState(initial, events)` applies a supplied ordered event stream to an explicit initial snapshot. Semantic observer events (such as `attack_resolved`) do not mutate state.
 - The runner now emits `unit_state_changed` deltas with post-mutation HP and defeat state from its shared combat damage/healing helpers. This covers the common combat HP mutation boundary while retaining the existing semantic `on_damage` and `healing_applied` events. Preliminary-phase direct HP writes and any future mutation path that bypasses these helpers still need separate auditing.
 - The reducer is integrated with the principal combat mutation paths: HP damage/healing, MP spending and regeneration, mana-shield/defense expenditure, combat consumable MP recovery, status application/decay, group-buff application/decay, cooldown application/decay, defeat/condition transitions, and level/round markers. Preliminary actions remain outside the combat event dispatcher, and every future mutation path must add a corresponding state event.
-- Journal schema remains version 1 and the new state event variants are additive. The journal still does not carry its own canonical initial snapshot, so it is not a self-contained or authoritative save/replay record.
+- Journal schema remains version 1 and the new state event variants are additive. The journal now carries per-level checkpoints for the tracked combat state, but it is not an authoritative save/replay record for fields outside that contract.
 
 ## Combat state reconstruction (schema v1)
 
