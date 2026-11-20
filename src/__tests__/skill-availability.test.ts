@@ -20,6 +20,26 @@ describe('skill availability and resource rules', () => {
     expect(calculateSkillManaCost(0, 5)).toBe(0)
   })
 
+  it('normalizes invalid mana costs, ranks and current MP', () => {
+    expect(calculateSkillManaCost(Number.NaN, 3)).toBe(0)
+    expect(calculateSkillManaCost(10, Number.NaN)).toBe(10)
+    expect(calculateSkillManaCost(-5, 3)).toBe(0)
+    expect(resolveSkillMana({
+      selectedSkill: costly,
+      availableSkills: [basic, costly],
+      currentMp: Number.NaN,
+    })).toEqual({
+      skill: basic, mpCost: 0, remainingMp: 0, fallback: 'free_basic',
+    })
+    expect(resolveSkillMana({
+      selectedSkill: costly,
+      availableSkills: [costly],
+      currentMp: -5,
+    })).toEqual({
+      skill: costly, mpCost: 0, remainingMp: 0, fallback: 'forced',
+    })
+  })
+
   it('deducts the calculated mana cost when the skill is affordable', () => {
     expect(resolveSkillMana({
       selectedSkill: costly,
