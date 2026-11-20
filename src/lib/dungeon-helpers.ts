@@ -166,10 +166,10 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     })),
     equipStats,
     consumables: (hero.items ?? [])
-      .filter((hi: any) => (hi.item.stats as Record<string, number>)?.healHp != null || (hi.item.stats as Record<string, number>)?.healMp != null)
+      .filter((hi: any) => hi.item.category === 'consumable' && ((hi.item.stats as Record<string, number>)?.healHp != null || (hi.item.stats as Record<string, number>)?.healMp != null))
       .map((hi: any) => {
         const stats = hi.item.stats as Record<string, number> ?? {}
-        return { itemId: hi.item.id, healHp: stats.healHp, healMp: stats.healMp }
+        return { heroItemId: hi.id, itemId: hi.item.id, healHp: stats.healHp, healMp: stats.healMp }
       }),
   }
 }
