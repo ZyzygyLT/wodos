@@ -980,3 +980,15 @@ model HeroFactionRep {
   @@id([heroId, factionId])
   @@map("hero_faction_reps")
 }
+
+
+model DungeonRunRewardGrant {
+  id        String   @id @default(cuid())
+  runId     String
+  heroId    String
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@unique([runId, heroId, kind])
+  @@index([heroId, createdAt])
+}
