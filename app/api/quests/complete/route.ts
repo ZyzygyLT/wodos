@@ -27,20 +27,48 @@ export async function POST(req: NextRequest) {
   if (!allDone) return NextResponse.json({ error: "No completaste todos los objetivos" }, { status: 400 })
 
   const rewards = hq.quest.rewards as any
-  await db.$transaction([
-    db.heroQuest.update({
-      where: { id: hq.id },
-      data: { status: "completed", completedAt: new Date() },
-    }),
-    db.hero.update({
-      where: { id: hero.id },
-      data: {
-        epTotal: { increment: rewards.ep || 0 },
-        gold: { increment: rewards.gold || 0 },
-        fame: { increment: rewards.fame || 0 },
-      },
-    }),
-  ])
+  try {
+    await db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM hero_quests WHERE id = ${hq.id} FOR UPDATE`
+      const fresh = await tx.heroQuest.findUnique({
+        where: { id: hq.id },
+        include: { quest: true },
+      })
+      if (!fresh || fresh.heroId !== hero.id) throw new Error("QUEST_NOT_FOUND")
+      if (fresh.status === "completed") throw new Error("QUEST_ALREADY_COMPLETED")
+
+      const freshObjectives = fresh.quest.objectives as any[]
+      const freshProgress = fresh.progress as Record<string, number>
+      const objectivesDone = freshObjectives.every(obj => (freshProgress[obj.id] || 0) >= (obj.required || 1))
+      if (!objectivesDone) throw new Error("QUEST_OBJECTIVES_INCOMPLETE")
+
+      const completed = await tx.heroQuest.updateMany({
+        where: { id: fresh.id, status: fresh.status },
+        data: { status: "completed", completedAt: new Date() },
+      })
+      if (completed.count !== 1) throw new Error("QUEST_ALREADY_COMPLETED")
+
+      await tx.hero.update({
+        where: { id: hero.id },
+        data: {
+          epTotal: { increment: rewards.ep || 0 },
+          gold: { increment: rewards.gold || 0 },
+          fame: { increment: rewards.fame || 0 },
+        },
+      })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "QUEST_ALREADY_COMPLETED") {
+      return NextResponse.json({ error: "Ya completada" }, { status: 409 })
+    }
+    if (error instanceof Error && error.message === "QUEST_OBJECTIVES_INCOMPLETE") {
+      return NextResponse.json({ error: "No completaste todos los objetivos" }, { status: 400 })
+    }
+    if (error instanceof Error && error.message === "QUEST_NOT_FOUND") {
+      return NextResponse.json({ error: "Quest no encontrada" }, { status: 404 })
+    }
+    throw error
+  }
 
   trackQuestCompleted(session.user.id, { questName: hq.quest.name, questType: hq.quest.type })
 
