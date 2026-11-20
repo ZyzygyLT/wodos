@@ -1665,21 +1665,26 @@ function decayStatusEffects(unit: CombatUnit, ctx: CombatCtx) {
 const BUFF_DURATION = 3  // rondas que duran los buffs de party_attack_up / defense_up
 
 function groupBuffBonusesForSide(state: CombatState, side: 'hero' | 'enemy'): { atk: number; def: number } {
-  const allBuffBonuses = calculateLegacyGroupBuffBonuses(state.buffs ?? [])
   const sideBuffBonuses = calculateLegacyGroupBuffBonuses(state.buffs ?? [], side)
-  // Preserve non-buff contributions (hero loadout, clan and faction bonuses)
-  // while excluding buffs belonging to the opposing combat side.
+  // Hero loadout/clan bonuses belong to the hero side; faction bonuses belong
+  // to enemies. Neither side may inherit the opposing side's temporary buffs.
+  if (side === 'hero') {
+    const allBuffBonuses = calculateLegacyGroupBuffBonuses(state.buffs ?? [])
+    const baseAtk = state.baseGroupAtkBonus ?? (state.groupAtkBonus - allBuffBonuses.atk - (state.factionBonuses?.atk ?? 0))
+    const baseDef = state.baseGroupDefBonus ?? (state.groupDefBonus - allBuffBonuses.def - (state.factionBonuses?.def ?? 0))
+    return { atk: baseAtk + sideBuffBonuses.atk, def: baseDef + sideBuffBonuses.def }
+  }
   return {
-    atk: state.groupAtkBonus - allBuffBonuses.atk + sideBuffBonuses.atk,
-    def: state.groupDefBonus - allBuffBonuses.def + sideBuffBonuses.def,
+    atk: (state.factionBonuses?.atk ?? 0) + sideBuffBonuses.atk,
+    def: (state.factionBonuses?.def ?? 0) + sideBuffBonuses.def,
   }
 }
 
 function recalcGroupBuffs(state: CombatState) {
   if (!state.buffs) state.buffs = []
   const bonuses = calculateLegacyGroupBuffBonuses(state.buffs)
-  state.groupAtkBonus = bonuses.atk
-  state.groupDefBonus = bonuses.def
+  state.groupAtkBonus = (state.baseGroupAtkBonus ?? 0) + bonuses.atk + (state.factionBonuses?.atk ?? 0)
+  state.groupDefBonus = (state.baseGroupDefBonus ?? 0) + bonuses.def + (state.factionBonuses?.def ?? 0)
 }
 
 function addBuff(state: CombatState, type: 'atk' | 'def', value: number, sourceName: string, side: 'hero' | 'enemy', duration: number | null, ctx?: CombatCtx) {
@@ -2203,6 +2208,8 @@ function buildPerHeroState(actorUnit: CombatUnit, heroUnits: CombatUnit[], enemy
     damagedThisRound: state.damagedThisRound,
     groupAtkBonus: state.groupAtkBonus,
     groupDefBonus: state.groupDefBonus,
+    baseGroupAtkBonus: state.baseGroupAtkBonus,
+    baseGroupDefBonus: state.baseGroupDefBonus,
     manaShield: state.manaShield ?? false,
     factionBonuses: state.factionBonuses,
     buffs: state.buffs,
@@ -2330,6 +2337,8 @@ export async function runDungeon(
       damagedThisRound: false,
       groupAtkBonus: totalGroupAtkBonus + (clan.atk_bonus_pct ?? 0),
       groupDefBonus: clan.def_bonus_pct ?? 0,
+      baseGroupAtkBonus: totalGroupAtkBonus + (clan.atk_bonus_pct ?? 0),
+      baseGroupDefBonus: clan.def_bonus_pct ?? 0,
       manaShield: heroes.some(h => h.manaShield || h.skills.some(s => s.effect === 'mana_shield')),
       skillCooldowns: {},
       factionBonuses: { atk: 0, def: 0, combustion: false, darknessHeal: false },
