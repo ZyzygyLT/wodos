@@ -46,7 +46,7 @@ export function applyEffect(
     effect.targetId === incoming.targetId && effect.kind === incoming.kind
   )
   const matchingIds = new Set(matching.map(effect => effect.id))
-  if (current.some(effect => effect.id === incoming.id && !matchingIds.has(effect.id))) {
+  if (current.some(effect => effect.id === incoming.id && (incoming.stacking === 'stack' || !matchingIds.has(effect.id)))) {
     throw new Error(`Duplicate effect id: ${incoming.id}`)
   }
 
