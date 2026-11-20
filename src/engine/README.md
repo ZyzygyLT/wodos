@@ -105,3 +105,12 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - Damage preserves the legacy zero floor; healing preserves the legacy maximum-HP ceiling. The helpers do not dispatch events or own combat logs, so callers retain control of timing, messages, passives, and death handling.
 - The dungeon runner now routes its direct HP damage/healing assignments through these helpers, including attacks, periodic damage, passive damage/healing, thorns, counterattacks, vampirism, consumables, skill healing and faction healing. Trap deactivation remains a state transition rather than a damage operation.
 - This is an arithmetic extraction only. Existing differences in when damage/death passives are triggered are intentionally not silently changed in this phase.
+
+
+### Idempotent combat defeat processing
+
+- `core/combat/defeat.ts` provides a small registry primitive that records each defeated unit once within a caller-defined combat scope.
+- The dungeon runner keeps the registry on its per-round combat context. A unit can therefore trigger death processing once in that round, while a later round has a fresh scope.
+- Normal hero/enemy attacks, enemy post-damage handling, damage-over-time, thorns, counterattacks, and passive damage paths now route defeat transitions through `processUnitDefeat`.
+- The shared handler updates the dead condition, writes one death log entry, and dispatches the existing `on_death` passive effects with the available attacker context.
+- This does not introduce resurrection behavior or change trap deactivation semantics. Trap units that are set to zero HP by the auto-win mechanic remain a separate encounter-state transition.
