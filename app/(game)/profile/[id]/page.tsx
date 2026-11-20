@@ -218,6 +218,10 @@ export default function ProfilePage() {
       {(hero.computedDefense || hero.computedResistances) && (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
           <h3 className="font-bold text-sm mb-3">🛡️ Defensa y resistencias</h3>
+          <div className="mb-3 flex items-center justify-between rounded-lg bg-gray-800 px-3 py-2">
+            <span className="text-xs text-gray-400">Defensa contra daño</span>
+            <span className="text-sm font-bold text-amber-400">{hero.computedArmorDefense ?? "—"}</span>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             {Object.entries(hero.computedDefense ?? {}).map(([category, value]) => (
               <div key={category} className="bg-gray-800 rounded-lg p-2 text-center">
