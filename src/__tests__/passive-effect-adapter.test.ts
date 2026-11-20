@@ -37,6 +37,25 @@ describe('legacy passive effect resolver', () => {
     expect(resolveLegacyPassiveEffects('on_damage', { id: 'e1', name: 'Ogre', passiveEffects: passives })).toEqual([])
   })
 
+  it('rejects infinite numeric and formula-derived passive values', () => {
+    const passives = [
+      effect({ value: Number.POSITIVE_INFINITY }),
+      effect({ value: { base: Number.POSITIVE_INFINITY } }),
+      effect({ value: { base: 10, coeff: Number.POSITIVE_INFINITY } }),
+      effect({ value: { base: 10, attrScale: 'st' } }),
+    ]
+    expect(resolveLegacyPassiveEffects('on_damage', {
+      id: 'e1', name: 'Ogre', attrs: { st: Number.NaN }, passiveEffects: passives,
+    })).toEqual([])
+  })
+
+  it('keeps finite attribute-scaled passive formulas unchanged', () => {
+    const passives = [effect({ value: { base: 10, coeff: 0.5, attrScale: 'st' } })]
+    expect(resolveLegacyPassiveEffects('on_damage', {
+      id: 'e1', name: 'Ogre', attrs: { st: 8 }, passiveEffects: passives,
+    }).map(command => command.value)).toEqual([14])
+  })
+
   it('preserves target, damage type and buff metadata', () => {
     const passives = [
       effect({ targetType: 'all_heroes', damageType: 'fire' }),
