@@ -296,7 +296,7 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - `CombatEventRecorder` captures immutable event snapshots without changing handler order or gameplay state. `validateCombatEventJournal` checks sequence continuity, duplicate IDs, unique action starts, action references, and target membership.
 - `reconstructCombatTimeline` preserves the full ordered stream and additionally groups events by their parent `actionId`. This is a diagnostic projection; it does not re-run formulas, random rolls, AI decisions, or mutate combat state.
 - The journal is deterministic for the same seeded run and is included in replay-result comparison. It is suitable for JSON persistence and later viewer/debugger tooling.
-- Schema version 1 records the current event vocabulary only. It is not yet a command-sourced state snapshot: reconstructing every HP/status/resource value from events alone is not guaranteed because the existing vocabulary does not emit every state mutation. Do not use the journal alone as an authoritative save-game state.
+- Schema version 1 records both semantic combat events and the state deltas instrumented in the runner. The journal does not include its own initial snapshot and remains unsuitable as a standalone authoritative save-game state; see **Combat state reconstruction** below for the required bootstrap and coverage boundary.
 
 ### Normalized combat action results
 
