@@ -113,9 +113,14 @@ export default function InventoryPage() {
 
   function getEffectiveStats(ei: any): Record<string, number> {
     const base = (ei.item.stats ?? {}) as Record<string, number>
-    const overrides = ei.statOverrides && typeof ei.statOverrides === "object" && !Array.isArray(ei.statOverrides)
-      ? ei.statOverrides as Record<string, number>
+    const rawOverrides = ei.statOverrides && typeof ei.statOverrides === "object" && !Array.isArray(ei.statOverrides)
+      ? ei.statOverrides as Record<string, unknown>
       : {}
+    const overrides = Object.fromEntries(
+      Object.entries(rawOverrides).filter((entry): entry is [string, number] =>
+        typeof entry[1] === "number" && Number.isFinite(entry[1])
+      )
+    )
     const upgraded = applyUpgradeStats({ ...base, ...overrides }, ei.upgradeLevel ?? 0)
     const effective = { ...upgraded }
     for (const rune of ei.resolvedRuneItems ?? []) {
