@@ -4,6 +4,7 @@ import {
   toEngineAttributeDefinition,
   itemStatsToModifiers,
   equippedItemsToModifiers,
+  resolveWodosStatOverrideBonus,
   resolveWodosUpgradeBonus,
   createWodosRuneResolver,
 } from '@/engine/adapters'
@@ -43,6 +44,34 @@ describe('Prisma engine adapters', () => {
     expect(modifiers.map(modifier => modifier.stat)).toEqual(['strength', 'defense'])
     expect(applyStatModifiers(5, modifiers.filter(modifier => modifier.stat === 'strength'))).toBe(8)
     expect(modifiers[0]).toMatchObject({ id: 'item:sword-1:strength', operation: 'flat', value: 3 })
+  })
+
+  it('translates replacement-style statOverrides into additive deltas', () => {
+    const item = {
+      id: 'override-sword', equipped: true,
+      statOverrides: { atk: 18, magic: 4, invalid: 'nope' },
+      item: { stats: { atk: 10, def: 5, invalid: 3 } },
+    }
+    expect(resolveWodosStatOverrideBonus(item)).toEqual({ atk: 8, magic: 4 })
+    const modifiers = equippedItemsToModifiers([item], {
+      resolveStatOverrides: resolveWodosStatOverrideBonus,
+    })
+    expect(applyStatModifiers(0, modifiers.filter(modifier => modifier.stat === 'atk'))).toBe(18)
+    expect(applyStatModifiers(0, modifiers.filter(modifier => modifier.stat === 'def'))).toBe(5)
+  })
+
+  it('applies Wodos upgrade scaling after stat replacement', () => {
+    const item = {
+      id: 'overridden-upgraded-sword', equipped: true, upgradeLevel: 1,
+      statOverrides: { atk: 50 },
+      item: { stats: { atk: 10, def: 5 } },
+    }
+    const modifiers = equippedItemsToModifiers([item], {
+      resolveStatOverrides: resolveWodosStatOverrideBonus,
+      resolveUpgrade: resolveWodosUpgradeBonus,
+    })
+    expect(applyStatModifiers(0, modifiers.filter(modifier => modifier.stat === 'atk'))).toBe(60)
+    expect(applyStatModifiers(0, modifiers.filter(modifier => modifier.stat === 'def'))).toBe(6)
   })
 
   it('translates Wodos upgrade levels into rounded additive deltas', () => {
