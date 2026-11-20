@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSeededRandom } from '@/engine/core/random/random-source'
 import { validateCombatEventJournal, type CombatEventHandler } from '@/engine/core/events/combat-events'
+import { reconstructCombatState, type CombatStateSnapshot } from '@/engine/core/events/combat-state-reducer'
 import { evaluateFormula, rollInitiative } from '@/lib/combat-engine/formulas'
 import { buildTurnQueue, resolveTarget, type CombatUnit, type CombatState } from '@/lib/combat-engine/tactics-evaluator'
 import { runDungeon, type HeroData, type DungeonData } from '@/lib/combat-engine/dungeon-runner'
@@ -120,6 +121,19 @@ describe('reproducible combat randomness', () => {
     expect(dungeon).toEqual(dungeonBefore)
     expect(first.victory).toBe(true)
     expect(validateCombatEventJournal(first.eventJournal)).toEqual([])
+    const reconstructed = reconstructCombatState({
+      schemaVersion: 1, level: 0, round: 0, units: [], buffs: [], cooldowns: {},
+    }, first.eventJournal.events)
+    expect(first.eventJournal.events[0].event.type).toBe('combat_state_changed')
+    if (first.eventJournal.events[0].event.type === 'combat_state_changed') {
+      expect(first.eventJournal.events[0].event.changes.units?.length).toBeGreaterThan(0)
+    }
+    expect(reconstructed.units.filter(unit => unit.id.startsWith('hero-')).map(({ id, hp, mp }) => ({ id, hp, mp })))
+      .toEqual(first.heroesFinalState)
+    const finalRound = first.levelReports[0].rounds.at(-1)!
+    const finalReportedUnits = [...finalRound.stateAfter.heroes, ...finalRound.stateAfter.enemies]
+    expect(reconstructed.units.map(({ id, hp, mp }) => ({ id, hp, mp })).sort((a, b) => a.id.localeCompare(b.id)))
+      .toEqual(finalReportedUnits.map(({ id, hp, mp }) => ({ id, hp, mp })).sort((a, b) => a.id.localeCompare(b.id)))
     expect(first.eventJournal.events.some(entry => entry.event.type === 'unit_state_changed')).toBe(true)
     expect(first.eventJournal.events.some(entry => entry.event.type === 'combat_state_changed')).toBe(true)
     expect(first.eventJournal.events.some(entry => entry.event.type === 'unit_state_changed' && entry.event.changes.hp === 0 && entry.event.changes.defeated === true)).toBe(true)
