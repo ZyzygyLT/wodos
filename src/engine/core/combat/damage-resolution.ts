@@ -35,11 +35,13 @@ export function resolveEnemyFallbackDamage(input: {
   critical: boolean
   targetDefense: number
   groupDefenseBonus: number
+  /** Optional attacker-side group bonus; omitted to preserve legacy callers. */
+  groupAttackBonus?: number
   damageType?: DamageType
   resistances?: DamageResistances
 }): DamageResolutionResult {
   const criticalMultiplier = input.critical ? 1.5 : 1
-  const rawDamage = input.enemyAttack * input.skillMultiplier * criticalMultiplier
+  const rawDamage = input.enemyAttack * input.skillMultiplier * criticalMultiplier * (1 + (input.groupAttackBonus ?? 0) / 100)
   const effectiveDefense = input.targetDefense * 0.8 * (1 + input.groupDefenseBonus / 100)
   const damageAfterDefense = Math.max(1, Math.round(rawDamage - effectiveDefense))
   const resistancePercent = input.resistances?.[input.damageType ?? 'physical'] ?? 0
