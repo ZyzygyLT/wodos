@@ -80,6 +80,16 @@ These adapters are deliberately one-way and do not query Prisma. The dungeon/are
 - Log timestamps are generated from wall-clock time and are intentionally not deterministic. Replay comparisons should normalize or omit `LogEntry.timestamp`; compare the remaining log fields, round reports, action outcomes, final HP/MP and loot.
 - When no random source is supplied, legacy runtime randomness remains the default. Deterministic replay therefore requires callers to explicitly provide a seeded source.
 
+## Replay records and divergence diagnostics
+
+The app-layer replay helper lives in `src/lib/combat-engine/dungeon-replay.ts`:
+
+- `createDungeonReplayRecord` captures the hero and dungeon read models, supported run options and an unsigned 32-bit seed in a JSON-serializable, versioned record.
+- `runDungeonReplay` restores the simulation using a fresh seeded random source. A stored record can be serialized as JSON and replayed later.
+- `compareDungeonReplayResults` compares gameplay output while excluding log timestamps, and reports the first differing field path with its expected and actual values.
+- Replay schema versioning protects the record format. Callers should also retain the application/game build identifier alongside the record: schema compatibility alone cannot guarantee identical behavior after gameplay code or balance changes.
+- Replay records contain the full supplied hero and dungeon snapshots. Store them with the same access controls and retention rules as other player/game state.
+
 ## Validation status
 
 Unit tests are added for core contracts and adapter mapping. Run the repository test suite and `npx tsc --noEmit` before treating the migration as verified.
