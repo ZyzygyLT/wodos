@@ -378,3 +378,11 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - `core/combat/actor-turn.ts` owns the generic dispatch contract that routes a scheduled actor to an injected hero or enemy executor and forwards the original actor index and total queue size.
 - The dungeon runner delegates this routing after the turn scheduler has resolved and validated the living actor. The hero and enemy callbacks still invoke the existing Wodos `runHeroTurn` and `runEnemyTurn` implementations, so tactical rules, resource costs, damage/effects, cooldowns, logs, events and reports retain their existing behavior.
 - The dispatch module has no dependency on Wodos data models and is independently testable. This is the first action-execution boundary extraction, not yet relocation of the full side-specific action rules into engine core.
+
+
+## Actor action pipeline extraction
+
+- `core/combat/actor-action.ts` now coordinates the hero action stages through injected callbacks: tactical selection, selection logging, cooldown override, buff override, action execution and post-success cooldown application. Their order matches the previous runner implementation; the post-success hook runs only for a non-null action result.
+- The enemy pipeline guards defeated actors, resolves the matching level enemy definition, skips unmapped actors and invokes the existing enemy action executor only when both checks pass.
+- `dungeon-runner.ts` now delegates these orchestration stages to the engine contracts. Wodos-specific tactical evaluation, overrides, logs, cooldown mutation, skill execution, enemy selection and combat state changes remain injected adapter behavior; no gameplay formulas or balance rules were moved or altered.
+- Tests cover stage ordering, null-result handling, error propagation, defeated/unmapped enemies and successful enemy execution. The pipeline is an orchestration boundary, not a claim that all hero/enemy combat rules have migrated into the engine.
