@@ -11,7 +11,7 @@ import {
 } from './formulas'
 
 import {
-  evalTactics, resolveTarget, buildTurnQueue,
+  evalTactics, buildTurnQueue,
   CombatState, CombatUnit, RoundRule, TacticAction, StatusEffect,
   BuffEntry, PassiveEffect,
 } from './tactics-evaluator'
@@ -913,7 +913,6 @@ function executeHeroBuffAction(
   skillName: string,
   ctx: CombatCtx,
   meta: ActionMeta,
-  rank: number,
   bonus: number,
 ): DetailedAction {
   const state = ctx.state!
@@ -1100,7 +1099,7 @@ function executeHeroAction(
     return executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.target)
   }
   if (plan.kind === 'party_buff') {
-    return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, rank, plan.bonus)
+    return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.bonus)
   }
 
   const fResult = evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
