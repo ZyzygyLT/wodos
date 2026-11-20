@@ -384,6 +384,7 @@ model BazarListing {
   buyNowPrice Int?
   expiresAt   DateTime
   status      ListingStatus   @default(active)
+  cycle       Int             @default(1)
   views       Int             @default(0)
   createdAt   DateTime        @default(now())
   heroItem    HeroItem        @relation(fields: [heroItemId], references: [id], onDelete: Cascade)
@@ -401,10 +402,12 @@ model BazarPurchase {
   listingId   String
   buyerId     String
   pricePaid   Int
+  cycle       Int          @default(1)
   purchasedAt DateTime     @default(now())
   buyer       Hero         @relation(fields: [buyerId], references: [id], onDelete: Cascade)
   listing     BazarListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
+  @@index([listingId, cycle, pricePaid])
   @@map("bazar_purchases")
 }
 
