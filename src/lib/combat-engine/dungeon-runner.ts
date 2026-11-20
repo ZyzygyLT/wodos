@@ -29,6 +29,9 @@ import {
   calculateLegacyGroupBuffBonuses,
 } from '../../engine/adapters/combat/buff-effect-adapter'
 
+import { resolveLegacyPassiveEffects } from '../../engine/adapters/combat/passive-effect-adapter'
+import { dispatchCombatEvent, type CombatEvent, type CombatEventHandler } from '../../engine/core/events/combat-events'
+
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
 export interface HeroData {
@@ -1541,13 +1544,6 @@ function buildNaturalResistances(faction?: string): Partial<Record<DamageType, n
   return r
 }
 
-function resolvePassiveValue(pv: PassiveEffect['value'], unit: CombatUnit): number {
-  if (typeof pv === 'number') return pv
-  let val = pv.base
-  if (pv.attrScale && unit.attrs?.[pv.attrScale]) val += Math.round(unit.attrs[pv.attrScale] * (pv.coeff ?? 0.5))
-  else if (pv.coeff) val = Math.round(val * pv.coeff)
-  return val
-}
 
 function applyCritEffects(
   isCrit: boolean,
@@ -1659,24 +1655,42 @@ function processPassiveEffects(
   attacker?: CombatUnit,
   ctx?: CombatCtx,
 ): void {
-  const effects = source.passiveEffects?.filter(e => e.trigger === trigger) ?? []
-  for (const pe of effects) {
-    const value = resolvePassiveValue(pe.value, source)
-    if (!value) continue
+  const event: CombatEvent = trigger === 'on_round_start'
+    ? { type: trigger, unitId: source.id, round: ctx?.round ?? 0 }
+    : trigger === 'on_death'
+      ? { type: trigger, sourceId: source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
+      : { type: trigger, sourceId: source.id, targetId: source.id, ...(attacker ? { attackerId: attacker.id } : {}) }
 
-    if (pe.effectType === 'damage') {
-      processDamagePassive(pe, value, source, heroUnits, enemyUnits, attacker, ctx!)
-      continue
-    }
-    if (pe.effectType === 'heal') {
-      processHealPassive(pe, value, source, heroUnits, enemyUnits, attacker, ctx!)
-      continue
-    }
-    if (pe.effectType === 'buff') {
-      processBuffPassive(pe, value, source, heroUnits, enemyUnits, ctx!)
-      continue
-    }
+  const handler: CombatEventHandler = {
+    eventType: trigger,
+    handle: () => {
+      const commands = resolveLegacyPassiveEffects(trigger, {
+        id: source.id,
+        name: source.name,
+        attrs: source.attrs,
+        passiveEffects: source.passiveEffects,
+      })
+      for (const command of commands) {
+        const passive: PassiveEffect = {
+          trigger: command.trigger,
+          effectType: command.effectType,
+          targetType: command.targetType,
+          value: command.value,
+          sourceName: command.sourceName,
+          ...(command.damageType ? { damageType: command.damageType } : {}),
+          ...(command.buffType ? { buffType: command.buffType } : {}),
+        }
+        if (command.effectType === 'damage') {
+          processDamagePassive(passive, command.value, source, heroUnits, enemyUnits, attacker, ctx!)
+        } else if (command.effectType === 'heal') {
+          processHealPassive(passive, command.value, source, heroUnits, enemyUnits, attacker, ctx!)
+        } else if (command.effectType === 'buff') {
+          processBuffPassive(passive, command.value, source, heroUnits, enemyUnits, ctx!)
+        }
+      }
+    },
   }
+  dispatchCombatEvent(event, [handler])
 }
 
 // ─── NARRATIVA ────────────────────────────────────────────────────────────────
