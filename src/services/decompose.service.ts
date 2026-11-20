@@ -47,15 +47,15 @@ export async function processDecompose(
     await db.$transaction(async (tx) => {
       await assertHeroItemNotListed(tx, hi.id, hero.id)
       for (const drop of matDrops) {
-      const qty = drop.minQty + Math.floor(Math.random() * (drop.maxQty - drop.minQty + 1))
-      await tx.heroMaterial.upsert({
-        where: { heroId_materialId: { heroId: hero.id, materialId: drop.materialId } },
-        update: { quantity: { increment: qty } },
-        create: { heroId: hero.id, materialId: drop.materialId, quantity: qty },
-      })
-      const mat = hero.materials.find(m => m.materialId === drop.materialId)?.material
-      granted.push({ name: mat?.name ?? `Material #${drop.materialId}`, icon: mat?.icon ?? '📦', quantity: qty })
-    }
+        const qty = drop.minQty + Math.floor(Math.random() * (drop.maxQty - drop.minQty + 1))
+        await tx.heroMaterial.upsert({
+          where: { heroId_materialId: { heroId: hero.id, materialId: drop.materialId } },
+          update: { quantity: { increment: qty } },
+          create: { heroId: hero.id, materialId: drop.materialId, quantity: qty },
+        })
+        const mat = hero.materials.find(m => m.materialId === drop.materialId)?.material
+        granted.push({ name: mat?.name ?? `Material #${drop.materialId}`, icon: mat?.icon ?? '📦', quantity: qty })
+      }
 
       await tx.hero.update({
         where: { id: hero.id },
