@@ -1,6 +1,7 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
 import { advanceEffects, applyEffect } from '../../core/effects/effect-lifecycle'
+import { calculatePeriodicStatusDamage, isTurnPreventedByStatus } from '../../core/effects/status-resolution'
 
 export type LegacyCombatStatusType =
   | 'poison' | 'burn' | 'bleed' | 'stun' | 'freeze'
@@ -96,13 +97,12 @@ export function applyLegacyStatusEffect(
 
 /** Wodos applies poison, burn and bleed damage at round start. */
 export function calculateLegacyStatusDamage(statuses: readonly LegacyCombatStatusEffect[]): number {
-  return statuses.reduce((total, effect) =>
-    total + (effect.type === 'poison' || effect.type === 'burn' || effect.type === 'bleed' ? effect.value : 0), 0)
+  return calculatePeriodicStatusDamage(statuses)
 }
 
 /** Stun and freeze skip the affected unit's turn. */
 export function isLegacyCombatUnitDisabled(statuses: readonly LegacyCombatStatusEffect[]): boolean {
-  return statuses.some(effect => effect.type === 'stun' || effect.type === 'freeze')
+  return isTurnPreventedByStatus(statuses)
 }
 
 /** Mirrors end-of-round duration decay and removes statuses at zero. */
