@@ -91,13 +91,16 @@ export async function POST(req: NextRequest) {
 
     const currentHero = await tx.hero.findUnique({
       where: { id: hero.id },
-      select: { id: true, classId: true, gold: true, epTotal: true, epSpent: true },
+      select: { id: true, classId: true, raceId: true, gold: true, epTotal: true, epSpent: true },
     })
     if (!currentHero) throw new Error("HERO_NOT_FOUND")
 
     const skill = await tx.skill.findUnique({ where: { id: parsed.data.skillId } })
     if (!skill) throw new Error("SKILL_NOT_FOUND")
-    if (skill.classId !== currentHero.classId) throw new Error("SKILL_WRONG_CLASS")
+    if (skill.classId !== null && skill.classId !== currentHero.classId) throw new Error("SKILL_WRONG_CLASS")
+    if (skill.raceReq.length > 0 && (!currentHero.raceId || !skill.raceReq.includes(currentHero.raceId))) {
+      throw new Error("SKILL_WRONG_RACE")
+    }
 
     const existing = await tx.heroSkill.findUnique({
       where: { heroId_skillId: { heroId: hero.id, skillId: skill.id } },
@@ -151,6 +154,7 @@ export async function POST(req: NextRequest) {
       HERO_NOT_FOUND: { error: "Héroe no encontrado", status: 404 },
       SKILL_NOT_FOUND: { error: "Skill no encontrada", status: 404 },
       SKILL_WRONG_CLASS: { error: "Esa skill no es de tu clase", status: 400 },
+      SKILL_WRONG_RACE: { error: "Esa skill no está disponible para tu raza", status: 400 },
       SKILL_ALREADY_UNLOCKED: { error: "Ya tenés esa skill desbloqueada", status: 409 },
       SKILL_PREREQUISITES_MISSING: { error: "No cumplís los prerrequisitos de esa skill", status: 400 },
       GOLD_INSUFFICIENT: { error: "Oro insuficiente", status: 400 },
