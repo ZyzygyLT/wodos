@@ -276,6 +276,7 @@ model Hero {
   tournamentParticipations TournamentParticipant[]
   heroEventParticipations HeroEventParticipation[]
   factionReps             HeroFactionRep[]
+  factionRepGrants        FactionRepGrant[]
   heroAdventures          HeroAdventure[]
   currentUser              User?                   @relation("CurrentHero")
 
@@ -896,6 +897,7 @@ model Faction {
   shops       FactionShop[]
   adventures  Adventure[]
   heroReps    HeroFactionRep[]
+  repGrants   FactionRepGrant[]
 
   @@map("factions")
 }
@@ -981,6 +983,22 @@ model HeroFactionRep {
   @@map("hero_faction_reps")
 }
 
+
+
+model FactionRepGrant {
+  id         String   @id @default(cuid())
+  heroId     String
+  factionId  Int
+  sourceType String
+  sourceId   String
+  createdAt  DateTime @default(now())
+  hero       Hero     @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  faction    Faction  @relation(fields: [factionId], references: [id], onDelete: Cascade)
+
+  @@unique([heroId, factionId, sourceType, sourceId])
+  @@index([heroId, createdAt])
+  @@map("faction_rep_grants")
+}
 
 model DungeonRunRewardGrant {
   id        String   @id @default(cuid())
