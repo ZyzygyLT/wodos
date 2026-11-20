@@ -115,7 +115,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
   }
 
-  const unlockedIds = new Set(hero.skills.map(s => s.skillId))
   const ownedItems = hero.items.map(hi => hi.item)
   const consumableIds = new Set(ownedItems.filter(item => item.category === 'consumable').map(item => item.id))
   const skillsById = new Map(hero.skills.map(entry => [entry.skillId, entry.skill]))
