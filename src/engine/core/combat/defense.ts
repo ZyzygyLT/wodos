@@ -1,4 +1,3 @@
-import { randomIntInclusive, type RandomSource } from '../random/random-source'
 
 export interface CombatSkillFormula {
   readonly attrCoeffs?: Readonly<Record<string, number>>
@@ -27,7 +26,6 @@ export interface DefenseCalculationInput {
   readonly baseAttributes?: Readonly<Record<string, number>>
   readonly profile?: DefenseProfile | null
   readonly skills?: readonly DefenseSkill[]
-  readonly random?: RandomSource
   readonly categories?: readonly string[]
 }
 
@@ -36,7 +34,7 @@ export interface DefenseCalculationResult {
   readonly breakdown: Readonly<Record<string, readonly string[]>>
 }
 
-/** Pure Wodos-compatible defense calculation; randomness can be injected for replay/tests. */
+/** Pure expected defense calculation; combat-only random dice modifiers are applied during attack resolution. */
 export function calculateDefense(input: DefenseCalculationInput): DefenseCalculationResult {
   const categories = input.categories ?? ['melee', 'ranged', 'magic']
   const defenseSkills = input.profile?.defenseSkills ?? {}
@@ -69,14 +67,9 @@ export function calculateDefense(input: DefenseCalculationInput): DefenseCalcula
         base += (input.attributes[attribute] ?? 0) * coefficient
       }
       base += rankTerm
-      base = Math.max(0, base)
-      let diceTotal = 0
-      const diceCount = formula.diceCount ?? 0
-      const diceSides = formula.diceSides ?? 0
-      for (let i = 0; i < diceCount; i++) {
-        diceTotal += randomIntInclusive(input.random ?? { next: () => Math.random() }, 1, Math.max(1, diceSides))
-      }
-      values[category] = Math.max(1, base + diceTotal)
+      // The combat runner applies a centered random dice multiplier when the attack is resolved.
+      // The profile exposes the neutral (average-roll) base instead of rolling dice at page load.
+      values[category] = Math.max(1, Math.round(Math.max(0, base)))
     } else {
       const dexterity = input.attributes.dx ?? 5
       const fallback = dexterity * 2
