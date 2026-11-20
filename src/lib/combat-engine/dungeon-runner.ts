@@ -2331,6 +2331,21 @@ export async function runDungeon(
       // Decaer buffs al inicio de ronda
       // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
       const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths, random, events, eventSequence }
+      // A full checkpoint bootstraps reconstruction for this level after all preliminary actions.
+      emitCombatStateChanged(roundCtx, {
+        level: lvl.number,
+        round,
+        units: [...heroUnits, ...enemyUnits].map(unit => ({
+          id: unit.id,
+          hp: unit.hp,
+          mp: unit.mp,
+          condition: unit.condition,
+          defeated: unit.hp <= 0,
+          statusEffects: (unit.statusEffects ?? []).map(effect => ({ ...effect })),
+        })),
+        buffs: (state.buffs ?? []).map(buff => ({ ...buff })),
+        cooldowns: state.skillCooldowns ?? {},
+      })
       decayBuffs(state, roundCtx)
       emitCombatStateChanged(roundCtx, { level: lvl.number, round, buffs: state.buffs ?? [], cooldowns: state.skillCooldowns ?? {} })
 
