@@ -1,4 +1,4 @@
-import { nextRandom, type RandomSource }
+import { nextRandom, type RandomSource } from '../random/random-source'
 
 export interface CriticalChanceInput {
   readonly attackerDexterity: number
