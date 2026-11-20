@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSeededRandom } from '@/engine/core/random/random-source'
-import type { CombatEventHandler } from '@/engine/core/events/combat-events'
+import { validateCombatEventJournal, type CombatEventHandler } from '@/engine/core/events/combat-events'
 import { evaluateFormula, rollInitiative } from '@/lib/combat-engine/formulas'
 import { buildTurnQueue, resolveTarget, type CombatUnit, type CombatState } from '@/lib/combat-engine/tactics-evaluator'
 import { runDungeon, type HeroData, type DungeonData } from '@/lib/combat-engine/dungeon-runner'
@@ -119,6 +119,10 @@ describe('reproducible combat randomness', () => {
     expect(heroes).toEqual(heroBefore)
     expect(dungeon).toEqual(dungeonBefore)
     expect(first.victory).toBe(true)
+    expect(validateCombatEventJournal(first.eventJournal)).toEqual([])
+    expect(first.eventJournal.events.some(entry => entry.event.type === 'unit_state_changed')).toBe(true)
+    expect(first.eventJournal.events.some(entry => entry.event.type === 'combat_state_changed')).toBe(true)
+    expect(first.eventJournal.events.some(entry => entry.event.type === 'unit_state_changed' && entry.event.changes.hp === 0 && entry.event.changes.defeated === true)).toBe(true)
     expect(first.levelReports[0].rounds.some(round => round.actions.length > 0)).toBe(true)
     const reportedActions = first.levelReports.flatMap(level => level.rounds.flatMap(round => round.actions))
     expect(reportedActions.every(action => action.combatResult?.actorId === action.actorId)).toBe(true)
