@@ -1178,6 +1178,10 @@ function executeHeroSingleTargetAttack(
   const appliedDamage = applyDamageWithEvent(target, finalDmg, heroUnit.id, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
   state.damagedThisRound = appliedDamage > 0
+  // Resolve damage passives at the HP-loss boundary, matching AoE, enemy, and DoT paths.
+  if (appliedDamage > 0) {
+    processPassiveEffects('on_damage', target, allHeroUnits, allEnemyUnits, heroUnit, ctx)
+  }
 
   if (!resolved.dodged && target.hp > 0 && formula?.damageType && formula.damageType !== 'physical') {
     applyStatusEffectFromDamage(formula.damageType, fResult!.base, target, heroUnit.name, ctx)
@@ -1185,9 +1189,6 @@ function executeHeroSingleTargetAttack(
 
   applyCritEffects(critRoll, target, finalDmg, ctx, heroUnit.name)
   applyVampireHeal(heroUnit, appliedDamage, ctx)
-  if (appliedDamage > 0) {
-    processPassiveEffects('on_damage', target, allHeroUnits, allEnemyUnits, heroUnit, ctx)
-  }
 
   const msg = buildHeroAttackLogMessage(heroUnit, skillName, critRoll, isCritAuto, finalDmg, resolved, target)
   addLog(ctx.log, critRoll ? 'crit' : 'hit', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, target: target.name, skill: skillName, value: finalDmg })
