@@ -103,11 +103,11 @@ async function processScheduledRun(run: any) {
   } catch (err) {
     // If simulation or persistence fails, release only this still-running claim.
     // A completed run is never reset, so committed rewards cannot be replayed.
+    logger.error('dungeon-cron', `Falló la ejecución programada ${run.id}`, err)
     await db.dungeonRun.updateMany({
       where: { id: run.id, status: 'running' },
       data: { status: 'registered' },
     }).catch(releaseError => logger.error('dungeon-cron', 'No se pudo liberar la ejecución fallida', releaseError))
-    throw err
   }
 }
 
