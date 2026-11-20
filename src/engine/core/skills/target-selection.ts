@@ -1,7 +1,7 @@
-import { randomIntInclusive, type RandomSource } from '../random/random-source'
+import { nextRandom, randomIntInclusive, type RandomSource } from '../random/random-source'
 
 export type TargetPosition = 'front' | 'center' | 'rear' | 'left_flank' | 'right_flank' | 'auto'
-export type TargetType = 'weakest' | 'strongest' | 'most_injured_ally' | 'random' | 'auto' | 'self'
+export type TargetType = 'weakest' | 'strongest' | 'most_injured_ally' | 'random' | 'enemy_ai' | 'auto' | 'self'
 
 export interface TargetableUnit {
   readonly id: string
@@ -87,6 +87,27 @@ export function selectCombatTarget<T extends TargetableUnit>(
   const aliveEnemies = enemies.filter(unit => unit.hp > 0)
   if (aliveEnemies.length === 0) {
     return { target: null, candidates: [], reason: 'no_valid_target' }
+  }
+
+  // Preserve the legacy enemy AI heuristic: 40% weakest-target preference,
+  // otherwise a 70/30 front/rear preference followed by a random pick.
+  if (targetType === 'enemy_ai') {
+    if (!random) throw new Error('A RandomSource is required for enemy AI target selection')
+    if (nextRandom(random) < 0.4) {
+      const target = aliveEnemies.reduce((best, unit) => !best || unit.hp < best.hp ? unit : best, null as T | null)
+      return { target, candidates: aliveEnemies, reason: 'fallback' }
+    }
+    const front = aliveEnemies.filter(unit => unit.position === 'front')
+    const rear = aliveEnemies.filter(unit => unit.position === 'rear')
+    const pool = nextRandom(random) < 0.7
+      ? (front.length > 0 ? front : rear)
+      : (rear.length > 0 ? rear : front)
+    const candidates = pool.length > 0 ? pool : aliveEnemies
+    return {
+      target: candidates[randomIntInclusive(random, 0, candidates.length - 1)] ?? null,
+      candidates,
+      reason: 'fallback',
+    }
   }
 
   const traps = aliveEnemies.filter(unit => unit.trap)
