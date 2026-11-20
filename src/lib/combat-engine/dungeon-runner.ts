@@ -1334,10 +1334,12 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random, ctx)
   const shield = applyManaShieldAbsorption(hero, state, resolved.damage, ctx)
   const finalDmg = shield.finalDmg
+  // Reactions scale from HP actually removed, not overkill damage.
+  const appliedDamage = Math.min(hero.hp, finalDmg)
   applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit, actionId)
   // Area attacks must trigger the same defender reactions as single-target attacks.
-  applyThornsReflect(hero, enemyUnit, finalDmg, ctx, heroUnits, allEnemyUnits)
-  applyCounterAttack(hero, enemyUnit, finalDmg, aCat, ctx, heroUnits, allEnemyUnits)
+  applyThornsReflect(hero, enemyUnit, appliedDamage, ctx, heroUnits, allEnemyUnits)
+  applyCounterAttack(hero, enemyUnit, appliedDamage, aCat, ctx, heroUnits, allEnemyUnits)
   if (hero.hp > 0 && !resolved.dodged && dt !== 'physical') {
     applyStatusEffectFromDamage(dt, enemy.atk, hero, enemyUnit.name, ctx)
   }
@@ -1413,9 +1415,9 @@ function executeEnemySingleTargetAttack(
     processPassiveEffects('on_damage', target, heroUnits, allEnemyUnits, enemyUnit, ctx)
   }
 
-  applyThornsReflect(target, enemyUnit, finalDmg, ctx, heroUnits, allEnemyUnits)
+  applyThornsReflect(target, enemyUnit, appliedDamage, ctx, heroUnits, allEnemyUnits)
   applyCritEffects(crit, target, finalDmg, ctx, enemyUnit.name)
-  applyCounterAttack(target, enemyUnit, finalDmg, aCat, ctx, heroUnits, allEnemyUnits)
+  applyCounterAttack(target, enemyUnit, appliedDamage, aCat, ctx, heroUnits, allEnemyUnits)
 
   const defSuffix = buildEnemyDefSuffix(resolved, absorbed)
   const msg = buildEnemyAttackMessage(enemyUnit, skillName, attackTotal, crit, finalDmg, defSuffix, target)
