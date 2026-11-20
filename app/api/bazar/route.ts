@@ -13,12 +13,20 @@ export async function GET() {
       seller: { select: { name: true } },
       item: { select: { name: true, icon: true, rarity: true, category: true } },
       heroItem: { select: { runesIn: true } },
-      purchases: { orderBy: { pricePaid: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
   })
 
-  return NextResponse.json(listings)
+  const listingsWithCurrentBids = await Promise.all(listings.map(async listing => ({
+    ...listing,
+    purchases: await db.bazarPurchase.findMany({
+      where: { listingId: listing.id, cycle: listing.cycle },
+      orderBy: { pricePaid: "desc" },
+      take: 1,
+    }),
+  })))
+
+  return NextResponse.json(listingsWithCurrentBids)
 }
 
 const schema = z.object({
