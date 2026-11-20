@@ -25,6 +25,14 @@ async function main() {
   } catch (e) {
     console.error('[workers] Error starting events cron:', e)
   }
+
+  try {
+    const { startBazarCron } = await import('@/lib/bazar-cron')
+    startBazarCron()
+    console.log('[workers] Bazar cron — OK')
+  } catch (e) {
+    console.error('[workers] Error starting bazar cron:', e)
+  }
 }
 
 main().catch((e) => {
