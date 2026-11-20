@@ -73,6 +73,13 @@ async function processScheduledRun(run: any) {
   const totalHeroes = heroesData.length
   const isGroup = totalHeroes > 1
 
+  const clanInfo = await loadClanInfo(allHeroIds[0])
+  const clanBonuses = clanInfo?.bonuses ?? {}
+  const clanMemberRec = clanInfo?.memberRec ?? null
+
+  const timerReduction = clanBonuses.timer_reduction_hours ?? 0
+  if (!hasPassed(times, run.registeredAt, timerReduction)) return
+
   // Scheduled runs must enforce the same downed-hero rule as instant runs.
   // Do this before claiming the run so invalid registrations remain unexecuted.
   if (heroesData.some(hero => hero.hpCurrent !== undefined && hero.hpCurrent <= 0)) {
@@ -88,13 +95,6 @@ async function processScheduledRun(run: any) {
     })
     return
   }
-
-  const clanInfo = await loadClanInfo(allHeroIds[0])
-  const clanBonuses = clanInfo?.bonuses ?? {}
-  const clanMemberRec = clanInfo?.memberRec ?? null
-
-  const timerReduction = clanBonuses.timer_reduction_hours ?? 0
-  if (!hasPassed(times, run.registeredAt, timerReduction)) return
 
   const claim = await db.dungeonRun.updateMany({
     where: { id: run.id, status: 'registered' },
