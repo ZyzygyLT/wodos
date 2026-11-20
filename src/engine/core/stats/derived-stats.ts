@@ -28,9 +28,21 @@ export function calculateDefenseBase(attributes: Pick<ClassicDerivedAttributes, 
   return 2 * attributes.ag + attributes.pe
 }
 
-/** Wodos profile: base initiative = AGI + floor(PER / 2). */
+/** Applies each owned speed_up passive to AGI, matching dungeon combat resolution. */
+export function applyInitiativeSkillModifiers<T extends Readonly<Record<string, number>>>(
+  attributes: T,
+  skillEffects: readonly (string | undefined)[] = []
+): T & { readonly ag: number } {
+  const baseAg = Number.isFinite(attributes.ag) ? attributes.ag : 0
+  const speedBonus = skillEffects.reduce((total, effect) => total + (effect === 'speed_up' ? 5 : 0), 0)
+  return { ...attributes, ag: baseAg + speedBonus }
+}
+
+/** Wodos profile: base initiative = AGI + floor(PER / 2). Invalid inputs are neutralized. */
 export function calculateInitiativeBase(attributes: Pick<ClassicDerivedAttributes, 'ag' | 'pe'>): number {
-  return attributes.ag + Math.floor(attributes.pe / 2)
+  const ag = Number.isFinite(attributes.ag) ? attributes.ag : 0
+  const pe = Number.isFinite(attributes.pe) ? attributes.pe : 0
+  return ag + Math.floor(pe / 2)
 }
 
 export function calculateDerivedCombatStats(
