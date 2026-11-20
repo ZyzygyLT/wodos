@@ -1,5 +1,12 @@
 import db from '@/lib/db'
-import { applyUpgradeStats } from '@/lib/craft/upgrade-stats'
+import { asEntityId } from '@/engine/core'
+import {
+  calculateHeroStatsFromPersistedItems,
+  createWodosRuneResolver,
+  resolveWodosStatOverrideBonus,
+  resolveWodosUpgradeBonus,
+  type PersistedHeroItem,
+} from '@/engine/adapters'
 import { HeroData, DungeonData, EnemySkillRef } from '@/lib/combat-engine/dungeon-runner'
 
 export function mergeHeroAttrs(heroData: Pick<HeroData, 'attrs' | 'equipStats'>): Record<string, number> {
@@ -107,26 +114,23 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
   const runeItemIds = Array.from(new Set<number>(
     (hero.items ?? []).filter((hi: any) => hi.equipped).flatMap((hi: any) => (hi.runesIn as any[] ?? []).map((r: any) => r.itemId))
   ))
-  const equipStats: Record<string, number> = (hero.items ?? []).filter((hi: any) => hi.equipped).reduce((acc: Record<string, number>, hi: any) => {
-    const baseStats = hi.item.stats as Record<string, number> ?? {}
-    const overrides = (hi.statOverrides ?? {}) as Record<string, number>
-    const mergedStats = { ...baseStats, ...overrides }
-    const stats = applyUpgradeStats(mergedStats, hi.upgradeLevel ?? 0)
-    for (const [k, v] of Object.entries(stats)) {
-      if (k === 'healHp' || k === 'healMp') continue
-      acc[k] = (acc[k] ?? 0) + v
-    }
-    return acc
-  }, {})
-  if (runeItemIds.length > 0) {
-    const runeItems = await db.item.findMany({ where: { id: { in: runeItemIds } } })
-    for (const ri of runeItems) {
-      const stats = ri.stats as Record<string, number> ?? {}
-      for (const [k, v] of Object.entries(stats)) {
-        equipStats[k] = (equipStats[k] ?? 0) + v
-      }
-    }
-  }
+  const runeItems = runeItemIds.length > 0
+    ? await db.item.findMany({ where: { id: { in: runeItemIds } } })
+    : []
+  const runeStatsByItemId = new Map<number, Record<string, unknown>>(
+    runeItems.map(ri => [ri.id, (ri.stats ?? {}) as Record<string, unknown>])
+  )
+
+  const equipStats = calculateHeroStatsFromPersistedItems({
+    heroId: asEntityId(hero.id),
+    baseStats: {},
+    items: (hero.items ?? []) as PersistedHeroItem[],
+    itemResolvers: {
+      resolveStatOverrides: resolveWodosStatOverrideBonus,
+      resolveUpgrade: resolveWodosUpgradeBonus,
+      resolveRunes: createWodosRuneResolver(runeStatsByItemId),
+    },
+  }).values
 
   return {
     id: hero.id,
