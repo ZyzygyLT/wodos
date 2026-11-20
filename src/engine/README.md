@@ -132,6 +132,13 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - The shared handler updates the dead condition, writes one death log entry, and dispatches the existing `on_death` passive effects with the available attacker context.
 - This does not introduce resurrection behavior or change trap deactivation semantics. Trap units that are set to zero HP by the auto-win mechanic remain a separate encounter-state transition.
 
+### Passive event execution planning
+
+- `core/combat/passive-execution.ts` converts a resolved legacy passive command into a pure execution plan containing stable target unit IDs.
+- Target mapping is centralized for self, triggering attacker, all heroes, and all enemies. The planner does not mutate units or decide whether defeated units receive a particular effect; legacy handlers retain those effect-specific rules.
+- The dungeon runner now creates this plan before dispatching each passive command. It continues to use the existing damage/heal/buff handlers for gameplay side effects and reporting, preserving combat behavior while moving target resolution into the engine.
+- Current supported passive triggers remain the Wodos catalogue's `on_damage`, `on_death`, and `on_round_start`. This phase does not invent new triggers or change their timing.
+
 ### Shared effect lifecycle and legacy combat adapters
 
 - Legacy status application and group-buff application now pass through the engine's `applyEffect` lifecycle policy before being translated back to Wodos combat records.
