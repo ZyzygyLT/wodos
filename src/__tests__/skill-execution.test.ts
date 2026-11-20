@@ -66,8 +66,8 @@ describe('central skill execution planning', () => {
 
   it('uses injected randomness for random single-target actions', () => {
     const action = { targetPos: 'auto' as const, targetType: 'random' as const }
-    const first = resolve({ skillId: 7 }, { action, enemies: base.enemies, })
-    const second = resolve({ skillId: 7 }, { action, enemies: base.enemies, })
+    const first = resolve({ skillId: 7 }, { action, enemies: base.enemies, random: createSeededRandom(123) })
+    const second = resolve({ skillId: 7 }, { action, enemies: base.enemies, random: createSeededRandom(123) })
     expect(first.kind).toBe('single_attack')
     expect(second.kind).toBe('single_attack')
   })
