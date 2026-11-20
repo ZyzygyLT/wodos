@@ -371,3 +371,10 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - The Wodos adapter in `lib/combat-engine/tactics-evaluator.ts` preserves the legacy policy: living heroes first (attribute-derived base, or 12 when attributes are absent), then living non-trap enemies (base 10). Hero attributes remain on hero actors; enemy traps and defeated units are excluded.
 - Randomness is injected and consumed in the same sequence as before: eligible heroes in input order, then eligible enemies in input order. The legacy `rollInitiative` export remains as a compatibility alias to the engine implementation.
 - Equal initiative values retain insertion order, and input arrays are not mutated. This phase does not change turn execution, actor action rules, or the dungeon runner's scheduling boundary.
+
+
+## Combat actor-turn dispatch extraction
+
+- `core/combat/actor-turn.ts` owns the generic dispatch contract that routes a scheduled actor to an injected hero or enemy executor and forwards the original actor index and total queue size.
+- The dungeon runner delegates this routing after the turn scheduler has resolved and validated the living actor. The hero and enemy callbacks still invoke the existing Wodos `runHeroTurn` and `runEnemyTurn` implementations, so tactical rules, resource costs, damage/effects, cooldowns, logs, events and reports retain their existing behavior.
+- The dispatch module has no dependency on Wodos data models and is independently testable. This is the first action-execution boundary extraction, not yet relocation of the full side-specific action rules into engine core.
