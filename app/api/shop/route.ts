@@ -57,37 +57,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Item no disponible en tienda" }, { status: 400 })
   }
 
-  if (hero.gold < item.price) {
-    return NextResponse.json({ error: `No tenés suficiente oro. Necesitás ${item.price}💰` }, { status: 400 })
-  }
+  const price = item.price
+  try {
+    await db.$transaction(async tx => {
+      const freshHero = await tx.hero.findUnique({ where: { id: hero.id }, select: { id: true } })
+      if (!freshHero) throw new Error("HERO_NOT_FOUND")
 
-  if (item.category !== 'consumable' && item.category !== 'rune') {
-    const alreadyOwns = hero.items.some(hi => hi.itemId === itemId)
-    if (alreadyOwns) {
+      if (item.category !== 'consumable' && item.category !== 'rune') {
+        const alreadyOwns = await tx.heroItem.findFirst({
+          where: { heroId: hero.id, itemId },
+          select: { id: true },
+        })
+        if (alreadyOwns) throw new Error("ITEM_ALREADY_OWNED")
+      }
+
+      const debit = await tx.hero.updateMany({
+        where: { id: hero.id, gold: { gte: price } },
+        data: { gold: { decrement: price } },
+      })
+      if (debit.count !== 1) throw new Error("SHOP_INSUFFICIENT_GOLD")
+
+      await tx.heroItem.create({
+        data: { heroId: hero.id, itemId: item.id, equipped: false },
+      })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "SHOP_INSUFFICIENT_GOLD") {
+      return NextResponse.json({ error: `No tenés suficiente oro. Necesitás ${price}💰` }, { status: 400 })
+    }
+    if (error instanceof Error && error.message === "ITEM_ALREADY_OWNED") {
       return NextResponse.json({ error: "Ya tenés este item" }, { status: 400 })
     }
-  }
-
-  const price = item.price ?? 0
-  const result = await db.$transaction(async (tx) => {
-    const freshHero = await tx.hero.findUnique({ where: { id: hero.id } })
-    if (!freshHero || freshHero.gold < price) {
-      return { error: `No tenés suficiente oro. Necesitás ${price}💰` }
+    if (error instanceof Error && error.message === "HERO_NOT_FOUND") {
+      return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
     }
-    await tx.hero.update({
-      where: { id: hero.id },
-      data: {
-        gold: { decrement: price },
-        items: {
-          create: { itemId: item.id, equipped: false },
-        },
-      },
-    })
-    return { success: true }
-  })
-
-  if ('error' in result) {
-    return NextResponse.json({ error: result.error }, { status: 400 })
+    throw error
   }
 
   return NextResponse.json({ success: true, name: item.name, price: item.price })
