@@ -62,7 +62,8 @@ export async function processDecompose(
         data: { gold: { increment: goldReward } },
       })
 
-      await tx.heroItem.delete({ where: { id: hi.id, heroId: hero.id } })
+      const deleted = await tx.heroItem.deleteMany({ where: { id: hi.id, heroId: hero.id } })
+      if (deleted.count !== 1) throw new Error('ITEM_NOT_FOUND')
     })
   } catch (error) {
     if (error instanceof Error && error.message === 'ITEM_LISTED') {
