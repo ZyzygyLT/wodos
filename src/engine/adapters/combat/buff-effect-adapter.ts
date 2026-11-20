@@ -1,6 +1,7 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
-import { advanceEffects, applyEffect } from '../../core/effects/effect-lifecycle'
+import { advanceEffects } from '../../core/effects/effect-lifecycle'
+import { mergeBuffByMaximum } from '../../core/effects/buff-stacking'
 
 export type LegacyCombatBuffType = 'atk' | 'def'
 export type LegacyCombatBuffSide = 'hero' | 'enemy'
@@ -90,36 +91,8 @@ export function applyLegacyCombatBuff(
   incoming: LegacyCombatBuff,
 ): readonly LegacyCombatBuff[] {
   assertBuff(incoming)
-  const existing = current.find(buff =>
-    buff.sourceName === incoming.sourceName &&
-    buff.type === incoming.type &&
-    buff.side === incoming.side
-  )
-  const currentEffects = current.map((buff, index) => ({
-    ...legacyBuffToGameEffect(buff),
-    id: `legacy-buff:${buff.side}:${buff.type}:${index}`,
-  }))
-  const incomingEffect = {
-    ...legacyBuffToGameEffect(incoming),
-    id: `legacy-buff:${incoming.side}:${incoming.type}:incoming`,
-    stacking: 'replace' as const,
-  }
-  const lifecycle = applyEffect(currentEffects, incomingEffect)
-
-  let merged = incoming
-  if (existing) {
-    merged = { ...existing }
-    if (incoming.value > existing.value) {
-      merged = { ...merged, value: incoming.value, remainingRounds: incoming.remainingRounds }
-    } else if (incoming.remainingRounds !== null &&
-      (existing.remainingRounds === null || existing.remainingRounds < incoming.remainingRounds)) {
-      merged = { ...merged, remainingRounds: incoming.remainingRounds }
-    }
-  }
-
-  return lifecycle.effects.map(effect =>
-    effect.id === incomingEffect.id ? merged : gameEffectToLegacyBuff(effect)
-  )
+  current.forEach(assertBuff)
+  return mergeBuffByMaximum(current, incoming)
 }
 
 /** Wodos ticks finite group buffs at the beginning of each combat round. */
