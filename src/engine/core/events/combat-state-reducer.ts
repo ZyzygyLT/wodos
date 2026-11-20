@@ -134,6 +134,7 @@ export function reduceCombatEvent(
         }
       }
     }
+    if (changes.units !== undefined) assertUniqueUnits(changes.units)
     if (changes.cooldowns !== undefined) {
       for (const entries of Object.values(changes.cooldowns)) {
         for (const remaining of Object.values(entries)) {
@@ -146,6 +147,7 @@ export function reduceCombatEvent(
     return {
       ...cloneSnapshot(snapshot),
       ...changes,
+      ...(changes.units === undefined ? {} : { units: changes.units.map(cloneUnit) }),
       ...(changes.buffs === undefined ? {} : { buffs: changes.buffs.map(buff => ({ ...buff })) }),
       ...(changes.cooldowns === undefined ? {} : {
         cooldowns: Object.fromEntries(Object.entries(changes.cooldowns).map(([unitId, entries]) => [
