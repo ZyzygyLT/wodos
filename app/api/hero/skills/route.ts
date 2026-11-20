@@ -73,71 +73,99 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    include: { class: true, skills: true }
-  })
-  if (!hero) {
-    return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
-  }
-
   const body = await req.json()
   const parsed = schema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
   }
 
-  const skill = await db.skill.findUnique({ where: { id: parsed.data.skillId } })
-  if (!skill) {
-    return NextResponse.json({ error: "Skill no encontrada" }, { status: 404 })
-  }
+  const hero = await db.hero.findFirst({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  })
+  if (!hero) return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
 
-  if (skill.classId !== hero.classId) {
-    return NextResponse.json({ error: "Esa skill no es de tu clase" }, { status: 400 })
-  }
+  const result = await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${hero.id} FOR UPDATE`
 
-  const alreadyUnlocked = hero.skills.some(s => s.skillId === parsed.data.skillId)
-  if (alreadyUnlocked) {
-    return NextResponse.json({ error: "Ya tenés esa skill desbloqueada" }, { status: 400 })
-  }
+    const currentHero = await tx.hero.findUnique({
+      where: { id: hero.id },
+      select: { id: true, classId: true, gold: true, epTotal: true, epSpent: true },
+    })
+    if (!currentHero) throw new Error("HERO_NOT_FOUND")
 
-  // Validar prerrequisitos
-  if (skill.requiresSkills.length > 0) {
-    const unlockedIds = new Set(hero.skills.map(s => s.skillId))
-    const missing = skill.requiresSkills.filter(id => !unlockedIds.has(id))
-    if (missing.length > 0) {
-      const missingSkills = await db.skill.findMany({ where: { id: { in: missing } }, select: { name: true } })
-      return NextResponse.json({
-        error: `Requiere: ${missingSkills.map(s => s.name).join(", ")}`
-      }, { status: 400 })
+    const skill = await tx.skill.findUnique({ where: { id: parsed.data.skillId } })
+    if (!skill) throw new Error("SKILL_NOT_FOUND")
+    if (skill.classId !== currentHero.classId) throw new Error("SKILL_WRONG_CLASS")
+
+    const existing = await tx.heroSkill.findUnique({
+      where: { heroId_skillId: { heroId: hero.id, skillId: skill.id } },
+    })
+    if (existing) throw new Error("SKILL_ALREADY_UNLOCKED")
+
+    if (skill.requiresSkills.length > 0) {
+      const unlocked = await tx.heroSkill.findMany({
+        where: { heroId: hero.id },
+        select: { skillId: true },
+      })
+      const unlockedIds = new Set(unlocked.map(item => item.skillId))
+      if (skill.requiresSkills.some(id => !unlockedIds.has(id))) {
+        throw new Error("SKILL_PREREQUISITES_MISSING")
+      }
     }
-  }
 
-  if (skill.goldCost > 0 && hero.gold < skill.goldCost) {
-    return NextResponse.json({
-      error: `Oro insuficiente. Necesitás ${skill.goldCost}, tenés ${hero.gold}`
-    }, { status: 400 })
-  }
+    const epAvailable = currentHero.epTotal - currentHero.epSpent
+    if (currentHero.gold < skill.goldCost) throw new Error("GOLD_INSUFFICIENT")
+    if (epAvailable < skill.epCost) throw new Error("EP_INSUFFICIENT")
 
-  const epAvailable = hero.epTotal - hero.epSpent
-  if (skill.epCost > 0 && epAvailable < skill.epCost) {
-    return NextResponse.json({
-      error: `EXP insuficiente. Necesitás ${skill.epCost} EXP, tenés ${epAvailable} EXP`
-    }, { status: 400 })
-  }
+    const charged = await tx.hero.updateMany({
+      where: {
+        id: hero.id,
+        gold: { gte: skill.goldCost },
+        epSpent: { lte: currentHero.epTotal - skill.epCost },
+      },
+      data: {
+        gold: { decrement: skill.goldCost },
+        epSpent: { increment: skill.epCost },
+      },
+    })
+    if (charged.count !== 1) throw new Error("RESOURCE_BALANCE_STALE")
 
-  const [heroSkill] = await db.$transaction([
-    db.heroSkill.create({ data: { heroId: hero.id, skillId: skill.id } }),
-    db.hero.update({ where: { id: hero.id }, data: { gold: { decrement: skill.goldCost }, epSpent: { increment: skill.epCost } } }),
-  ])
+    const heroSkill = await tx.heroSkill.create({
+      data: { heroId: hero.id, skillId: skill.id },
+    })
+
+    return {
+      id: heroSkill.id,
+      skillId: skill.id,
+      unlockedAt: heroSkill.unlockedAt,
+      goldSpent: skill.goldCost,
+      goldRemaining: currentHero.gold - skill.goldCost,
+      epSpent: skill.epCost,
+      epRemaining: epAvailable - skill.epCost,
+    }
+  }).catch(error => {
+    if (!(error instanceof Error)) throw error
+    const messages: Record<string, { error: string; status: number }> = {
+      HERO_NOT_FOUND: { error: "Héroe no encontrado", status: 404 },
+      SKILL_NOT_FOUND: { error: "Skill no encontrada", status: 404 },
+      SKILL_WRONG_CLASS: { error: "Esa skill no es de tu clase", status: 400 },
+      SKILL_ALREADY_UNLOCKED: { error: "Ya tenés esa skill desbloqueada", status: 409 },
+      SKILL_PREREQUISITES_MISSING: { error: "No cumplís los prerrequisitos de esa skill", status: 400 },
+      GOLD_INSUFFICIENT: { error: "Oro insuficiente", status: 400 },
+      EP_INSUFFICIENT: { error: "EXP insuficiente", status: 400 },
+      RESOURCE_BALANCE_STALE: { error: "Los recursos cambiaron; volvé a intentarlo", status: 409 },
+    }
+    const mapped = messages[error.message]
+    if (!mapped) throw error
+    return mapped
+  })
+
+  if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status })
 
   updateQuestProgress(hero.id, { type: "skills_unlocked" }).catch(e => logger.error("api", "Background operation failed", e))
   checkAchievements(hero.id, { type: "skills_unlocked" }).catch(e => logger.error("api", "Background operation failed", e))
 
-  return NextResponse.json({
-    id: heroSkill.id, skillId: skill.id, unlockedAt: heroSkill.unlockedAt,
-    goldSpent: skill.goldCost, goldRemaining: hero.gold - skill.goldCost,
-    epSpent: skill.epCost, epRemaining: (hero.epTotal - hero.epSpent) - skill.epCost,
-  }, { status: 201 })
+  return NextResponse.json(result, { status: 201 })
 }
