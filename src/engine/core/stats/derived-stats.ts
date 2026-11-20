@@ -44,3 +44,47 @@ export function calculateDerivedCombatStats(
     initiativeBase: calculateInitiativeBase(attributes),
   }
 }
+
+
+export interface EffectiveResourceMaximaInput {
+  readonly baseHpMax: number
+  readonly baseMpMax: number
+  readonly level: number
+  readonly baseAttributes: Readonly<Record<string, number>>
+  readonly effectiveAttributes: Readonly<Record<string, number>>
+  readonly equipmentHp?: number
+  readonly equipmentMp?: number
+  readonly skillEffects?: readonly (string | undefined)[]
+}
+
+/**
+ * Resolves combat HP/MP maxima from persisted values, equipped classic attributes,
+ * flat equipment bonuses and legacy resource passives in their original order.
+ */
+export function calculateEffectiveResourceMaxima(input: EffectiveResourceMaximaInput): {
+  readonly hpMax: number
+  readonly mpMax: number
+} {
+  const baseCo = input.baseAttributes.co ?? 0
+  const effectiveCo = input.effectiveAttributes.co ?? baseCo
+  const baseWi = input.baseAttributes.wi ?? 0
+  const effectiveWi = input.effectiveAttributes.wi ?? baseWi
+  const baseIn = input.baseAttributes.in ?? 0
+  const effectiveIn = input.effectiveAttributes.in ?? baseIn
+
+  let hpMax = input.baseHpMax
+    + (Number.isFinite(input.equipmentHp) ? input.equipmentHp! : 0)
+    + calculateMaxHp({ co: effectiveCo }, input.level)
+    - calculateMaxHp({ co: baseCo }, input.level)
+  let mpMax = input.baseMpMax
+    + (Number.isFinite(input.equipmentMp) ? input.equipmentMp! : 0)
+    + calculateMaxMp({ wi: effectiveWi, in: effectiveIn })
+    - calculateMaxMp({ wi: baseWi, in: baseIn })
+
+  for (const effect of input.skillEffects ?? []) {
+    if (effect === 'hp_up') hpMax += Math.round(hpMax * 0.2)
+    else if (effect === 'mp_up') mpMax += Math.round(mpMax * 0.2)
+  }
+
+  return { hpMax, mpMax }
+}
