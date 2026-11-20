@@ -110,7 +110,7 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 ### Idempotent combat defeat processing
 
 - `core/combat/defeat.ts` provides a small registry primitive that records each defeated unit once within a caller-defined combat scope.
-- The dungeon runner keeps the registry on its per-round combat context. A unit can therefore trigger death processing once in that round, while a later round has a fresh scope.
+- The dungeon runner creates one registry per dungeon level and shares it across all round contexts. A unit therefore triggers death processing at most once for the entire level, including deaths caused by chained passive effects.
 - Normal hero/enemy attacks, enemy post-damage handling, damage-over-time, thorns, counterattacks, and passive damage paths now route defeat transitions through `processUnitDefeat`.
 - The shared handler updates the dead condition, writes one death log entry, and dispatches the existing `on_death` passive effects with the available attacker context.
 - This does not introduce resurrection behavior or change trap deactivation semantics. Trap units that are set to zero HP by the auto-win mechanic remain a separate encounter-state transition.
