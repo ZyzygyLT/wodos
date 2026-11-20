@@ -8,9 +8,10 @@ export interface HpChangeResult {
   readonly defeatedNow: boolean
 }
 
-/** Applies damage with Wodos' existing zero-floor behavior. */
+/** Applies non-negative damage with Wodos' existing zero-floor behavior. */
 export function applyHpDamage(currentHp: number, damage: number): HpChangeResult {
-  const nextHp = Math.max(0, currentHp - damage)
+  const safeDamage = Number.isFinite(damage) ? Math.max(0, damage) : 0
+  const nextHp = Math.max(0, currentHp - safeDamage)
   return {
     previousHp: currentHp,
     currentHp: nextHp,
@@ -22,9 +23,11 @@ export function applyHpDamage(currentHp: number, damage: number): HpChangeResult
   }
 }
 
-/** Applies healing with Wodos' existing maximum-HP ceiling behavior. */
+/** Applies non-negative healing with Wodos' existing maximum-HP ceiling behavior. */
 export function applyHpHealing(currentHp: number, maxHp: number, healing: number): HpChangeResult {
-  const nextHp = Math.min(maxHp, currentHp + healing)
+  const safeHealing = Number.isFinite(healing) ? Math.max(0, healing) : 0
+  const safeMaxHp = Number.isFinite(maxHp) ? Math.max(0, maxHp) : 0
+  const nextHp = Math.min(safeMaxHp, currentHp + safeHealing)
   return {
     previousHp: currentHp,
     currentHp: nextHp,
