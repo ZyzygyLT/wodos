@@ -119,6 +119,25 @@ describe('pure combat target selection', () => {
     expect(result.reason).toBe('no_valid_target')
   })
 
+  it('ignores enemies with non-finite HP values', () => {
+    const result = selectCombatTarget({
+      actor, allies: [],
+      enemies: [unit('invalid', Number.NaN, 'front'), unit('valid', 20, 'rear')],
+      targetPosition: 'auto', targetType: 'weakest',
+    })
+    expect(result.target?.id).toBe('valid')
+  })
+
+  it('ignores injured-ally candidates with invalid maximum HP', () => {
+    const result = selectCombatTarget({
+      actor: unit('hero-invalid', 10, 'center', { maxHp: 0 }),
+      allies: [unit('ally-invalid', 1, 'rear', { maxHp: 0 }), unit('ally-valid', 20, 'rear')],
+      enemies: [],
+      targetPosition: 'auto', targetType: 'most_injured_ally',
+    })
+    expect(result.target?.id).toBe('ally-valid')
+  })
+
   it('preserves the legacy fallback for target type self', () => {
     const enemy = unit('enemy', 10, 'front')
     const result = selectCombatTarget({
