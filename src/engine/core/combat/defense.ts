@@ -1,4 +1,4 @@
-import { randomIntInclusive, type RandomSource }
+import { randomIntInclusive, type RandomSource } from '../random/random-source'
 
 export interface CombatSkillFormula {
   readonly attrCoeffs?: Readonly<Record<string, number>>
