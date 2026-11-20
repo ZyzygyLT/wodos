@@ -833,7 +833,7 @@ function resolveDefenseEffect(
     currentMp: target.mp,
     random,
   })
-  if (result.mpSpent > 0) { target.mp -= result.mpSpent; emitUnitStateChanged(ctx!, target, { mp: target.mp }) }
+  if (result.mpSpent > 0) { target.mp -= result.mpSpent; if (ctx) emitUnitStateChanged(ctx, target, { mp: target.mp }) }
   return { damage: result.finalDamage, absorbed: result.absorbedByBarrier, dodged: result.dodged }
 }
 
