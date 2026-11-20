@@ -1,4 +1,4 @@
-import type { RandomSource } from '../random/random-source'
+import { randomIntInclusive, type RandomSource }
 
 export type DefensiveReaction = 'dodge' | 'block' | 'barrier' | string | undefined
 
@@ -25,7 +25,7 @@ export function resolveIncomingDamage(input: IncomingDamageInput): IncomingDamag
   }
   if (defense === 'dodge') {
     if (!input.random) throw new Error('A RandomSource is required to resolve dodge')
-    const roll = Math.floor(input.random.next() * 6) + 1
+    const roll = randomIntInclusive(input.random, 1, 6)
     const dodged = roll >= 5
     return { incomingDamage: damage, finalDamage: dodged ? 0 : damage, absorbedByBarrier: 0, dodged, mpSpent: 0 }
   }
