@@ -255,7 +255,7 @@ export const buildTurnQueue = (
     isEnemyAlive: enemy => enemy.hp > 0,
     isEnemyExcluded: enemy => !!enemy.trap,
     getHeroInitiativeBase: hero => hero.attrs ? calcInitiativeBase(hero.attrs as any) : 12,
-    getEnemyInitiativeBase: () => 10,
+    getEnemyInitiativeBase: enemy => enemy.attrs ? calcInitiativeBase(enemy.attrs as any) : 10,
     rollInitiative: base => rollInitiative(base, random),
     createHeroActor: (hero, initiative): TurnActor => ({
       unit: hero,
