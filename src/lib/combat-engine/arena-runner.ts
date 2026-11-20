@@ -1,11 +1,42 @@
-import { runDungeon, DungeonData } from "./dungeon-runner"
+import { runDungeon, DungeonData, EnemyData, HeroData } from "./dungeon-runner"
 import { calcEloChange } from "./formulas"
 import db from "@/lib/db"
 import { buildHeroData } from "@/lib/dungeon-helpers"
 import { computeCombatStats } from "@/lib/combat-report-stats"
+import { mergeHeroAttrs } from "@/lib/dungeon-helpers"
+import { calcDefenseBase, type HeroAttrs } from "@/lib/combat-engine/formulas"
 
 const DUEL_GOLD_COST = 10
 const DUEL_COOLDOWN_MS = 5 * 60 * 1000
+
+/** Build the arena opponent from the same resolved attributes and equipment as its hero loadout. */
+export function heroDataToArenaOpponent(hero: HeroData, position: string): EnemyData {
+  const attrs = mergeHeroAttrs(hero)
+  return {
+    id: -1,
+    name: hero.name,
+    icon: "⚔️",
+    hp: hero.hpMax,
+    mp: hero.mpMax,
+    atk: (attrs.st ?? 10) + (attrs.dx ?? 10) / 2,
+    def: calcDefenseBase(attrs as HeroAttrs),
+    dx: attrs.dx ?? 10,
+    ag: attrs.ag ?? 10,
+    level: hero.level,
+    position,
+    attrs,
+    skills: hero.skills.map(s => ({
+      skillId: s.skillId,
+      name: s.name ?? `skill_${s.skillId}`,
+      icon: s.icon ?? "⚔️",
+      effect: s.effect,
+      multiplier: s.multiplier,
+      manaCost: s.manaCost,
+      cooldownRounds: s.cooldownRounds,
+      formula: s.formula,
+    })),
+  }
+}
 
 export async function runArenaDuel(hero1Id: string, hero2Id: string) {
   if (hero1Id === hero2Id) throw new Error("No puedes duelarte a ti mismo")
@@ -59,31 +90,8 @@ export async function runArenaDuel(hero1Id: string, hero2Id: string) {
     const heroData1 = await buildHeroData(h1, profile1)
     const heroData2 = await buildHeroData(h2, profile2)
 
-    // Convert hero2 to EnemyData so they actually fight each other.
-    const h2Attrs = h2.attrs as Record<string, number>
-    const hero2AsEnemy = {
-      id: -1,
-      name: heroData2.name,
-      icon: "⚔️",
-      hp: heroData2.hpMax,
-      mp: heroData2.mpMax,
-      atk: (h2Attrs.fuerza ?? 10) + (h2Attrs.agilidad ?? 5),
-      def: (h2Attrs.resistencia ?? 10) + (h2Attrs.agilidad ?? 5),
-      dx: h2Attrs.agilidad ?? 10,
-      ag: h2Attrs.agilidad ?? 10,
-      level: heroData2.level,
-      position: profile2?.position ?? "front",
-      skills: heroData2.skills.map(s => ({
-        skillId: s.skillId,
-        name: s.name ?? `skill_${s.skillId}`,
-        icon: s.icon ?? "⚔️",
-        effect: s.effect,
-        multiplier: s.multiplier,
-        manaCost: s.manaCost,
-        cooldownRounds: s.cooldownRounds,
-        formula: s.formula,
-      })),
-    }
+    // Convert hero2 using the same resolved equipment and canonical attributes as hero1.
+    const hero2AsEnemy = heroDataToArenaOpponent(heroData2, profile2?.position ?? "front")
 
     const dungeonData: DungeonData = {
       id: -1,
