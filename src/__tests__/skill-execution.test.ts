@@ -70,6 +70,9 @@ describe('central skill execution planning', () => {
     const second = resolve({ skillId: 7 }, { action, enemies: base.enemies, random: createSeededRandom(123) })
     expect(first.kind).toBe('single_attack')
     expect(second.kind).toBe('single_attack')
+    if (first.kind === 'single_attack' && second.kind === 'single_attack') {
+      expect(first.target?.id).toBe(second.target?.id)
+    }
   })
 
   it('does not mutate actor, allies or enemies', () => {
