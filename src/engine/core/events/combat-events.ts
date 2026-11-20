@@ -1,5 +1,5 @@
 export type CombatEvent =
-  | { readonly type: 'on_damage'; readonly sourceId: string; readonly targetId: string; readonly damage: number }
+  | { readonly type: 'on_damage'; readonly sourceId: string; readonly targetId: string; readonly damage?: number }
   | { readonly type: 'on_death'; readonly sourceId: string; readonly targetId: string; readonly attackerId?: string }
   | { readonly type: 'on_round_start'; readonly round: number; readonly unitId: string }
 
