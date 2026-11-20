@@ -538,7 +538,7 @@ function mergeHeroAttrs(hero: HeroData, equip: Record<string, number>): Record<s
   return applyStatModifiersToRecord(hero.attrs, equipmentModifiers)
 }
 
-function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; thornsPct: number; vampirePct: number; counterPct: number } {
+function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; defenseBonus: number; thornsPct: number; vampirePct: number; counterPct: number } {
   let finalHp = baseHp
   let finalMp = baseMp
   const baseDefense = calcDefenseBase(merged as any) + level * 2
@@ -564,19 +564,21 @@ function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, num
 
   const modifiedAttrs = applyStatModifiersToRecord(merged, skillModifiers)
   const heroDef = applyStatModifiers(baseDefense, defenseModifiers)
-  return { finalHp, finalMp, merged: modifiedAttrs, heroDef, thornsPct, vampirePct, counterPct }
+  return { finalHp, finalMp, merged: modifiedAttrs, heroDef, defenseBonus: heroDef - baseDefense, thornsPct, vampirePct, counterPct }
 }
 
-function buildHeroDefenseValues(ds: Record<string, number | null>, skills: HeroSkill[], merged: Record<string, number>, random: RandomSource): { defenseValues: Record<string, number>; defenseSkillNames: Record<string, string>; defenseEffects: Record<string, string> } {
+function buildHeroDefenseValues(ds: Record<string, number | null>, skills: HeroSkill[], merged: Record<string, number>, random: RandomSource, flatBonus = 0): { defenseValues: Record<string, number>; defenseSkillNames: Record<string, string>; defenseEffects: Record<string, string> } {
   const defenseValues: Record<string, number> = {}
   const defenseSkillNames: Record<string, string> = {}
   const defenseEffects: Record<string, string> = {}
   for (const cat of ['melee', 'ranged', 'magic']) {
     const skillId = ds[cat]
     const heroSkill = skillId ? skills.find(s => s.skillId === skillId) : null
-    defenseValues[cat] = heroSkill?.formula
+    const formulaValue = heroSkill?.formula
       ? evalDefenseFormula(heroSkill.formula, merged, heroSkill.rank ?? 1, random)
       : (merged.dx ?? 5) * 2
+    // Flat defense bonuses apply regardless of whether the category uses a skill formula or the DX fallback.
+    defenseValues[cat] = formulaValue + flatBonus
     if (heroSkill) {
       defenseSkillNames[cat] = heroSkill.name ?? ''
       defenseEffects[cat] = heroSkill.effect ?? ''
@@ -614,14 +616,17 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
     equipmentMp: equip.mp,
     skillEffects: hero.skills.map(skill => skill.effect),
   })
-  const { finalHp, finalMp, merged: mergedMod, heroDef, thornsPct, vampirePct, counterPct } = applyHeroSkillModifiers(
+  const { finalHp, finalMp, merged: mergedMod, heroDef, defenseBonus, thornsPct, vampirePct, counterPct } = applyHeroSkillModifiers(
     hero.skills,
     merged,
     resources.hpMax,
     resources.mpMax,
     hero.level
   )
-  const { defenseValues, defenseSkillNames, defenseEffects } = buildHeroDefenseValues(hero.combatProfile.defenseSkills ?? {}, hero.skills, mergedMod, random)
+  const equipmentDefense = Number.isFinite(equip.def) ? equip.def! : 0
+  const { defenseValues, defenseSkillNames, defenseEffects } = buildHeroDefenseValues(
+    hero.combatProfile.defenseSkills ?? {}, hero.skills, mergedMod, random, defenseBonus + equipmentDefense
+  )
   const resistances = buildHeroResistances(equip)
   return {
     id: hero.id, name: hero.name, icon: '🧙', level: hero.level,
