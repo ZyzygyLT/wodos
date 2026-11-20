@@ -675,6 +675,7 @@ function enemyToUnit(e: EnemyData, idx: number, random: RandomSource): CombatUni
     passiveEffects: e.passiveEffects,
     position: e.position ?? 'front',
     condition: 'ready',
+    attrs: e.attrs,
     def: e.def ?? 5,
     armorName: e.armorName,
     attackSkillName: e.skillName,
