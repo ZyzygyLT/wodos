@@ -49,28 +49,37 @@ export function resolveSkillExecution<T extends TargetableUnit>(
 ): SkillExecutionPlan<T> {
   const { skill, actor, allies, enemies, action, random } = input
   const effect = skill.effect ?? 'attack'
-  const rank = skill.rank ?? 1
+  const rank = Number.isFinite(skill.rank) && (skill.rank ?? 0) > 0 ? skill.rank! : 1
 
-  if (effect === 'heal' && skill.healPct) {
-    const candidates = skill.healTarget === 'self' ? [actor] : [actor, ...allies]
-    const injured = candidates.filter(unit => unit.hp > 0 && unit.hp < unit.maxHp)
-    const target = injured.reduce<T | null>((best, unit) => {
-      if (!best || unit.hp / unit.maxHp < best.hp / best.maxHp) return unit
-      return best
-    }, null)
-    return { kind: 'heal', target, healPct: skill.healPct }
+  if (effect === 'heal') {
+    const healPct = Number.isFinite(skill.healPct) ? Math.max(0, skill.healPct!) : 0
+    const candidates = (skill.healTarget === 'self' ? [actor] : [actor, ...allies]).filter(unit =>
+      Number.isFinite(unit.hp) && Number.isFinite(unit.maxHp) &&
+      unit.hp > 0 && unit.maxHp > 0 && unit.hp < unit.maxHp
+    )
+    const target = healPct > 0
+      ? candidates.reduce<T | null>((best, unit) => {
+          if (!best || unit.hp / unit.maxHp < best.hp / best.maxHp) return unit
+          return best
+        }, null)
+      : null
+    return { kind: 'heal', target, healPct }
   }
 
   if (effect === 'party_attack_up' || effect === 'defense_up') {
     const isAttack = effect === 'party_attack_up'
-    const bonus = Math.round((skill.multiplier || (isAttack ? 1.5 : 1)) * 10) + rank * 2
+    const fallbackMultiplier = isAttack ? 1.5 : 1
+    const multiplier = Number.isFinite(skill.multiplier) && (skill.multiplier ?? 0) > 0
+      ? skill.multiplier!
+      : fallbackMultiplier
+    const bonus = Math.round(multiplier * 10) + rank * 2
     return { kind: 'party_buff', buff: isAttack ? 'atk' : 'def', bonus }
   }
 
   if (effect === 'aoe_attack') {
     return {
       kind: 'area_attack',
-      targets: enemies.filter(unit => unit.hp > 0),
+      targets: enemies.filter(unit => Number.isFinite(unit.hp) && unit.hp > 0),
       armorPenetration: false,
       critical: false,
     }
