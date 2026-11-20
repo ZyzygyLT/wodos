@@ -47,6 +47,27 @@ describe('central skill execution planning', () => {
     if (plan.kind === 'heal') expect(plan.target).toBeNull()
   })
 
+  it('keeps malformed healing skills as healing actions without selecting a target', () => {
+    const missing = resolve({ skillId: 12, effect: 'heal' })
+    const invalid = resolve({ skillId: 13, effect: 'heal', healPct: Number.NaN })
+    expect(missing).toEqual({ kind: 'heal', target: null, healPct: 0 })
+    expect(invalid).toEqual({ kind: 'heal', target: null, healPct: 0 })
+  })
+
+  it('skips healing candidates with invalid or zero maximum HP', () => {
+    const plan = resolve(
+      { skillId: 14, effect: 'heal', healPct: 25 },
+      { actor: unit('invalid', 10, 0), allies: [unit('valid', 50, 100)] },
+    )
+    expect(plan.kind).toBe('heal')
+    if (plan.kind === 'heal') expect(plan.target?.id).toBe('valid')
+  })
+
+  it('normalizes invalid buff ranks and multipliers while preserving effect defaults', () => {
+    expect(resolve({ skillId: 15, effect: 'party_attack_up', rank: Number.NaN, multiplier: Number.NaN }))
+      .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 17 })
+  })
+
   it('normalizes party attack and defense buffs using legacy rank arithmetic', () => {
     expect(resolve({ skillId: 2, effect: 'party_attack_up', multiplier: 1.5, rank: 3 }))
       .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 21 })
