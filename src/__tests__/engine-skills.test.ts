@@ -52,6 +52,13 @@ describe('engine skill definitions and formulas', () => {
     ]))
   })
 
+  it('rejects duplicate and self-referential prerequisite IDs', () => {
+    expect(validateSkillDefinition({ ...skill, requiresSkills: [3, 3] }).errors)
+      .toContain('skill.requiresSkills cannot contain duplicate IDs')
+    expect(validateSkillDefinition({ ...skill, requiresSkills: [12] }).errors)
+      .toContain('skill.requiresSkills cannot include the skill itself')
+  })
+
   it('validates dice and coefficients before evaluating a formula', () => {
     const invalid = { ...formula, diceCount: 1, diceSides: 0, diceDivisor: -1 }
     expect(validateSkillFormula(invalid).valid).toBe(false)
