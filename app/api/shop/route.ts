@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
   const price = item.price
   try {
     await db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM heroes WHERE id = ${hero.id} FOR UPDATE`
       const freshHero = await tx.hero.findUnique({ where: { id: hero.id }, select: { id: true } })
       if (!freshHero) throw new Error("HERO_NOT_FOUND")
 
