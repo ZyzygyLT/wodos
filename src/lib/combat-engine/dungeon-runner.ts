@@ -861,7 +861,7 @@ function applyDamageToTarget(target: CombatUnit, dmg: number, ctx: CombatCtx, ac
   const appliedDamage = applyDamageWithEvent(target, dmg, attacker?.id ?? `actor:${actor}`, ctx, actionId)
   target.condition = getCondition(target.hp, target.maxHp)
   emitUnitStateChanged(ctx, target, { condition: target.condition })
-  ctx.state!.damagedThisRound = true
+  ctx.state!.damagedThisRound = appliedDamage > 0
   // Every attack route using this helper must notify the damaged unit's passives,
   // including area attacks from either side. Keep this before defeat handling.
   if (appliedDamage > 0) {
