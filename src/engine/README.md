@@ -328,3 +328,13 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - The legacy passive executor remains separate from observer handlers. Its `on_damage` trigger still runs only at its original compatibility call site; broadening passive gameplay triggers to every damage source is a separate balance/compatibility decision.
 
 The dispatcher is observational: handlers run synchronously in registration order and should remain lightweight. They must not mutate combat units if deterministic gameplay results are expected. AOE resolution is represented per target while retaining one shared action identifier. Events are not emitted for support actions that do not perform an attack, or for AOE actions with no planned targets.
+
+
+### Versioned combat state snapshots and reducer
+
+- `core/events/combat-state-reducer.ts` adds a version-1, JSON-friendly `CombatStateSnapshot` containing level/round, unit HP/MP/condition/defeat/status state, group buffs and per-unit skill cooldowns.
+- The event vocabulary now also accepts `unit_state_changed` and `combat_state_changed` delta records. These carry explicit post-change values, so replay applies recorded state rather than re-running combat formulas or random decisions.
+- `reduceCombatEvent(snapshot, event)` is a pure reducer: it validates the snapshot and changed values, rejects unknown unit IDs, clones nested state, and leaves the caller's snapshot and event payload untouched.
+- `reconstructCombatState(initial, events)` applies a supplied ordered event stream to an explicit initial snapshot. Semantic observer events (such as `attack_resolved`) do not mutate state.
+- The reducer is deliberately not yet wired to every mutation in `dungeon-runner.ts`. Existing HP/damage and healing notifications are not a complete state-delta stream; MP spending, item consumption, status/buff lifecycle, cooldown changes and every condition/level transition still require audited emission points. A journal from `runDungeon` therefore must not yet be passed off as an authoritative reconstruction of the full battle.
+- Journal schema remains version 1 and existing event payloads remain valid. The new event variants are additive. A later integration phase must emit state deltas at all mutation boundaries, capture an initial snapshot, and prove end-to-end equality against runner snapshots before authoritative replay is enabled.
