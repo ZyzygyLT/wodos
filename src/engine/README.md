@@ -289,6 +289,15 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - The one-shot `dispatchCombatEvent` helper remains available for compatibility. The current dungeon runner routes each existing passive trigger through `CombatEventDispatcher`; it still creates a local dispatcher per trigger because passive execution is synchronous and does not yet emit chained engine events. Stateful combat flows should retain one dispatcher instance across the desired combat/round lifecycle when they need cross-event deduplication and nested-event control.
 - The event layer is an orchestration contract only. It does not apply damage/healing, mutate units, determine defeat, or decide when the runner emits events. Those call sites remain incremental migration work.
 
+### Combat event journal and timeline reconstruction
+
+- Every \`runDungeon\` result now includes an additive, JSON-serializable \`eventJournal\` (schema version 1). It records the dispatcher’s actual processing order, not merely the order in which nested handlers enqueue events.
+- Each envelope contains a contiguous 1-based sequence, a unique event ID, and a copied event payload. Explicit IDs retain the dispatcher's duplicate-suppression semantics; events without an explicit ID receive a recorder-local ID.
+- \`CombatEventRecorder\` captures immutable event snapshots without changing handler order or gameplay state. \`validateCombatEventJournal\` checks sequence continuity, duplicate IDs, unique action starts, action references, and target membership.
+- \`reconstructCombatTimeline\` preserves the full ordered stream and additionally groups events by their parent \`actionId\`. This is a diagnostic projection; it does not re-run formulas, random rolls, AI decisions, or mutate combat state.
+- The journal is deterministic for the same seeded run and is included in replay-result comparison. It is suitable for JSON persistence and later viewer/debugger tooling.
+- Schema version 1 records the current event vocabulary only. It is not yet a command-sourced state snapshot: reconstructing every HP/status/resource value from events alone is not guaranteed because the existing vocabulary does not emit every state mutation. Do not use the journal alone as an authoritative save-game state.
+
 ### Normalized combat action results
 
 - The engine exports `CombatActionResult`, `CombatActionTargetResult`, and `createCombatActionResult` as a pure, immutable result contract.
@@ -296,7 +305,7 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - The normalized result groups actor, skill, action kind/outcome, target-level outcomes, legacy damage breakdowns, absorbed amount, status effect, healing resource/amount, buff metadata, item name, and MP cost where those values exist in the legacy action.
 - Area actions retain one result per target, including mixed hit/miss/critical outcomes. Single-target actions receive a normalized target entry when the legacy report identifies a target.
 - The current `damageBreakdown` values are copied from the legacy report and should not be interpreted as effective HP removed. Effective HP loss remains available through `on_damage` event payloads; absorption is retained separately where the legacy target result exposes it.
-- The result contract deliberately does not invent missing action IDs, source IDs, or targets. Event/action correlation remains represented by the event stream's `actionId`; linking that ID into every legacy report shape is a separate migration step.
+- The result contract carries the run-local `actionId` for attack actions where the runner has an originating attack event. The ID is shared with corresponding event records and the additive event journal.
 - The new field is additive. Consumers can migrate gradually from legacy `DetailedAction` properties to `combatResult` without changing combat resolution.
 
 ### Action and event correlation
