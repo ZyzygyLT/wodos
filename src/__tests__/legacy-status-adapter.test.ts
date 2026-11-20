@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  advanceLegacyStatusRound, applyLegacyStatusEffect, calculateLegacyStatusDamage,
+  advanceLegacyStatusRound, advanceLegacyPeriodicStatusRound, advanceLegacyNonPeriodicStatusRound,
+  applyLegacyStatusEffect, calculateLegacyStatusDamage,
   gameEffectToLegacyStatus, isLegacyCombatUnitDisabled, legacyStatusToGameEffect,
 } from '@/engine/adapters/combat/status-effect-adapter'
 
@@ -46,6 +47,30 @@ describe('legacy combat status adapter', () => {
 
   it('decays durations at round end and removes expired statuses', () => {
     expect(advanceLegacyStatusRound([poison(1, 5), poison(3, 2)])).toEqual([poison(2, 2)])
+  })
+
+  it('consumes periodic status duration when its round-start tick resolves', () => {
+    const statuses = [
+      poison(1, 5),
+      { ...poison(2, 3), type: 'burn' as const },
+      { ...poison(1, 0), type: 'stun' as const },
+    ]
+
+    expect(advanceLegacyPeriodicStatusRound(statuses)).toEqual([
+      { ...poison(1, 0), type: 'stun' },
+      { ...poison(1, 3), type: 'burn' },
+    ])
+  })
+
+  it('keeps periodic statuses out of the end-of-round duration pass', () => {
+    const statuses = [
+      poison(2, 5),
+      { ...poison(1, 0), type: 'stun' as const },
+    ]
+
+    expect(advanceLegacyNonPeriodicStatusRound(statuses)).toEqual([
+      poison(2, 5),
+    ])
   })
 
   it('rejects invalid durations and malformed engine metadata', () => {
