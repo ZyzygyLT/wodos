@@ -588,8 +588,8 @@ function addLog(
 function rollLoot(table: DungeonData['lootTable'], random: RandomSource = { next: () => Math.random() }): Array<{ itemId: number; qty: number }> {
   const result: Array<{ itemId: number; qty: number }> = []
   for (const entry of table) {
-    if (random.next() < entry.chance) {
-      const qty = entry.minQty + Math.floor(random.next() * (entry.maxQty - entry.minQty + 1))
+    if (nextRandom(random) < entry.chance) {
+      const qty = entry.minQty + randomIntInclusive(random, 0, entry.maxQty - entry.minQty)
       result.push({ itemId: entry.itemId, qty })
     }
   }
@@ -1140,7 +1140,7 @@ function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }, random:
   } else {
     pool = rear.length > 0 ? rear : front
   }
-  return pool[randomIntInclusive(random, 0, pool.length - 1)]
+  return pool.length > 0 ? pool[randomIntInclusive(random, 0, pool.length - 1)] : null
 }
 
 function isEnemySkillOnCooldown(state: CombatState, actorId: string, skillId: number): boolean {
