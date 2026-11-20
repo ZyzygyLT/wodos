@@ -43,19 +43,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const fameGained = rewardTier.fame ?? 0
   const goldGained = rewardTier.gold ?? 0
 
-  await db.$transaction([
-    db.hero.update({
-      where: { id: hero.id },
-      data: {
-        fame: { increment: fameGained },
-        gold: { increment: goldGained },
-      },
-    }),
-    db.heroEventParticipation.update({
-      where: { heroId_eventId: { heroId: hero.id, eventId: id } },
-      data: { claimedAt: new Date() },
-    }),
-  ])
+  try {
+    await db.$transaction(async tx => {
+      const claimed = await tx.heroEventParticipation.updateMany({
+        where: { heroId: hero.id, eventId: id, completed: true, claimedAt: null },
+        data: { claimedAt: new Date() },
+      })
+      if (claimed.count !== 1) throw new Error("EVENT_REWARD_ALREADY_CLAIMED")
+
+      await tx.hero.update({
+        where: { id: hero.id },
+        data: {
+          fame: { increment: fameGained },
+          gold: { increment: goldGained },
+        },
+      })
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === "EVENT_REWARD_ALREADY_CLAIMED") {
+      return NextResponse.json({ error: "Ya reclamaste la recompensa" }, { status: 409 })
+    }
+    throw error
+  }
 
   return NextResponse.json({ fame: fameGained, gold: goldGained, rank: myRank })
 }
