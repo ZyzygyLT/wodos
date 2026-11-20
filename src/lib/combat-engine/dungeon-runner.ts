@@ -1157,7 +1157,7 @@ function executeHeroSingleTargetAttack(
   resolveAttackEvent(ctx, heroUnit.id, target.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
-  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), state.groupAtkBonus, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances)
+  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'hero').atk, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances)
 
   const defEff = target.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random, ctx)
@@ -1447,7 +1447,7 @@ function computeEnemyDamageWithFallback(params: EnemyDamageParams, ctx: CombatCt
   const state = ctx.state!
   if (fResult) {
     const critAdj = crit ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
-    return calcActualDamage(applyLegacyStatusStatModifiers(critAdj, attackerUnit.statusEffects ?? [], 'attack'), state.groupAtkBonus, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances)
+    return calcActualDamage(applyLegacyStatusStatModifiers(critAdj, attackerUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, attackerUnit.isHero ? 'hero' : 'enemy').atk, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances)
   }
   const skillMult = chosenSkill?.multiplier ?? 1
   return resolveEnemyFallbackDamage({
