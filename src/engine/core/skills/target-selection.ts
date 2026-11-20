@@ -67,7 +67,7 @@ function chooseByType<T extends TargetableUnit>(
 
 function mostInjured<T extends TargetableUnit>(units: readonly T[]): T | null {
   return units.reduce((best, unit) => {
-    if (unit.hp >= unit.maxHp) return best
+    if (!Number.isFinite(unit.hp) || !Number.isFinite(unit.maxHp) || unit.hp <= 0 || unit.maxHp <= 0 || unit.hp >= unit.maxHp) return best
     if (!best) return unit
     return unit.hp / unit.maxHp < best.hp / best.maxHp ? unit : best
   }, null as T | null)
@@ -79,12 +79,12 @@ export function selectCombatTarget<T extends TargetableUnit>(
 ): TargetSelectionResult<T> {
   const { actor, allies, enemies, targetPosition, targetType, skillTags, random, globalTargeting } = input
   if (targetType === 'most_injured_ally') {
-    const candidates = [actor, ...allies.filter(unit => unit.hp > 0)]
+    const candidates = [actor, ...allies].filter(unit => Number.isFinite(unit.hp) && unit.hp > 0)
     const target = mostInjured(candidates)
     return { target, candidates, reason: target ? 'most_injured_ally' : 'no_valid_target' }
   }
 
-  const aliveEnemies = enemies.filter(unit => unit.hp > 0)
+  const aliveEnemies = enemies.filter(unit => Number.isFinite(unit.hp) && unit.hp > 0)
   if (aliveEnemies.length === 0) {
     return { target: null, candidates: [], reason: 'no_valid_target' }
   }
