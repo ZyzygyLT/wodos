@@ -34,3 +34,44 @@ export function modifiersForStat(
 ): StatModifier[] {
   return modifiers.filter(modifier => modifier.stat === stat)
 }
+
+
+/**
+ * Converts a numeric stat record (for example, equipment bonuses) into
+ * deterministic flat modifiers. The caller remains responsible for deciding
+ * which record keys represent stats in its domain.
+ */
+export function statRecordToFlatModifiers(
+  values: Readonly<Record<string, number>>,
+  source: string,
+): StatModifier[] {
+  return Object.keys(values).sort().map(stat => ({
+    id: `record:${encodeURIComponent(source)}:${encodeURIComponent(stat)}`,
+    stat,
+    operation: 'flat' as const,
+    value: values[stat],
+    source,
+  }))
+}
+
+/**
+ * Applies modifiers to a stat record without mutating the input.
+ * Stats absent from the base record are initialized at zero.
+ */
+export function applyStatModifiersToRecord(
+  baseValues: Readonly<Record<string, number>>,
+  modifiers: readonly StatModifier[],
+): Record<string, number> {
+  const stats = new Set([
+    ...Object.keys(baseValues),
+    ...modifiers.map(modifier => modifier.stat),
+  ])
+  const result: Record<string, number> = {}
+  for (const stat of [...stats].sort()) {
+    result[stat] = applyStatModifiers(
+      baseValues[stat] ?? 0,
+      modifiersForStat(modifiers, stat),
+    )
+  }
+  return result
+}
