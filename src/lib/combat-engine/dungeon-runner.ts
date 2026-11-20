@@ -18,6 +18,8 @@ import {
 
 import {
   advanceLegacyStatusRound,
+  advanceLegacyPeriodicStatusRound,
+  advanceLegacyNonPeriodicStatusRound,
   applyLegacyStatusEffect,
   calculateLegacyStatusDamage,
   isLegacyCombatUnitDisabled,
@@ -1724,9 +1726,15 @@ function isUnitStunned(unit: CombatUnit): boolean {
   return isLegacyCombatUnitDisabled(unit.statusEffects ?? [])
 }
 
+function decayPeriodicStatusEffects(unit: CombatUnit, ctx: CombatCtx) {
+  if (!unit.statusEffects) return
+  unit.statusEffects = [...advanceLegacyPeriodicStatusRound(unit.statusEffects)]
+  emitUnitStateChanged(ctx, unit, { statusEffects: unit.statusEffects.map(effect => ({ ...effect })) })
+}
+
 function decayStatusEffects(unit: CombatUnit, ctx: CombatCtx) {
   if (!unit.statusEffects) return
-  unit.statusEffects = [...advanceLegacyStatusRound(unit.statusEffects)]
+  unit.statusEffects = [...advanceLegacyNonPeriodicStatusRound(unit.statusEffects)]
   emitUnitStateChanged(ctx, unit, { statusEffects: unit.statusEffects.map(effect => ({ ...effect })) })
 }
 
@@ -2461,9 +2469,15 @@ export async function runDungeon(
       })
       emitCombatStateChanged(roundCtx, { level: lvl.number, round, buffs: state.buffs ?? [], cooldowns: state.skillCooldowns ?? {} })
 
-      // DoT al inicio de ronda
-      for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
-      for (const e of enemyUnits) processDotDamage(e, e.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
+      // DoT al inicio de ronda; cada tick consume una unidad de duración.
+      for (const hu of heroUnits) {
+        processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
+        decayPeriodicStatusEffects(hu, roundCtx)
+      }
+      for (const e of enemyUnits) {
+        processDotDamage(e, e.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
+        decayPeriodicStatusEffects(e, roundCtx)
+      }
 
       applyManaRegen(heroUnits, roundCtx)
 
