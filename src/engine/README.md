@@ -193,7 +193,7 @@ Damage totals are derived from the damage breakdowns exposed by action reports. 
 - `evaluateSkillFormula` and `applySkillDiceMultiplier` own the existing Wodos attribute/rank/dice calculations as pure engine operations. Random dice remain injectable through `RandomSource`.
 - `src/lib/combat-engine/formulas.ts` retains its existing public `SkillFormula`, `evaluateFormula` and `applyDiceMultiplier` compatibility surface, delegating evaluation to the engine module. Existing callers therefore do not need to migrate at once.
 
-This is the first skill-domain extraction, not yet a full skill executor. Skill ownership/unlock rules, target selection, status application and action reporting still belong to the existing application combat flow. MP cost/fallback decisions and cooldown lookup are extracted separately below; the runner still applies those decisions to mutable combat state. Remaining execution concerns must be migrated in separate characterized steps so the current combat sequence and balance remain unchanged.
+This is the first skill-domain extraction, not yet a full skill executor. Skill ownership/unlock rules, status application and action reporting still belong to the existing application combat flow. MP cost/fallback decisions and cooldown lookup are extracted separately below; the runner still applies those decisions to mutable combat state. Remaining execution concerns must be migrated in separate characterized steps so the current combat sequence and balance remain unchanged.
 
 
 ## Skill availability and resource rules
@@ -206,3 +206,17 @@ This is the first skill-domain extraction, not yet a full skill executor. Skill 
 - The dungeon runner delegates hero MP resolution and hero/enemy cooldown checks to these contracts. It still owns logs, state mutation, tactic overrides and the round-by-round cooldown clock.
 
 This phase does not yet validate skill ownership or `requiresSkills`: the runner receives a pre-filtered hero skill list and does not currently carry the complete persisted skill catalogue/prerequisite state. It also does not change target selection or action resolution.
+
+
+## Pure combat target selection
+
+`core/skills/target-selection.ts` owns the target-picking rules without depending on the Wodos combat runner:
+
+- `TargetableUnit` and `TargetSelectionInput` describe the minimum data needed for targeting; no Prisma or app types are imported.
+- `selectCombatTarget` returns the selected unit, the candidate pool and a reason (`trap_priority`, `exact_position`, `position_priority`, `most_injured_ally`, fallback or no valid target).
+- Living enemies are considered, traps retain their current priority, explicit positions fall back to all living enemies when empty, and automatic positions use the existing melee/ranged priority table.
+- Weakest, strongest, random and most-injured-ally selection are deterministic when a `RandomSource` is supplied. Random selection requires an injected source in the pure contract.
+- `getTargetPositionPriority` centralizes the positional priority table. The legacy export in `tactics-evaluator.ts` remains as a compatibility wrapper.
+- `resolveTarget` in `tactics-evaluator.ts` now delegates to the engine contract and retains its existing public signature and default runtime randomness.
+
+Compatibility note: the legacy `self` target type previously fell through to weakest-enemy selection in `resolveTarget`; this extraction deliberately preserves that behavior rather than silently changing existing tactic data. The engine contract exposes the candidate pool and resolution reason for later validation/UI diagnostics. It does not yet define AOE target groups or skill-specific ally/enemy target permissions.
