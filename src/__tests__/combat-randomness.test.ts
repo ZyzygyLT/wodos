@@ -97,6 +97,8 @@ describe('reproducible combat randomness', () => {
     const options = { clanBonuses: { all_stats_pct: 10 } }
     const observedEvents: string[] = []
     const combatEventHandlers: CombatEventHandler[] = [
+      { eventType: 'attack_started', handle: event => { if (event.type === 'attack_started') observedEvents.push(`attack-start:${event.actorId}:${event.targetIds.join(',')}:${event.actionId}`) } },
+      { eventType: 'attack_resolved', handle: event => { if (event.type === 'attack_resolved') observedEvents.push(`attack-resolved:${event.actorId}:${event.targetIds.join(',')}:${event.hit}:${event.critical ?? 'unknown'}:${event.actionId}`) } },
       { eventType: 'on_round_start', handle: event => { if (event.type === 'on_round_start') observedEvents.push(`round:${event.unitId}`) } },
       { eventType: 'on_damage', handle: event => { if (event.type === 'on_damage') observedEvents.push(`damage:${event.sourceId}->${event.targetId}:${event.damage ?? 0}`) } },
       { eventType: 'healing_applied', handle: event => { if (event.type === 'healing_applied') observedEvents.push(`heal:${event.sourceId}->${event.targetId}:${event.healing}`) } },
@@ -115,6 +117,8 @@ describe('reproducible combat randomness', () => {
     expect(dungeon).toEqual(dungeonBefore)
     expect(first.victory).toBe(true)
     expect(first.levelReports[0].rounds.some(round => round.actions.length > 0)).toBe(true)
+    expect(observedEvents.some(event => event.startsWith('attack-start:hero-1:enemy_10_0:'))).toBe(true)
+    expect(observedEvents.some(event => event.startsWith('attack-resolved:hero-1:enemy_10_0:true:') && event.endsWith(observedEvents.find(start => start.startsWith('attack-start:hero-1:enemy_10_0:'))?.split(':').at(-1) ?? ''))).toBe(true)
     expect(observedEvents.some(event => event.startsWith('round:'))).toBe(true)
     expect(observedEvents.some(event => event.startsWith('damage:hero-1->enemy_10_0:') && Number(event.split(':')[2]) > 0)).toBe(true)
     expect(observedEvents).toContain('death:enemy_10_0')
