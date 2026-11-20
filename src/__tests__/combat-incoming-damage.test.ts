@@ -27,6 +27,10 @@ describe('shared incoming damage resolution', () => {
     })
   })
 
+  it('rejects random sources that violate the [0, 1) contract', () => {
+    expect(() => resolveIncomingDamage({ damage: 10, defense: 'dodge', currentMp: 0, random: { next: () => 1 } })).toThrow(RangeError)
+  })
+
   it('requires randomness when dodge is requested', () => {
     expect(() => resolveIncomingDamage({ damage: 10, defense: 'dodge', currentMp: 0 })).toThrow()
   })
