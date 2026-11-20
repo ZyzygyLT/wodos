@@ -126,7 +126,7 @@ export const calcActualDamage = (
  * Cap de 75%. Crítico aplica ×1.5 al daño calculado.
  */
 export const rollCrit = (attackerDx: number): boolean =>
-  Math.random() < Math.min(0.75, 0.05 + attackerDx * 0.005)
+  resolveCritical({ attackerDexterity: attackerDx, random: { next: () => Math.random() } }).critical
 
 export const CRIT_MULTIPLIER = 1.5
 
