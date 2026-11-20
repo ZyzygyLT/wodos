@@ -12,3 +12,4 @@ export * from './events/combat-events'
 
 export * from './skills/skill-definition'
 export * from './skills/skill-availability'
+export * from './skills/target-selection'
