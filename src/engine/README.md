@@ -139,3 +139,13 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - `resolveEnemyFallbackDamage` preserves the distinct enemy-without-formula path: enemy attack × skill multiplier × critical multiplier, defense adjusted by group defense bonus, then resistance. It also retains the minimum of 1 damage.
 - The legacy `calcActualDamage` API delegates to the formula strategy. Enemy fallback attacks delegate to the fallback strategy. Formula-backed enemy attacks continue through `calcActualDamage`.
 - This extraction does not normalize resistance values, cap resistance, combine the two strategies, or change status-effect application. Those behaviors require separate characterization before any redesign.
+
+
+### Reproducible combat randomness
+
+- Combat formulas accept an optional `RandomSource` for skill dice, critical rolls, and initiative. Existing callers that omit it retain `Math.random()` behavior.
+- The tactics layer accepts the same source for random target selection and turn-queue initiative.
+- `runDungeon` accepts `options.random`; pass a seeded source such as `createSeededRandom(seed)` to make combat, enemy targeting, defensive reactions, critical side effects, loot rolls, and loot assignment reproducible.
+- A random source is stateful: create a fresh seeded instance for each independent run. Reusing the same instance intentionally continues its sequence.
+- The default runtime path remains non-seeded. This extraction does not change probability thresholds, dice ranges, initiative rules, or loot chances.
+- Log timestamps still use wall-clock time and are not part of the deterministic gameplay stream.
