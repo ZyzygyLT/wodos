@@ -20,6 +20,7 @@ export interface SkillExecutionDefinition {
 export interface SkillExecutionAction {
   readonly targetPos: TargetPosition
   readonly targetType: TargetType
+  readonly globalTargeting?: boolean
 }
 
 export interface SkillExecutionInput<T extends TargetableUnit> {
@@ -83,6 +84,7 @@ export function resolveSkillExecution<T extends TargetableUnit>(
     targetType: action.targetType,
     skillTags: skill.tags,
     random,
+    globalTargeting: action.globalTargeting,
   })
 
   return {
