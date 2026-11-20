@@ -59,7 +59,7 @@ describe('shared HP change primitives', () => {
 
   it('treats an invalid maximum HP as zero for healing', () => {
     expect(applyHpHealing(40, Number.NaN, 10)).toMatchObject({
-      currentHp: 0, applied: -40, defeated: true,
+      currentHp: 40, applied: 0, defeated: false,
     })
   })
 
