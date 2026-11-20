@@ -86,19 +86,29 @@ async function processScheduledRun(run: any) {
   })
   if (claim.count !== 1) return
 
-  const dungeonData = await enrichDungeonLevels(dungeon)
+  try {
+    const dungeonData = await enrichDungeonLevels(dungeon)
 
-  const firstOfDay = isGroup
-    ? !(await hasGroupRunDungeonToday(allHeroIds))
-    : !(await hasHeroRunDungeonToday(run.heroId))
+    const firstOfDay = isGroup
+      ? !(await hasGroupRunDungeonToday(allHeroIds))
+      : !(await hasHeroRunDungeonToday(run.heroId))
 
-  const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
+    const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
 
-  await db.$transaction(async (tx) => {
-    await persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
-  })
+    await db.$transaction(async (tx) => {
+      await persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
+    })
 
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id, clanMemberRec })
+    await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id, clanMemberRec })
+  } catch (err) {
+    // If simulation or persistence fails, release only this still-running claim.
+    // A completed run is never reset, so committed rewards cannot be replayed.
+    await db.dungeonRun.updateMany({
+      where: { id: run.id, status: 'running' },
+      data: { status: 'registered' },
+    }).catch(releaseError => logger.error('dungeon-cron', 'No se pudo liberar la ejecución fallida', releaseError))
+    throw err
+  }
 }
 
 async function loadRunParticipants(run: any) {
