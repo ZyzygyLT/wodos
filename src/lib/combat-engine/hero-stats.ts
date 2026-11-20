@@ -59,3 +59,25 @@ export function computeDefenseForHero(hero: any) {
   )
   return { values, breakdown }
 }
+
+
+/** Resolves the same equipment resistance channels used by dungeon combat. */
+export function computeResistancesForHero(hero: any): Record<string, number> {
+  const equip = hero.equipStats && typeof hero.equipStats === 'object'
+    ? hero.equipStats as Record<string, number>
+    : calculateStats({
+        entityId: asEntityId(String(hero.id ?? 'legacy-resistances')),
+        baseStats: {},
+        modifiers: equippedItemsToModifiers((hero.items ?? []) as PersistedHeroItem[]),
+      }).values
+  const resistances: Record<string, number> = {}
+  const armor = Number.isFinite(equip.armor) ? equip.armor : 0
+  if (armor !== 0) {
+    for (const type of ['physical', 'piercing', 'bleed']) resistances[type] = armor
+  }
+  for (const type of ['fire', 'ice', 'lightning', 'poison', 'holy', 'dark', 'psychological', 'arcane']) {
+    const value = equip[`${type}Resist`]
+    if (typeof value === 'number' && Number.isFinite(value)) resistances[type] = value
+  }
+  return resistances
+}
