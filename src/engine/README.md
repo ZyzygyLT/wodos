@@ -73,6 +73,13 @@ These adapters are deliberately one-way and do not query Prisma. The dungeon/are
 
 `adapters/prisma/hero-stat-adapter.ts` provides a compatibility entry point for already-loaded hero read models: it takes base stats, `HeroItem` rows and optional engine effects, then delegates to the generic pipeline. It does not query Prisma. The dungeon/arena preparation path uses it for equipment totals; `computeDefenseForHero` remains a separate legacy path.
 
+## Reproducible dungeon simulations
+
+- `runDungeon` accepts an optional `RandomSource`. Pass a fresh generator initialized with the same seed to reproduce combat decisions, initiative, defense rolls, critical checks, random targeting and loot assignment.
+- The runner clones the mutable hero and dungeon read models before applying clan bonuses, scaling enemies, and consuming preliminary items. Nested combat rules, skill formulas, equipment stats, consumables, enemy skills, passive definitions and loot entries are copied so simulation work does not mutate caller-owned input objects.
+- Log timestamps are generated from wall-clock time and are intentionally not deterministic. Replay comparisons should normalize or omit `LogEntry.timestamp`; compare the remaining log fields, round reports, action outcomes, final HP/MP and loot.
+- When no random source is supplied, legacy runtime randomness remains the default. Deterministic replay therefore requires callers to explicitly provide a seeded source.
+
 ## Validation status
 
 Unit tests are added for core contracts and adapter mapping. Run the repository test suite and `npx tsc --noEmit` before treating the migration as verified.
