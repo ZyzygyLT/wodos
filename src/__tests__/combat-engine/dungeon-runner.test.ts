@@ -261,6 +261,20 @@ describe('runDungeon', () => {
 
     expect(damageWithItem).toBeGreaterThan(damageWithoutItem)
   })
+  it('applies equipped CON, WIL and INT bonuses to derived combat HP and MP', async () => {
+    setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
+    const hero = makeHero({
+      attrs: { ...baseAttrs, co: 10, wi: 10, in: 10 },
+      hpMax: 125,
+      mpMax: 120,
+      equipStats: { co: 2, wi: 1, in: 1 },
+    })
+    const result = await runDungeon([hero], makeDungeon())
+    const initialState = result.levelReports[0]?.rounds[0]?.stateBefore
+    expect(initialState?.heroes[0]?.maxHp).toBe(145)
+    expect(initialState?.heroes[0]?.maxMp).toBe(132)
+  })
+
   it('applies equipped flat defense when resolving incoming combat damage', async () => {
     const dungeon = makeDungeon({
       levels: [{
