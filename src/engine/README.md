@@ -230,3 +230,16 @@ Compatibility note: the legacy `self` target type previously fell through to wea
 - The dungeon runner now uses this plan to route hero skill actions into its existing damage, healing, buff and reporting handlers. Mana resolution remains in the existing availability contract and occurs before planning.
 - The planner accepts an injected `RandomSource` for random target selection. No gameplay formulas, attack resolution, cooldown timing, or effect durations are changed by this extraction.
 - Enemy skill execution and the full end-to-end lifecycle (ownership/prerequisites, cooldown assignment, and unified effect application) remain separate follow-up work.
+
+
+## Enemy skill execution and shared cooldown lifecycle
+
+- Enemy skills now use the same `resolveSkillExecution` planner as hero skills. The enemy is supplied as the actor, other living enemies as allies, and living heroes as opposing targets.
+- Enemy self-healing is represented explicitly with `healTarget: 'self'`; hero healing continues to select the most-injured living party member.
+- Enemy single-target selection now uses the shared target-selection contract and the enemy AI's weakest/strongest preference; the default AI uses seeded random target selection. Area attacks receive the living opposing units from the planner.
+- Enemy damage, criticals, defense, shields, thorns, counters, defeat processing, logs and reward-related side effects remain in the legacy combat handlers.
+- Enemy attack formulas are evaluated before target selection, preserving the established random-consumption order at that boundary. The default target policy is now centralized and is not byte-for-byte equivalent to the previous multi-step random heuristic.
+- Enemy attack and defense group buffs use the common buff plan. The enemy buff percentage keeps the legacy multiplier calculation (without hero skill-rank scaling).
+- `setSkillCooldown` and `advanceSkillCooldowns` now own immutable cooldown assignment and round advancement for both heroes and enemies. The dungeon runner remains the state adapter.
+- Formula-less area skills retain the legacy single-target fallback. Enemy healing remains self-only; no new ally-healing behavior is introduced.
+- Tests cover enemy-perspective targeting, self-only healing, AOE filtering, seeded target choice, and immutable cooldown lifecycle. Execution remains unverified until tests and TypeScript checks can be run.
