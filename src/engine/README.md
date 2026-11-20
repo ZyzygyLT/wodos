@@ -220,3 +220,13 @@ This phase does not yet validate skill ownership or `requiresSkills`: the runner
 - `resolveTarget` in `tactics-evaluator.ts` now delegates to the engine contract and retains its existing public signature and default runtime randomness.
 
 Compatibility note: the legacy `self` target type previously fell through to weakest-enemy selection in `resolveTarget`; this extraction deliberately preserves that behavior rather than silently changing existing tactic data. The engine contract exposes the candidate pool and resolution reason for later validation/UI diagnostics. It does not yet define AOE target groups or skill-specific ally/enemy target permissions.
+
+
+## Centralized skill execution planning
+
+- `core/skills/skill-execution.ts` resolves a hero skill into a neutral action plan: single-target attack, area attack, healing, or party buff.
+- The planner centralizes target choice for single-target actions, the living target set for area attacks, the most-injured living ally for healing, and the legacy rank/multiplier arithmetic for party buffs.
+- It returns data only. It does not mutate HP/MP, apply buffs or status effects, consume cooldowns, write logs, or process defeat/passive triggers.
+- The dungeon runner now uses this plan to route hero skill actions into its existing damage, healing, buff and reporting handlers. Mana resolution remains in the existing availability contract and occurs before planning.
+- The planner accepts an injected `RandomSource` for random target selection. No gameplay formulas, attack resolution, cooldown timing, or effect durations are changed by this extraction.
+- Enemy skill execution and the full end-to-end lifecycle (ownership/prerequisites, cooldown assignment, and unified effect application) remain separate follow-up work.
