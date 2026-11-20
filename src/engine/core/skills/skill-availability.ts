@@ -20,7 +20,7 @@ export function calculateSkillManaCost(baseMana: number, rank = 1): number {
 /**
  * Resolves the legacy low-mana fallback without mutating the actor.
  * A free basic attack is preferred; otherwise the first basic attack is used
- * with MP depleted; if none exists, the selected skill is forced with MP depleted.
+ * without spending additional MP; if none exists, the selected skill is forced and MP is depleted.
  */
 export function resolveSkillMana<T extends SkillManaCandidate>(input: {
   readonly selectedSkill: T
