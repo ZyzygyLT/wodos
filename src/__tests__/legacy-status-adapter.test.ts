@@ -46,7 +46,7 @@ describe('legacy combat status adapter', () => {
   })
 
   it('decays durations at round end and removes expired statuses', () => {
-    expect(advanceLegacyStatusRound([poison(1, 5), poison(3, 2)])).toEqual([poison(2, 2)])
+    expect(advanceLegacyStatusRound([poison(1, 5), { ...poison(3, 2), type: 'burn' as const }])).toEqual([{ ...poison(2, 2), type: 'burn' }])
   })
 
   it('consumes periodic status duration when its round-start tick resolves', () => {
@@ -57,8 +57,8 @@ describe('legacy combat status adapter', () => {
     ]
 
     expect(advanceLegacyPeriodicStatusRound(statuses)).toEqual([
-      { ...poison(1, 0), type: 'stun' },
       { ...poison(1, 3), type: 'burn' },
+      { ...poison(1, 0), type: 'stun' },
     ])
   })
 
