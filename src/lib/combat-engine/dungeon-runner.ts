@@ -1100,7 +1100,7 @@ function executeHeroAction(
     allies: [state.hero, ...state.allies].filter(unit => unit.id !== heroUnit.id),
     enemies: state.enemies,
     action: { targetPos: action.targetPos, targetType: action.targetType },
-    random: ctx.random,
+    random: ctx.random ?? { next: () => Math.random() },
   })
 
   if (plan.kind === 'heal') {
