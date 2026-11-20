@@ -52,7 +52,10 @@ The engine must not import generated Prisma types or query the database. Adapter
 - `toActiveEngineAttributes` excludes archived records before building the active catalogue.
 - `itemStatsToModifiers` converts finite numeric item stats into flat modifiers. Healing keys (`healHp`, `healMp`) are excluded by default because they are consumable effects, not persistent character stats.
 - `equippedItemsToModifiers` reads only equipped inventory rows. Its default behavior remains identical to the legacy calculation: it applies `item.stats` and excludes healing keys.
-- Optional resolvers can translate `statOverrides`, `runesIn`, and `upgradeLevel` into additional numeric stat records. The adapter deliberately does not invent the semantics of those JSON fields or the upgrade curve; callers must connect resolvers to authoritative game rules. Each source is preserved in modifier IDs and breakdown metadata.
+- `resolveWodosUpgradeBonus` adapts the existing Wodos rule in `src/lib/craft/upgrade-stats.ts`: each item stat is scaled by 20% per upgrade level and rounded, then represented as the delta from the original stat so it is not counted twice. Supply it as `resolveUpgrade`.
+- `createWodosRuneResolver` resolves each persisted `{ slotIndex, itemId }` entry against a caller-loaded rune item catalogue and sums the rune stats. The socket endpoint consumes the separate rune inventory row and stores only its item ID on the host item, so the resolver must receive the catalogue map. Supply it as `resolveRunes`.
+- `statOverrides` exists in the schema but no active consumer was found in the audited inventory/combat paths. Its meaning (replacement versus delta) remains deliberately unresolved; do not activate it until a real writer/reader contract is established.
+- Each source is preserved in modifier IDs and breakdown metadata.
 
 These adapters are deliberately one-way and do not query Prisma. No production combat calculation is replaced until the adapter's output is compared against the current Wodos rules for representative heroes and equipment.
 
