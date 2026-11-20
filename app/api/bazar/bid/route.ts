@@ -283,8 +283,8 @@ export async function PUT(req: NextRequest) {
       }
 
       const itemTransfer = await tx.heroItem.updateMany({
-        where: { id: listing.heroItemId, heroId: listing.sellerId },
-        data: { heroId: buyerId, equipped: false },
+        where: { id: listing.heroItemId, heroId: listing.sellerId, equipped: false },
+        data: { heroId: buyerId, equipped: false, slot: null },
       })
       if (itemTransfer.count !== 1) throw new Error("ITEM_TRANSFER_FAILED")
 
