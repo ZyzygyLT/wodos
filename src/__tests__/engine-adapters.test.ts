@@ -35,7 +35,7 @@ describe('Prisma engine adapters', () => {
     })
     expect(modifiers.map(modifier => modifier.stat)).toEqual(['strength', 'defense'])
     expect(applyStatModifiers(5, modifiers.filter(modifier => modifier.stat === 'strength'))).toBe(8)
-    expect(modifiers[0]).toMatchObject({ id: 'item:sword-1:base:strength', operation: 'flat', value: 3 })
+    expect(modifiers[0]).toMatchObject({ id: 'item:sword-1:strength', operation: 'flat', value: 3 })
   })
 
   it('supports explicit resolvers for overrides, runes and upgrades without guessing their persisted rules', () => {
