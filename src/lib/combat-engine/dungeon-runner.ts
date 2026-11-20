@@ -37,6 +37,7 @@ import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
+import { isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana } from '../../engine/core/skills/skill-availability'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -757,11 +758,6 @@ function applyPrelimSkill(
 
 // ─── ACCIÓN DEL HÉROE ────────────────────────────────────────────────────────
 
-function calcManaCost(baseMana: number, rank: number): number {
-  if (baseMana <= 0) return 0
-  return baseMana + Math.round(baseMana * 0.2 * (rank - 1))
-}
-
 function resolveDefenseEffect(
   target: CombatUnit,
   damage: number,
@@ -869,34 +865,23 @@ function handleHeroSkillMana(
   ctx: CombatCtx,
 ): { skill: HeroSkill; mpCost: number } {
   const rank = skill.rank ?? 1
-  const baseMana = skill.manaCost ?? 0
-  const mpCost = calcManaCost(baseMana, rank)
-  if (baseMana > 0 && heroUnit.mp < mpCost) {
-    // Not enough mana — find a free skill (basic attack) to use instead
-    const freeSkill = hero.skills.find(s => (s.manaCost ?? 0) === 0 && (s.effect === 'attack' || !s.effect))
-    if (freeSkill) {
-      const oldName = skill.name ?? `skill_${skill.skillId}`
-      addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
-        `${heroUnit.name} — sin maná para ${oldName}, usa ${freeSkill.name ?? 'Ataque básico'}`,
-        { actor: heroUnit.name, skill: freeSkill.name })
-      return { skill: freeSkill, mpCost: 0 }
-    }
-    // No free skill available — use basic attack with no mana cost
-    const basicFallback = hero.skills.find(s => (s.effect === 'attack' || !s.effect))
-    if (basicFallback) {
-      const oldName = skill.name ?? `skill_${skill.skillId}`
-      addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
-        `${heroUnit.name} — sin maná ni ataque gratis para ${oldName}, usa ${basicFallback.name ?? 'Ataque básico'}`,
-        { actor: heroUnit.name, skill: basicFallback.name })
-      return { skill: basicFallback, mpCost: 0 }
-    }
-    // Last resort: force skill but deduct whatever MP is available (partial cost)
-    heroUnit.mp = 0
-    return { skill, mpCost: 0 }
+  const resolution = resolveSkillMana({
+    selectedSkill: skill,
+    availableSkills: hero.skills,
+    currentMp: heroUnit.mp,
+    rank,
+  })
+  if (resolution.fallback === 'free_basic') {
+    addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} — sin maná para ${skill.name ?? `skill_${skill.skillId}`}, usa ${resolution.skill.name ?? 'Ataque básico'}`,
+      { actor: heroUnit.name, skill: resolution.skill.name })
+  } else if (resolution.fallback === 'basic') {
+    addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} — sin maná ni ataque gratis para ${skill.name ?? `skill_${skill.skillId}`}, usa ${resolution.skill.name ?? 'Ataque básico'}`,
+      { actor: heroUnit.name, skill: resolution.skill.name })
   }
-  // Enough mana — deduct it
-  heroUnit.mp = Math.max(0, heroUnit.mp - mpCost)
-  return { skill, mpCost }
+  heroUnit.mp = resolution.remainingMp
+  return { skill: resolution.skill, mpCost: resolution.mpCost }
 }
 
 function executeHeroHealAction(
@@ -1146,7 +1131,7 @@ function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }, random:
 }
 
 function isEnemySkillOnCooldown(state: CombatState, actorId: string, skillId: number): boolean {
-  return !!state.skillCooldowns?.[actorId]?.[skillId]
+  return isSkillOnCooldown(state.skillCooldowns, actorId, skillId)
 }
 
 function pickEnemySkill(enemy: EnemyData, enemyUnit: CombatUnit, state: CombatState, round: number): EnemySkillRef | null {
@@ -1851,7 +1836,7 @@ function scaleEnemiesToParty(dungeon: DungeonData, heroes: HeroData[]): void {
 
 function resolveCooldownOverride(hero: HeroData, action: TacticAction, state: CombatState, actorUnit: CombatUnit, log: LogEntry[], round: number, levelNum: number): TacticAction {
   const heroCooldowns = state.skillCooldowns?.[actorUnit.id] ?? {}
-  if (!heroCooldowns[action.skillId]) return action
+  if (!isSkillOnCooldown(state.skillCooldowns, actorUnit.id, action.skillId)) return action
   const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (s.effect === 'attack' || !s.effect))
   if (!available) return action
   const override: TacticAction = { skillId: available.skillId, targetPos: 'front', targetType: 'weakest' }
@@ -1881,7 +1866,8 @@ function applySkillCooldown(state: CombatState, actorUnit: CombatUnit, hero: Her
     const skillObj = getSkill(hero, skillId)
     cd = skillObj.cooldownRounds
   }
-  if (!cd || cd <= 0) return
+  cd = normalizeSkillCooldown(cd)
+  if (cd <= 0) return
   state.skillCooldowns ??= {}
   if (!state.skillCooldowns[actorUnit.id]) state.skillCooldowns[actorUnit.id] = {}
   state.skillCooldowns[actorUnit.id][skillId] = cd
