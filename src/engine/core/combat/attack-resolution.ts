@@ -1,4 +1,4 @@
-import type { RandomSource } from '../random/random-source'
+import { nextRandom, type RandomSource }
 
 export interface CriticalChanceInput {
   readonly attackerDexterity: number
@@ -31,7 +31,7 @@ export function calculateCriticalChance(attackerDexterity: number): number {
 export function resolveCritical(input: CriticalChanceInput): CriticalResult {
   if (input.forced) return { critical: true, chance: 1 }
   const chance = calculateCriticalChance(input.attackerDexterity)
-  const roll = input.random.next()
+  const roll = nextRandom(input.random)
   return { critical: roll < chance, chance, roll }
 }
 
