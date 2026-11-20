@@ -26,11 +26,12 @@ async function getHeroWithEnergy(heroId: string) {
     if (energyRechargeAmount <= 0) return hero
 
     const newEnergy = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + energyRechargeAmount)
+    const rechargedAt = new Date()
     await tx.hero.update({
       where: { id: heroId },
-      data: { adventureEnergy: newEnergy, lastEnergyRechargeAt: new Date() },
+      data: { adventureEnergy: newEnergy, lastEnergyRechargeAt: rechargedAt },
     })
-    return { ...hero, adventureEnergy: newEnergy, lastEnergyRechargeAt: new Date() }
+    return { ...hero, adventureEnergy: newEnergy, lastEnergyRechargeAt: rechargedAt }
   })
 }
 
@@ -387,7 +388,7 @@ export async function abandonAdventure(heroId: string, heroAdventureId: string) 
 }
 
 export async function rechargeEnergy(heroId: string) {
-  return db.$transaction(async tx => {
+  const result = await db.$transaction(async tx => {
     await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
 
     const hero = await tx.hero.findUnique({
@@ -400,8 +401,6 @@ export async function rechargeEnergy(heroId: string) {
     const passiveAmount = calcEnergyRecharge(hero.lastEnergyRechargeAt)
     const energyAfterPassive = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + passiveAmount)
     const now = new Date()
-    const effectiveLastRechargeAt = passiveAmount > 0 ? now : hero.lastEnergyRechargeAt
-
     if (energyAfterPassive >= hero.adventureEnergyMax) {
       if (passiveAmount > 0) {
         await tx.hero.update({
@@ -409,7 +408,7 @@ export async function rechargeEnergy(heroId: string) {
           data: { adventureEnergy: energyAfterPassive, lastEnergyRechargeAt: now },
         })
       }
-      throw new Error('Energía ya está al máximo')
+      return { atMax: true as const }
     }
 
     const newEnergy = Math.min(hero.adventureEnergyMax, energyAfterPassive + 1)
@@ -421,8 +420,11 @@ export async function rechargeEnergy(heroId: string) {
       },
     })
 
-    return { energy: newEnergy, energyMax: hero.adventureEnergyMax }
+    return { atMax: false as const, energy: newEnergy, energyMax: hero.adventureEnergyMax }
   })
+
+  if (result.atMax) throw new Error('Energía ya está al máximo')
+  return { energy: result.energy, energyMax: result.energyMax }
 }
 
 export async function buyEnergy(heroId: string, amount: number = ENERGY_RECHARGE_AMOUNT_GOLD) {
