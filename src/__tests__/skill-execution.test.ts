@@ -70,8 +70,8 @@ describe('central skill execution planning', () => {
       skill: { skillId: 11, effect: 'attack' },
       actor: enemy,
       allies: [unit('enemy-ally', 80)],
-      enemies: [unit('hero-strong', 90), unit('hero-weak', 10)],
-      action: { targetPos: 'auto', targetType: 'weakest' },
+      enemies: [unit('hero-strong', 90, 100, 'front'), unit('hero-weak', 10, 100, 'rear')],
+      action: { targetPos: 'auto', targetType: 'weakest', globalTargeting: true },
     })
     expect(plan.kind).toBe('single_attack')
     if (plan.kind === 'single_attack') expect(plan.target?.id).toBe('hero-weak')
