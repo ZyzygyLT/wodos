@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import db from "@/lib/db"
 import { getHeroByUserId } from "@/lib/hero-utils"
 import { computeDefenseForHero } from "@/lib/combat-engine/hero-stats"
+import { buildHeroData } from "@/lib/dungeon-helpers"
 
 export async function GET() {
   const session = await auth()
@@ -20,7 +21,13 @@ export async function GET() {
     return NextResponse.json({ error: "No tenés un héroe. Creá uno primero." }, { status: 404 })
   }
 
-  const defData = computeDefenseForHero(hero)
+  // Match the combat loadout pipeline: equipped item stats, overrides, runes and upgrades.
+  const profile = hero.combatProfiles?.find((p: any) => p.dungeonLevel === null)
+    ?? hero.combatProfiles?.[0]
+    ?? null
+  const combatHero = await buildHeroData(hero, profile)
+  const defData = computeDefenseForHero({ ...hero, equipStats: combatHero.equipStats })
+
   return NextResponse.json({
     ...hero,
     computedDefense: defData.values,
