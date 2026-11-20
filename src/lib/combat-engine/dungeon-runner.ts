@@ -1068,7 +1068,7 @@ function processAoeTarget(
   resolveAttackEvent(ctx, heroUnit.id, enemy.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
-  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'hero').atk, applyLegacyStatusStatModifiers(enemy.def ?? 5, enemy.statusEffects ?? [], 'defense'), isArmorPen, dt, enemy.resistances)
+  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'hero').atk, applyLegacyStatusStatModifiers(enemy.def ?? 5, enemy.statusEffects ?? [], 'defense'), isArmorPen, dt, enemy.resistances, groupBuffBonusesForSide(state, 'enemy').def)
   const defEff = enemy.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
@@ -1157,7 +1157,7 @@ function executeHeroSingleTargetAttack(
   resolveAttackEvent(ctx, heroUnit.id, target.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
-  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'hero').atk, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances)
+  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, heroUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'hero').atk, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances, groupBuffBonusesForSide(state, target.isHero ? 'hero' : 'enemy').def)
 
   const defEff = target.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random, ctx)
@@ -1314,7 +1314,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   resolveAttackEvent(ctx, enemyUnit.id, hero.id, true, critRoll, actionId)
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt: DamageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
-  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, enemyUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'enemy').atk, applyLegacyStatusStatModifiers(hero.def ?? 5, hero.statusEffects ?? [], 'defense'), isArmorPen, dt, hero.resistances)
+  const dmg = calcActualDamage(applyLegacyStatusStatModifiers(critAdj, enemyUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, 'enemy').atk, applyLegacyStatusStatModifiers(hero.def ?? 5, hero.statusEffects ?? [], 'defense'), isArmorPen, dt, hero.resistances, groupBuffBonusesForSide(state, 'hero').def)
   const defEff = hero.defenseEffects?.[aCat]
   const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random, ctx)
   const finalDmg = resolved.damage
@@ -1447,7 +1447,7 @@ function computeEnemyDamageWithFallback(params: EnemyDamageParams, ctx: CombatCt
   const state = ctx.state!
   if (fResult) {
     const critAdj = crit ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
-    return calcActualDamage(applyLegacyStatusStatModifiers(critAdj, attackerUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, attackerUnit.isHero ? 'hero' : 'enemy').atk, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances)
+    return calcActualDamage(applyLegacyStatusStatModifiers(critAdj, attackerUnit.statusEffects ?? [], 'attack'), groupBuffBonusesForSide(state, attackerUnit.isHero ? 'hero' : 'enemy').atk, applyLegacyStatusStatModifiers(target.def ?? 5, target.statusEffects ?? [], 'defense'), isArmorPen, dt, target.resistances, groupBuffBonusesForSide(state, target.isHero ? 'hero' : 'enemy').def)
   }
   const skillMult = chosenSkill?.multiplier ?? 1
   return resolveEnemyFallbackDamage({
