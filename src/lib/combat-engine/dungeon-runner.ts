@@ -764,6 +764,7 @@ function resolveDefenseEffect(
   target: CombatUnit,
   damage: number,
   defenseEffect: string | undefined,
+  random: RandomSource = { next: () => Math.random() },
 ): { damage: number; absorbed: number; dodged: boolean } {
   const result = resolveIncomingDamage({
     damage,
@@ -1989,7 +1990,8 @@ function runHeroTurn(
   actor: any, heroes: HeroData[], heroUnits: CombatUnit[], enemyUnits: CombatUnit[],
   state: CombatState, log: LogEntry[], round: number, levelNum: number,
   fallbackSkillId: number, ai: number, totalActors: number,
-  roundActions: DetailedAction[]
+  roundActions: DetailedAction[],
+  random: RandomSource,
 ): DetailedAction | null {
   const heroIndex = heroUnits.indexOf(actorUnit)
   const hero = heroes[heroIndex]
@@ -2025,7 +2027,7 @@ function buildPerHeroState(actorUnit: CombatUnit, heroUnits: CombatUnit[], enemy
 function runEnemyTurn(
   actorUnit: CombatUnit, lvl: DungeonLevel, heroUnits: CombatUnit[],
   state: CombatState, log: LogEntry[], round: number, levelNum: number,
-  ai: number, totalActors: number
+  ai: number, totalActors: number, random: RandomSource
 ): DetailedAction | null {
   const enemyIndex = lvl.enemies.findIndex((e: any, i: number) => actorUnit.id === `enemy_${e.id}_${i}`)
   if (enemyIndex < 0) return null
