@@ -850,8 +850,9 @@ function makeDetail(o: DetailOptions): DetailedAction {
   const dt = o.skill?.formula?.damageType ?? 'physical'
   const breakdown: DamageBreakdown[] = o.dmg != null && o.dmg > 0 ? [{ type: dt, value: o.dmg }] : []
   const skillId = o.skill?.skillId ?? (o.action?.skillId ?? 0)
-  const kind: CombatActionKind = o.itemN ? 'item' : o.hit !== null ? 'attack' : o.healA !== null ? 'heal' : o.buffN ? 'buff' : 'other'
-  const outcome: CombatActionOutcome = o.hit === false ? 'miss' : o.hit === true && o.crit === true ? 'critical' : o.hit === true ? 'hit' : (o.healA !== null || o.buffN) ? 'support' : 'unknown'
+  const kind: CombatActionKind = o.itemN ? 'item' : (o.hit !== null || (o.targetResults?.length ?? 0) > 0) ? 'attack' : o.healA !== null ? 'heal' : o.buffN ? 'buff' : 'other'
+  const targetOutcomes = (o.targetResults ?? []).map(result => result.resultType === 'failed' ? 'miss' : result.resultType === 'critical_success' ? 'critical' : result.resultType ? 'hit' : 'unknown')
+  const outcome: CombatActionOutcome = o.hit === false || (targetOutcomes.length > 0 && targetOutcomes.every(value => value === 'miss')) ? 'miss' : o.hit === true && o.crit === true || targetOutcomes.includes('critical') ? 'critical' : o.hit === true || targetOutcomes.includes('hit') ? 'hit' : (o.healA !== null || o.buffN) ? 'support' : 'unknown'
   const targets: CombatActionTargetResult[] = (o.targetResults ?? []).map(result => ({
     targetId: result.targetId,
     targetName: result.targetName,
