@@ -51,6 +51,7 @@ describe('arena opponent stat mapping', () => {
     expect(opponent.dx).toBe(14)
     expect(opponent.ag).toBe(12)
     expect(opponent.skills?.[0].formula?.attrCoeffs).toEqual({ st: 2, dx: 1 })
+    expect(opponent.skills?.[0].defenseCategory).toBe('melee')
   })
 })
 
