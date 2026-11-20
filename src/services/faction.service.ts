@@ -90,29 +90,70 @@ export async function getHeroFactionReps(heroId: string) {
   })
 }
 
-export async function adjustRep(heroId: string, factionId: number, amount: number, reason?: string) {
-  const rep = await db.heroFactionRep.upsert({
-    where: { heroId_factionId: { heroId, factionId } },
-    update: { rep: { increment: amount } },
-    create: { heroId, factionId, rep: amount },
-  })
+export interface FactionRepGrantSource {
+  sourceType: string
+  sourceId: string
+}
 
-  const newTitle = getTitleForRep(factionId, rep.rep)
-  if (newTitle !== rep.title) {
-    await db.heroFactionRep.update({
-      where: { heroId_factionId: { heroId, factionId } },
-      data: { title: newTitle },
+export async function adjustRep(
+  heroId: string,
+  factionId: number,
+  amount: number,
+  reason?: string,
+  grantSource?: FactionRepGrantSource,
+) {
+  let result: { rep: Awaited<ReturnType<typeof db.heroFactionRep.upsert>>; newTitle: string | null; factionName: string | null } | null
+
+  try {
+    result = await db.$transaction(async tx => {
+      if (grantSource) {
+        await tx.factionRepGrant.create({
+          data: {
+            heroId,
+            factionId,
+            sourceType: grantSource.sourceType,
+            sourceId: grantSource.sourceId,
+          },
+        })
+      }
+
+      const rep = await tx.heroFactionRep.upsert({
+        where: { heroId_factionId: { heroId, factionId } },
+        update: { rep: { increment: amount } },
+        create: { heroId, factionId, rep: amount },
+      })
+
+      const newTitle = getTitleForRep(factionId, rep.rep)
+      const titleChanged = newTitle !== rep.title
+      if (titleChanged) {
+        await tx.heroFactionRep.update({
+          where: { heroId_factionId: { heroId, factionId } },
+          data: { title: newTitle },
+        })
+      }
+
+      const faction = titleChanged
+        ? await tx.faction.findUnique({ where: { id: factionId }, select: { name: true } })
+        : null
+
+      return { rep, newTitle: titleChanged ? newTitle : null, factionName: faction?.name ?? null }
     })
+  } catch (error) {
+    if (grantSource && error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      return null
+    }
+    throw error
+  }
 
-    const faction = await db.faction.findUnique({ where: { id: factionId } })
+  if (result.newTitle) {
     await notify({
       heroId,
       type: "faction",
       title: "¡Nuevo título de facción!",
-      body: `Ahora sos "${newTitle}" en la facción ${faction?.name ?? "#" + factionId}.`,
+      body: `Ahora sos "${result.newTitle}" en la facción ${result.factionName ?? "#" + factionId}.`,
       data: { factionId },
     })
   }
 
-  return rep
+  return result.rep
 }
