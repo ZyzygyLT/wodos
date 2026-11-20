@@ -98,11 +98,12 @@ describe('reproducible combat randomness', () => {
     const observedEvents: string[] = []
     const startedActionIds: string[] = []
     const resolvedActionIds: string[] = []
+    const damageActionIds: string[] = []
     const combatEventHandlers: CombatEventHandler[] = [
       { eventType: 'attack_started', handle: event => { if (event.type === 'attack_started') { observedEvents.push(`attack-start:${event.actorId}:${event.targetIds.join(',')}:${event.actionId}`); if (event.actionId) startedActionIds.push(event.actionId) } } },
       { eventType: 'attack_resolved', handle: event => { if (event.type === 'attack_resolved') { observedEvents.push(`attack-resolved:${event.actorId}:${event.targetIds.join(',')}:${event.hit}:${event.critical ?? 'unknown'}:${event.actionId}`); if (event.actionId) resolvedActionIds.push(event.actionId) } } },
       { eventType: 'on_round_start', handle: event => { if (event.type === 'on_round_start') observedEvents.push(`round:${event.unitId}`) } },
-      { eventType: 'on_damage', handle: event => { if (event.type === 'on_damage') observedEvents.push(`damage:${event.sourceId}->${event.targetId}:${event.damage ?? 0}`) } },
+      { eventType: 'on_damage', handle: event => { if (event.type === 'on_damage') { observedEvents.push(`damage:${event.sourceId}->${event.targetId}:${event.damage ?? 0}`); if (event.actionId) damageActionIds.push(event.actionId) } } },
       { eventType: 'healing_applied', handle: event => { if (event.type === 'healing_applied') observedEvents.push(`heal:${event.sourceId}->${event.targetId}:${event.healing}`) } },
       { eventType: 'on_death', handle: event => { if (event.type === 'on_death') observedEvents.push(`death:${event.targetId}`) } },
     ]
@@ -122,6 +123,11 @@ describe('reproducible combat randomness', () => {
     const reportedActions = first.levelReports.flatMap(level => level.rounds.flatMap(round => round.actions))
     expect(reportedActions.every(action => action.combatResult?.actorId === action.actorId)).toBe(true)
     expect(reportedActions.some(action => action.combatResult?.kind === 'attack' && action.combatResult.targets.length > 0)).toBe(true)
+    const attackReports = reportedActions.filter(action => action.combatResult?.kind === 'attack')
+    expect(attackReports.every(action => !!action.actionId && action.combatResult?.actionId === action.actionId)).toBe(true)
+    expect(attackReports.every(action => startedActionIds.includes(action.actionId!))).toBe(true)
+    expect(damageActionIds.length).toBeGreaterThan(0)
+    expect(damageActionIds.every(actionId => startedActionIds.includes(actionId))).toBe(true)
     expect(observedEvents.some(event => event.startsWith('attack-start:hero-1:enemy_10_0:'))).toBe(true)
     expect(resolvedActionIds).toContain(startedActionIds[0])
     expect(observedEvents.some(event => event.startsWith('attack-resolved:hero-1:enemy_10_0:true:'))).toBe(true)
