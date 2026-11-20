@@ -6,6 +6,7 @@ import {
   getAttributeValue,
   isExpired,
   randomIntInclusive,
+  nextRandom,
   validateAttributes,
   type GameEffect,
   type StatModifier,
@@ -49,6 +50,10 @@ describe('engine core foundation', () => {
     expect(randomIntInclusive({ next: () => 0 }, 2, 4)).toBe(2)
     expect(randomIntInclusive({ next: () => 0.999999 }, 2, 4)).toBe(4)
     expect(() => randomIntInclusive({ next: () => 0.5 }, 4, 2)).toThrow(RangeError)
+    expect(() => nextRandom({ next: () => -0.01 })).toThrow(RangeError)
+    expect(() => nextRandom({ next: () => 1 })).toThrow(RangeError)
+    expect(() => nextRandom({ next: () => Number.NaN })).toThrow(RangeError)
+    expect(() => nextRandom({ next: () => Number.POSITIVE_INFINITY })).toThrow(RangeError)
   })
 
   it('identifies expired timed effects but not permanent effects', () => {
