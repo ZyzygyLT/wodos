@@ -48,7 +48,7 @@ import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
 import { dispatchCombatActorTurn } from '../../engine/core/combat/actor-turn'
 import { executeEnemyTurnPipeline, executeHeroTurnPipeline } from '../../engine/core/combat/actor-action'
 import { resolveStatusApplication } from '../../engine/core/effects/status-application'
-import { applyStatModifiersToRecord, statRecordToFlatModifiers } from '../../engine/core/stats/stat-modifier'
+import { applyStatModifiers, applyStatModifiersToRecord, statRecordToFlatModifiers, type StatModifier } from '../../engine/core/stats/stat-modifier'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -532,21 +532,30 @@ function mergeHeroAttrs(hero: HeroData, equip: Record<string, number>): Record<s
 function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; thornsPct: number; vampirePct: number; counterPct: number } {
   let finalHp = baseHp
   let finalMp = baseMp
-  let heroDef = calcDefenseBase(merged as any) + level * 2
+  const baseDefense = calcDefenseBase(merged as any) + level * 2
   let thornsPct = 0
   let vampirePct = 0
   let counterPct = 0
-  for (const s of skills) {
-    if (s.effect === 'hp_up') finalHp += Math.round(finalHp * 0.2)
-    else if (s.effect === 'mp_up') finalMp += Math.round(finalMp * 0.2)
-    else if (s.effect === 'accuracy_up') merged.dx = (merged.dx ?? 0) + 5
-    else if (s.effect === 'speed_up') merged.ag = (merged.ag ?? 0) + 5
-    else if (s.effect === 'fortitude') heroDef += 10
-    else if (s.effect === 'thorns') thornsPct = 20
-    else if (s.effect === 'vampire') vampirePct = 20
-    else if (s.effect === 'counter') counterPct = 30
-  }
-  return { finalHp, finalMp, merged, heroDef, thornsPct, vampirePct, counterPct }
+  const skillModifiers: StatModifier[] = []
+  const defenseModifiers: StatModifier[] = []
+
+  skills.forEach((skill, index) => {
+    if (skill.effect === 'hp_up') finalHp += Math.round(finalHp * 0.2)
+    else if (skill.effect === 'mp_up') finalMp += Math.round(finalMp * 0.2)
+    else if (skill.effect === 'accuracy_up') {
+      skillModifiers.push({ id: `skill:${index}:accuracy`, stat: 'dx', operation: 'flat', value: 5, source: 'hero-skill' })
+    } else if (skill.effect === 'speed_up') {
+      skillModifiers.push({ id: `skill:${index}:speed`, stat: 'ag', operation: 'flat', value: 5, source: 'hero-skill' })
+    } else if (skill.effect === 'fortitude') {
+      defenseModifiers.push({ id: `skill:${index}:fortitude`, stat: 'defense', operation: 'flat', value: 10, source: 'hero-skill' })
+    } else if (skill.effect === 'thorns') thornsPct = 20
+    else if (skill.effect === 'vampire') vampirePct = 20
+    else if (skill.effect === 'counter') counterPct = 30
+  })
+
+  const modifiedAttrs = applyStatModifiersToRecord(merged, skillModifiers)
+  const heroDef = applyStatModifiers(baseDefense, defenseModifiers)
+  return { finalHp, finalMp, merged: modifiedAttrs, heroDef, thornsPct, vampirePct, counterPct }
 }
 
 function buildHeroDefenseValues(ds: Record<string, number | null>, skills: HeroSkill[], merged: Record<string, number>, random: RandomSource): { defenseValues: Record<string, number>; defenseSkillNames: Record<string, string>; defenseEffects: Record<string, string> } {
