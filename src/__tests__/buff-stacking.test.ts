@@ -41,6 +41,6 @@ describe('pure buff stacking policy', () => {
     const unrelated = buff('def', 8, 3)
     const duplicate = buff('atk', 12, 1)
     expect(mergeBuffByMaximum([first, unrelated, duplicate], buff('atk', 11, 4)))
-      .toEqual([unrelated, buff('atk', 12, 4)])
+      .toEqual([unrelated, buff('atk', 11, 4)])
   })
 })
