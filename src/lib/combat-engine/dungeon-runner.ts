@@ -1649,17 +1649,21 @@ function processDotDamage(
 ): number {
   if (!unit.statusEffects || unit.hp <= 0) return 0
   const doT = calculateLegacyStatusDamage(unit.statusEffects)
-  if (doT > 0) {
-    applyDamageWithEvent(unit, doT, `status:${unit.id}`, ctx)
-    unit.condition = getCondition(unit.hp, unit.maxHp)
+  if (doT <= 0) return 0
+
+  const appliedDamage = applyDamageWithEvent(unit, doT, `status:${unit.id}`, ctx)
+  unit.condition = getCondition(unit.hp, unit.maxHp)
+  if (appliedDamage > 0) {
+    ctx.state!.damagedThisRound = true
+    processPassiveEffects('on_damage', unit, heroUnits, enemyUnits, undefined, ctx)
     addLog(log, 'hit', round, level, 'combat',
-      `☠️ ${unitName} recibe ${doT} daño de efectos`,
-      { target: unitName, value: doT })
-    if (unit.hp <= 0) {
-      processUnitDefeat(unit, undefined, heroUnits, enemyUnits, ctx, `💀 ${unitName} derribado por efectos`)
-    }
+      `☠️ ${unitName} recibe ${appliedDamage} daño de efectos`,
+      { target: unitName, value: appliedDamage })
   }
-  return doT
+  if (unit.hp <= 0) {
+    processUnitDefeat(unit, undefined, heroUnits, enemyUnits, ctx, `💀 ${unitName} derribado por efectos`)
+  }
+  return appliedDamage
 }
 
 function isUnitStunned(unit: CombatUnit): boolean {
