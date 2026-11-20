@@ -7,11 +7,13 @@ export async function POST(req: NextRequest) {
   if ("error" in result) return result.error
   const { heroId } = result
 
-  const { heroAdventureId } = await req.json()
-  if (!heroAdventureId) return NextResponse.json({ error: "Falta heroAdventureId" }, { status: 400 })
+  const { heroAdventureId, expectedCurrentStep } = await req.json()
+  if (!heroAdventureId || !Number.isInteger(expectedCurrentStep) || expectedCurrentStep < 0) {
+    return NextResponse.json({ error: "Faltan parámetros válidos" }, { status: 400 })
+  }
 
   try {
-    const adventures = await adventureService.executeStep(heroId, heroAdventureId)
+    const adventures = await adventureService.executeStep(heroId, heroAdventureId, expectedCurrentStep)
     return NextResponse.json(adventures)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 400 })
