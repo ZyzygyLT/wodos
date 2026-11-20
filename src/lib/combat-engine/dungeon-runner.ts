@@ -36,6 +36,7 @@ import { markUnitDefeated } from '../../engine/core/combat/defeat'
 import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
+import type { RandomSource } from '../../engine/core/random/random-source'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -401,9 +402,9 @@ function targetLabel(targetType: string, fallback: string): string {
 
 // ─── UTILIDADES INTERNAS ──────────────────────────────────────────────────────
 
-export function evalDefenseFormula(formula: SkillFormula | undefined | null, attrs: Record<string, number>, rank: number): number {
+export function evalDefenseFormula(formula: SkillFormula | undefined | null, attrs: Record<string, number>, rank: number, random?: RandomSource): number {
   if (!formula) return (attrs.dx ?? 5) * 2
-  const r = evaluateFormula(formula, attrs, rank)
+  const r = evaluateFormula(formula, attrs, rank, random)
   return applyDiceMultiplier(r.base, r.diceTotal, formula.diceCount, formula.diceSides, formula.diceDivisor)
 }
 
@@ -421,10 +422,10 @@ function inferAttackCategory(skill?: { attackCategory?: string; effect?: string;
   return 'ranged'
 }
 
-function getDefenseValue(target: CombatUnit, attackCategory: string): { total: number; base: number; dice: number } {
+function getDefenseValue(target: CombatUnit, attackCategory: string, random: RandomSource = { next: () => Math.random() }): { total: number; base: number; dice: number } {
   const base = target.defenseValues?.[attackCategory] ?? (target.attrs?.dx ?? 5) * 2
   const sides = 6
-  const dice = Math.floor(Math.random() * sides) + 1
+  const dice = Math.floor(random.next() * sides) + 1
   const mult = 1 + (dice - 3.5) / 6
   return { total: Math.round(base * Math.max(0.3, mult)), base, dice }
 }
@@ -584,11 +585,11 @@ function addLog(
   log.push({ type, round, level, phase, message, timestamp: Date.now(), ...extra })
 }
 
-function rollLoot(table: DungeonData['lootTable']): Array<{ itemId: number; qty: number }> {
+function rollLoot(table: DungeonData['lootTable'], random: RandomSource = { next: () => Math.random() }): Array<{ itemId: number; qty: number }> {
   const result: Array<{ itemId: number; qty: number }> = []
   for (const entry of table) {
-    if (Math.random() < entry.chance) {
-      const qty = entry.minQty + Math.floor(Math.random() * (entry.maxQty - entry.minQty + 1))
+    if (random.next() < entry.chance) {
+      const qty = entry.minQty + Math.floor(random.next() * (entry.maxQty - entry.minQty + 1))
       result.push({ itemId: entry.itemId, qty })
     }
   }
@@ -603,7 +604,7 @@ function assignLootToHeroes(
   if (alive.length === 0) return rawLoot.map(l => ({ ...l, heroId: '', heroName: '' }))
 
   return rawLoot.map(l => {
-    const hero = alive[Math.floor(Math.random() * alive.length)]
+    const hero = alive[Math.floor(random.next() * alive.length)]
     return { itemId: l.itemId, qty: l.qty, heroId: hero.id, heroName: hero.name }
   })
 }
@@ -944,7 +945,7 @@ function processAoeTarget(
 ): TargetResult {
   const { skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula } = cfg
   const state = ctx.state!
-  const { total: defVal, dice: defDice } = getDefenseValue(enemy, aCat)
+  const { total: defVal, dice: defDice } = getDefenseValue(enemy, aCat, ctx.random)
   const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat',
@@ -957,12 +958,12 @@ function processAoeTarget(
       resultType: 'failed',
     }
   }
-  const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: { next: () => Math.random() } }).critical
+  const critRoll = resolveCritical({ attackerDexterity: heroUnit.attrs.dx, forced: isCritAuto, random: ctx.random ?? { next: () => Math.random() } }).critical
   const critAdj = critRoll ? Math.round(adjAttack * CRIT_MULTIPLIER) : adjAttack
   const dt = formula?.damageType ?? 'physical'
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, enemy.def ?? 5, isArmorPen, dt, enemy.resistances)
   const defEff = enemy.defenseEffects?.[aCat]
-  const resolved = resolveDefenseEffect(enemy, dmg, defEff)
+  const resolved = resolveDefenseEffect(enemy, dmg, defEff, ctx.random)
   const finalDmg = resolved.damage
   applyDamageToTarget(enemy, finalDmg, ctx, heroUnit.name, skillName, allHeroUnits, allEnemyUnits, heroUnit)
   applyCritEffects(critRoll, enemy, finalDmg, ctx, heroUnit.name)
@@ -1028,12 +1029,12 @@ function executeHeroSingleTargetAttack(
   const state = ctx.state!
   const allHeroUnits = extraUnits?.allHeroUnits ?? [state.hero, ...state.allies]
   const allEnemyUnits = extraUnits?.allEnemyUnits ?? state.enemies
-  const target = resolveTarget(meta.action!, state, heroUnit.position, skill.tags)
+  const target = resolveTarget(meta.action!, state, heroUnit.position, skill.tags, ctx.random)
   if (!target) return null
 
   const aCat = inferAttackCategory(skill, heroUnit.position)
   const atkTotal = adjAttack
-  const { total: defVal, dice: defDice } = getDefenseValue(target, aCat)
+  const { total: defVal, dice: defDice } = getDefenseValue(target, aCat, ctx.random)
   const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
     const msg = `${heroUnit.name} usa ${skillName} → fallo`
@@ -1047,7 +1048,7 @@ function executeHeroSingleTargetAttack(
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, target.def ?? 5, isArmorPen, dt, target.resistances)
 
   const defEff = target.defenseEffects?.[aCat]
-  const resolved = resolveDefenseEffect(target, dmg, defEff)
+  const resolved = resolveDefenseEffect(target, dmg, defEff, ctx.random)
   const finalDmg = resolved.damage
 
   target.hp = applyHpDamage(target.hp, finalDmg).currentHp
@@ -1102,7 +1103,7 @@ function executeHeroAction(
   const isCritAuto = effect === 'critical_attack'
   const isAoe = effect === 'aoe_attack'
 
-  const fResult = evaluateFormula(formula, heroUnit.attrs, rank)
+  const fResult = evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
   const adjAttack = applyDiceMultiplier(fResult.base, fResult.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
 
   if (isAoe) {
@@ -1118,7 +1119,7 @@ function executeHeroAction(
 
 // ─── ACCIÓN DEL ENEMIGO (IA SIMPLE) ─────────────────────────────────────────
 
-function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }): CombatUnit | null {
+function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }, random: RandomSource = { next: () => Math.random() }): CombatUnit | null {
   const alive = heroUnits.filter(h => h.hp > 0)
   if (alive.length === 0) return null
   if (ai?.type === 'weakest') {
@@ -1127,18 +1128,18 @@ function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }): Combat
   if (ai?.type === 'strongest') {
     return alive.reduce((max, h) => h.hp > max.hp ? h : max, alive[0])
   }
-  if (Math.random() < 0.4) {
+  if (random.next() < 0.4) {
     return alive.reduce((min, h) => h.hp < min.hp ? h : min, alive[0])
   }
   const front = alive.filter(h => h.position === 'front')
   const rear = alive.filter(h => h.position === 'rear')
   let pool: CombatUnit[]
-  if (Math.random() < 0.7) {
+  if (random.next() < 0.7) {
     pool = front.length > 0 ? front : rear
   } else {
     pool = rear.length > 0 ? rear : front
   }
-  return pool[Math.floor(Math.random() * pool.length)]
+  return pool[Math.floor(random.next() * pool.length)]
 }
 
 function isEnemySkillOnCooldown(state: CombatState, actorId: string, skillId: number): boolean {
@@ -1193,7 +1194,7 @@ function executeEnemyHealEffect(enemy: EnemyData, enemyUnit: CombatUnit, chosenS
 function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: CombatUnit, cfg: EnemyAoeProcessConfig, ctx: CombatCtx): TargetResult {
   const { chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen } = cfg
   const state = ctx.state!
-  const { total: defVal, dice: defDice } = getDefenseValue(hero, aCat)
+  const { total: defVal, dice: defDice } = getDefenseValue(hero, aCat, ctx.random)
   const hit = defVal <= atkTotal
   if (!hit) {
     addLog(ctx.log, 'miss', ctx.round, ctx.level, 'combat', `${enemyUnit.name} usa ${skillName} → fallo (${hero.name})`, { actor: enemyUnit.name, target: hero.name, skill: skillName })
@@ -1209,7 +1210,7 @@ function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: Co
   const dt: DamageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
   const dmg = calcActualDamage(critAdj, state.groupAtkBonus, hero.def ?? 5, isArmorPen, dt, hero.resistances)
   const defEff = hero.defenseEffects?.[aCat]
-  const resolved = resolveDefenseEffect(hero, dmg, defEff)
+  const resolved = resolveDefenseEffect(hero, dmg, defEff, ctx.random)
   const finalDmg = resolved.damage
   applyDamageToTarget(hero, finalDmg, ctx, enemyUnit.name, skillName, heroUnits, allEnemyUnits, enemyUnit)
   applyCritEffects(critRoll, hero, finalDmg, ctx, enemyUnit.name)
@@ -1258,7 +1259,7 @@ function executeEnemySingleTargetAttack(
   aCat: string
 ): DetailedAction | null {
   const { total: defVal, dice: defDice } = getDefenseValue(target, aCat)
-  const { hit, rollBase, rollDice, attackTotal } = computeEnemyHitValues(fResult, adjAttack, enemy, defVal)
+  const { hit, rollBase, rollDice, attackTotal } = computeEnemyHitValues(fResult, adjAttack, enemy, defVal, ctx.random)
 
   if (!hit) {
     return makeEnemyMissDetail(enemy, enemyUnit, chosenSkill, skillName, damageType, target, defVal, defDice, aCat, attackTotal, rollBase, rollDice, ctx, initiative, actionNum, totalActions)
@@ -1350,7 +1351,7 @@ function computeEnemyDamageWithFallback(params: EnemyDamageParams, ctx: CombatCt
   }).finalDamage
 }
 
-function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | null, adjAttack: number, enemy: EnemyData, defVal: number): { hit: boolean; rollBase: number; rollDice: number; attackTotal: number } {
+function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | null, adjAttack: number, enemy: EnemyData, defVal: number, random: RandomSource = { next: () => Math.random() }): { hit: boolean; rollBase: number; rollDice: number; attackTotal: number } {
   if (fResult) {
     const rollBase = fResult.base
     const rollDice = fResult.diceTotal
@@ -1358,7 +1359,7 @@ function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | nu
     return { hit: resolveAttackHit({ attackTotal, defenseValue: defVal ?? 5 }).hit, rollBase, rollDice, attackTotal }
   }
   const rollBase = Math.round(enemy.atk)
-  const rollDice = Math.floor(Math.random() * 10) + 1
+  const rollDice = Math.floor(random.next() * 10) + 1
   const attackTotal = rollBase + rollDice
   return { hit: (defVal ?? 10) <= attackTotal, rollBase, rollDice, attackTotal }
 }
@@ -1439,7 +1440,7 @@ function executeEnemyAction(
   const isAoe = chosenSkill?.effect === 'aoe_attack'
   const isArmorPen = chosenSkill?.effect === 'armor_penetration'
   const formula = chosenSkill?.formula
-  const fResult = formula ? evaluateFormula(formula, enemyAttrs, 1) : null
+  const fResult = formula ? evaluateFormula(formula, enemyAttrs, 1, ctx.random) : null
   const adjAttack = fResult ? applyDiceMultiplier(fResult.base, fResult.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor) : 0
 
   if (isAoe && fResult) {
@@ -1447,7 +1448,7 @@ function executeEnemyAction(
   }
 
   const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
-  const target = pickEnemyTarget(heroUnits, enemy.ai)
+  const target = pickEnemyTarget(heroUnits, enemy.ai, ctx.random)
   if (!target) return null
 
   return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, isArmorPen, target, state, ctx, initiative, actionNum, totalActions, aCat)
@@ -1556,7 +1557,7 @@ function applyCritEffects(
   if (!isCrit || damage <= 0 || target.hp <= 0) return
   const bleedDmg = Math.max(1, Math.round(damage * 0.2))
   applyStatusEffect(target, 'bleed', bleedDmg, 2, sourceName, ctx)
-  if (Math.random() < 0.15) {
+  if ((ctx.random ?? { next: () => Math.random() }).next() < 0.15) {
     applyStatusEffect(target, 'stun', 0, 1, sourceName, ctx)
   }
 }
@@ -2001,7 +2002,7 @@ function runHeroTurn(
   let finalAction = resolveCooldownOverride(hero, action, state, actorUnit, log, round, levelNum)
   finalAction = resolveBuffOverride(hero, finalAction, state, actorUnit, log, round, levelNum)
 
-  const detail = executeHeroAction(actorUnit, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { log, round, level: levelNum, state: perHeroState }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
+  const detail = executeHeroAction(actorUnit, hero, { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors }, { log, round, level: levelNum, state: perHeroState, random }, { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits })
   if (detail) applySkillCooldown(state, actorUnit, hero, finalAction.skillId)
   return detail
 }
@@ -2030,14 +2031,15 @@ function runEnemyTurn(
   if (enemyIndex < 0) return null
   const enemyData = lvl.enemies[enemyIndex]
   if (!enemyData || actorUnit.hp <= 0) return null
-  return executeEnemyAction(enemyData, actorUnit, heroUnits, { log, round, level: levelNum, state }, 0, ai + 1, totalActors)
+  return executeEnemyAction(enemyData, actorUnit, heroUnits, { log, round, level: levelNum, state, random }, 0, ai + 1, totalActors)
 }
 
 export async function runDungeon(
   heroes: HeroData[],
   dungeon: DungeonData,
-  options: { firstOfDay?: boolean; groupBonus?: boolean; clanBonuses?: Record<string, number> } = {}
+  options: { firstOfDay?: boolean; groupBonus?: boolean; clanBonuses?: Record<string, number>; random?: RandomSource } = {}
 ): Promise<RunResult> {
+  const random = options.random ?? { next: () => Math.random() }
   const clan = options.clanBonuses ?? {}
   const log: LogEntry[] = []
   const levelResults: RunResult['levelResults'] = []
@@ -2120,7 +2122,7 @@ export async function runDungeon(
       decayBuffs(state)
 
       // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
-      const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths }
+      const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths, random }
 
       // DoT al inicio de ronda
       for (const hu of heroUnits) processDotDamage(hu, hu.name, log, round, lvl.number, heroUnits, enemyUnits, roundCtx)
@@ -2147,7 +2149,7 @@ export async function runDungeon(
         break
       }
 
-      const queue = buildTurnQueue(heroUnits, enemyUnits)
+      const queue = buildTurnQueue(heroUnits, enemyUnits, random)
       const roundActions: DetailedAction[] = []
       const totalActors = queue.length
 
@@ -2167,7 +2169,7 @@ export async function runDungeon(
         }
 
         if (actor.isHero) {
-          const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions)
+          const detail = runHeroTurn(actorUnit as CombatUnit & { attrs: Record<string, number> }, actor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number, fallbackSkillId, ai, totalActors, roundActions, random)
           if (detail) roundActions.push(detail)
         } else {
           const detail = runEnemyTurn(actorUnit, lvl, heroUnits, state, log, round, lvl.number, ai, totalActors)
@@ -2212,7 +2214,7 @@ export async function runDungeon(
       epGained += lvlEp
       goldGained += lvlGold
       fameGained += Math.round(dungeon.fameReward / dungeon.levels.length)
-      allLoot.push(...assignLootToHeroes(rollLoot(dungeon.lootTable), heroUnits))
+      allLoot.push(...assignLootToHeroes(rollLoot(dungeon.lootTable, random), heroUnits, random))
     } else {
       epGained += lvlEp
       goldGained += lvlGold
