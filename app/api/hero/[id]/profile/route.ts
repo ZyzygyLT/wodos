@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import db from "@/lib/db"
 import { buildHeroData } from "@/lib/dungeon-helpers"
-import { calculateEffectiveResourceMaxima, calculateInitiativeBase } from "@/engine/core/stats/derived-stats"
+import { applyInitiativeSkillModifiers, calculateEffectiveResourceMaxima, calculateInitiativeBase } from "@/engine/core/stats/derived-stats"
 import { computeDefenseForHero, computeResistancesForHero } from "@/lib/combat-engine/hero-stats"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,8 +53,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   for (const skill of combatHero.skills) {
     if (skill.effect === 'accuracy_up') computedAttrs.dx = (computedAttrs.dx ?? 0) + 5
-    else if (skill.effect === 'speed_up') computedAttrs.ag = (computedAttrs.ag ?? 0) + 5
   }
+  Object.assign(computedAttrs, applyInitiativeSkillModifiers(computedAttrs, combatHero.skills.map(skill => skill.effect)))
   const computedInitiativeBase = calculateInitiativeBase({
     ag: computedAttrs.ag ?? 0,
     pe: computedAttrs.pe ?? 0,
