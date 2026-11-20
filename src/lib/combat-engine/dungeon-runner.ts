@@ -949,6 +949,7 @@ function executeHeroItemAction(
   if (item.healMp) {
     const actual = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
     heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + actual)
+    if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
     const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} MP`
     addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
     consumeItem(consumables, itemId)
@@ -964,6 +965,7 @@ function handleHeroSkillMana(
   ctx: CombatCtx,
 ): { skill: HeroSkill; mpCost: number } {
   const rank = skill.rank ?? 1
+  const previousMp = heroUnit.mp
   const resolution = resolveSkillMana({
     selectedSkill: skill,
     availableSkills: hero.skills,
@@ -980,6 +982,7 @@ function handleHeroSkillMana(
       { actor: heroUnit.name, skill: resolution.skill.name })
   }
   heroUnit.mp = resolution.remainingMp
+  if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
   return { skill: resolution.skill, mpCost: resolution.mpCost }
 }
 
@@ -1017,7 +1020,7 @@ function executeHeroBuffAction(
 ): DetailedAction {
   const state = ctx.state!
   const isAtk = buff === 'atk'
-  addBuff(state, isAtk ? 'atk' : 'def', bonus, skillName, 'hero', BUFF_DURATION)
+  addBuff(state, isAtk ? 'atk' : 'def', bonus, skillName, 'hero', BUFF_DURATION, ctx)
   const label = isAtk ? 'ATK grupal' : 'DEF grupal'
   const msg = `${heroUnit.name} usa ${skillName} → +${bonus}% ${label}`
   addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: skillName, value: bonus })
@@ -1261,7 +1264,7 @@ function makeEnemySkillObj(chosenSkill: EnemySkillRef | null, enemy: EnemyData, 
 
 function executeEnemyBuffEffect(enemy: EnemyData, enemyUnit: CombatUnit, chosenSkill: EnemySkillRef, skillName: string, buff: 'atk' | 'def', bonus: number, ctx: CombatCtx, meta: ActionMeta): DetailedAction {
   const state = ctx.state!
-  addBuff(state, buff, bonus, skillName, 'enemy', BUFF_DURATION)
+  addBuff(state, buff, bonus, skillName, 'enemy', BUFF_DURATION, ctx)
   const label = buff === 'atk' ? 'ATK grupal' : 'DEF grupal'
   const msg = enemyUnit.name + ' usa ' + skillName + ' → +' + bonus + '% ' + label + ' enemigos'
   addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', msg, { actor: enemyUnit.name, skill: skillName, value: bonus })
@@ -1781,7 +1784,7 @@ function processBuffPassive(pe: PassiveEffect, value: number, source: CombatUnit
   const buffType = pe.buffType ?? 'atk'
   const targets = resolvePassiveTargets(pe, source, heroUnits, enemyUnits)
   for (const t of targets) {
-    addBuff(ctx.state, buffType, value, `${source.name}:${pe.sourceName}`, t.isHero ? 'hero' : 'enemy', 2)
+    addBuff(ctx.state, buffType, value, `${source.name}:${pe.sourceName}`, t.isHero ? 'hero' : 'enemy', 2, ctx)
   }
   if (targets.length > 0) {
     addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat',
@@ -2320,10 +2323,9 @@ export async function runDungeon(
         `── Ronda ${round} ──`)
 
       // Decaer buffs al inicio de ronda
-      decayBuffs(state)
-
       // Contexto compartido de la ronda: mantiene idempotente el procesamiento de derrotas.
       const roundCtx: CombatCtx = { log, round, level: lvl.number, state, processedDeaths, random, events, eventSequence }
+      decayBuffs(state, roundCtx)
       emitCombatStateChanged(roundCtx, { level: lvl.number, round, buffs: state.buffs ?? [], cooldowns: state.skillCooldowns ?? {} })
 
       // DoT al inicio de ronda
