@@ -349,3 +349,9 @@ The dispatcher is observational: handlers run synchronously in registration orde
 - `reconstructCombatState({ schemaVersion: 1, level: 0, round: 0, units: [], buffs: [], cooldowns: {} }, journal.events)` can therefore rebuild the tracked state from the journal without an externally supplied initial snapshot. The integration test compares reconstructed hero/enemy HP and MP against the final dungeon report for a deterministic run.
 - **Important boundary:** this is not a complete save-game snapshot of every field in `CombatState` or `CombatUnit`. Tactical flags, faction/group derived values, consumable inventory, and other non-listed fields are outside this reducer. Preliminary actions are represented by the first level checkpoint rather than individual events. Any newly added mutable combat field must be added to the checkpoint/delta contract and differential tests before being treated as replayable.
 - Journal schema remains v1. New state event types are additive; consumers should ignore unknown semantic event types only when their own compatibility policy explicitly allows it.
+
+## Combat round control extraction
+
+- `core/combat/round-control.ts` owns the pure `resolveCombatRoundStatus` decision: continue, hero defeat, or level victory. It preserves the legacy precedence (hero defeat before enemy defeat, then trap auto-win) and validates living-unit counts.
+- `dungeon-runner.ts` delegates its round-boundary termination decisions to this engine contract. The turn queue, action execution, damage/status mutation, reward calculation and reporting remain in the legacy runner for now; this first extraction deliberately does not reorder or relocate those phases.
+- `combat-round-control.test.ts` covers both-side survival, victory, simultaneous defeat precedence, trap auto-win and invalid inputs. The existing seeded dungeon integration test continues to exercise the runner path.
