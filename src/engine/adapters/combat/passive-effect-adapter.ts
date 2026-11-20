@@ -1,10 +1,10 @@
-import type { CombatEventType } from '../../core/events/combat-events'
+import type { LegacyPassiveTrigger } from '../../core/events/combat-events'
 
 export type LegacyPassiveEffectType = 'damage' | 'heal' | 'buff'
 export type LegacyPassiveTarget = 'attacker' | 'all_heroes' | 'all_enemies' | 'self'
 
 export interface LegacyPassiveEffect {
-  readonly trigger: CombatEventType
+  readonly trigger: LegacyPassiveTrigger
   readonly effectType: LegacyPassiveEffectType
   readonly targetType: LegacyPassiveTarget
   readonly value: number | { readonly base: number; readonly coeff?: number; readonly attrScale?: string }
@@ -33,7 +33,7 @@ export interface ResolvedPassiveCommand {
 
 /** Resolves Wodos passive formulas and filters by trigger without applying game side effects. */
 export function resolveLegacyPassiveEffects(
-  trigger: CombatEventType,
+  trigger: LegacyPassiveTrigger,
   source: PassiveSource,
 ): readonly ResolvedPassiveCommand[] {
   const effects = source.passiveEffects?.filter(effect => effect.trigger === trigger) ?? []
