@@ -130,3 +130,12 @@ Unit tests are added for core contracts and adapter mapping. Run the repository 
 - The legacy `rollCrit` export remains available and delegates to the engine resolver through the existing runtime random source.
 - The dungeon runner now uses the shared hit resolver for hero single-target attacks, hero/enemy area attacks, and enemy formula/fallback hit checks. Hero and enemy critical rolls use the shared critical resolver; automatic critical skills remain guaranteed.
 - This phase deliberately does not merge hero and enemy damage formulas. In particular, the enemy no-formula fallback still rolls its legacy d10 attack bonus, and its damage calculation remains separate. Damage multipliers, armor penetration, resistances, defense dice and status-effect timing are unchanged.
+
+
+### Damage resolution strategies
+
+- `core/combat/damage-resolution.ts` contains two explicit pure strategies and returns a structured breakdown: raw damage, effective defense, damage after defense, resistance percentage and final damage.
+- `resolveFormulaDamage` preserves the formula-based Wodos order: group attack bonus, optional armor-penetration defense reduction, defense subtraction, then damage-type resistance. It retains the legacy minimum of 1 damage.
+- `resolveEnemyFallbackDamage` preserves the distinct enemy-without-formula path: enemy attack × skill multiplier × critical multiplier, defense adjusted by group defense bonus, then resistance. It also retains the minimum of 1 damage.
+- The legacy `calcActualDamage` API delegates to the formula strategy. Enemy fallback attacks delegate to the fallback strategy. Formula-backed enemy attacks continue through `calcActualDamage`.
+- This extraction does not normalize resistance values, cap resistance, combine the two strategies, or change status-effect application. Those behaviors require separate characterization before any redesign.
