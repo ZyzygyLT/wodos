@@ -5,21 +5,21 @@ import SkillTree from '@/components/game/SkillTree'
 
 const mockSkills = [
   {
-    id: 1, name: 'Golpe básico', icon: '👊', tier: 0,
+    id: 1, name: 'Golpe básico', icon: '👊', tier: 0, maxRank: 10,
     epCost: 0, goldCost: 0, type: 'attack', description: 'Ataque básico',
     requiresSkills: [], unlocked: true, rank: 1,
     manaCost: 5, multiplier: 1, tags: ['físico'],
     formula: { attrCoeffs: { st: 2 }, skillRankCoeff: 1, diceSides: 6, diceCount: 1, flatBonus: 0 },
   },
   {
-    id: 2, name: 'Golpe poderoso', icon: '💥', tier: 1,
+    id: 2, name: 'Golpe poderoso', icon: '💥', tier: 1, maxRank: 10,
     epCost: 100, goldCost: 50, type: 'attack', description: 'Un golpe devastador',
     requiresSkills: [1], unlocked: false, rank: 0,
     manaCost: 10, multiplier: 2, tags: ['físico', 'pesado'],
     formula: { attrCoeffs: { st: 3 }, skillRankCoeff: 2, diceSides: 8, diceCount: 1, flatBonus: 5 },
   },
   {
-    id: 3, name: 'Escudo de maná', icon: '🛡️', tier: 2,
+    id: 3, name: 'Escudo de maná', icon: '🛡️', tier: 2, maxRank: 10,
     epCost: 200, goldCost: 100, type: 'passive', description: 'Reduce daño mágico',
     requiresSkills: [1, 2], unlocked: false, rank: 0,
     manaCost: 0, multiplier: 0, tags: ['defensivo', 'magia'],
