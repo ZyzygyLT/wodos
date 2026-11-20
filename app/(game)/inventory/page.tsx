@@ -5,6 +5,7 @@ import { useInventory } from "@/hooks/useInventory"
 import EnchantModal from "./EnchantModal"
 import SocketModal from "./SocketModal"
 import ItemTooltip, { type TooltipItem } from "@/components/game/ItemTooltip"
+import { applyUpgradeStats } from "@/lib/craft/upgrade-stats"
 
 const RARITY_COLORS: Record<string, string> = {
   common: "border-gray-500 text-gray-300",
@@ -110,12 +111,31 @@ export default function InventoryPage() {
   const [sellPrice, setSellPrice] = useState("")
   const anchorRefs = useRef<Map<string, HTMLElement>>(new Map())
 
+  function getEffectiveStats(ei: any): Record<string, number> {
+    const base = (ei.item.stats ?? {}) as Record<string, number>
+    const overrides = ei.statOverrides && typeof ei.statOverrides === "object" && !Array.isArray(ei.statOverrides)
+      ? ei.statOverrides as Record<string, number>
+      : {}
+    const upgraded = applyUpgradeStats({ ...base, ...overrides }, ei.upgradeLevel ?? 0)
+    const effective = { ...upgraded }
+    for (const rune of ei.resolvedRuneItems ?? []) {
+      for (const [stat, value] of Object.entries((rune.stats ?? {}) as Record<string, number>)) {
+        if (typeof value === "number" && Number.isFinite(value)) {
+          effective[stat] = (effective[stat] ?? 0) + value
+        }
+      }
+    }
+    return effective
+  }
+
   function toTooltipItem(ei: any): TooltipItem {
     const runesIn = (ei.runesIn as any[] ?? [])
-    const runeItems = runesIn.map((r: any) => {
-      const runeItem = runes.find((run: any) => run.item?.id === r.itemId)
-      return runeItem ? { id: runeItem.item.id, name: runeItem.item.name, icon: runeItem.item.icon, stats: (runeItem.item.stats ?? {}) as Record<string, number> } : null
-    }).filter(Boolean)
+    const runeItems = (ei.resolvedRuneItems ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      icon: r.icon,
+      stats: (r.stats ?? {}) as Record<string, number>,
+    }))
     return {
       id: ei.item.id,
       name: ei.item.name,
@@ -125,10 +145,10 @@ export default function InventoryPage() {
       slot: ei.item.slot,
       levelReq: ei.item.levelReq,
       description: ei.item.description ?? '',
-      stats: ei.item.stats,
+      stats: getEffectiveStats(ei),
       runeSlots: ei.item.runeSlots,
       runesIn,
-      runeItems: runeItems as any,
+      runeItems,
       upgradeLevel: ei.upgradeLevel,
       classReq: ei.item.classReq,
       attrReq: ei.item.attrReq,
@@ -156,8 +176,7 @@ export default function InventoryPage() {
   }
 
   function mergeStats(ei: any): Record<string, number> {
-    const base = (ei.item.stats ?? {}) as Record<string, number>
-    return { ...base }
+    return getEffectiveStats(ei)
   }
 
   function hideTooltip() { setHoveredItem(null) }
