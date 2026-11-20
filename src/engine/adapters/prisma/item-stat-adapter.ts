@@ -21,9 +21,9 @@ export interface EquippedItemModifierResolvers {
    * No default interpretation is assumed by the engine adapter.
    */
   readonly resolveStatOverrides?: (item: PersistedHeroItem) => NumericStatRecord | null | undefined
-  /** Resolve inserted rune effects using the game's rune catalogue/rules. */
+  /** Resolve inserted runes into additive stat bonuses using the game's rune catalogue/rules. */
   readonly resolveRunes?: (item: PersistedHeroItem) => NumericStatRecord | null | undefined
-  /** Resolve upgrade bonuses using the game's actual upgrade curve. */
+  /** Resolve additive upgrade bonuses using the game's actual upgrade curve. */
   readonly resolveUpgrade?: (item: PersistedHeroItem) => NumericStatRecord | null | undefined
   readonly excludedStats?: readonly string[]
 }
@@ -38,11 +38,11 @@ function statsToModifiers(
   return Object.entries(stats)
     .filter(([stat, value]) => !excludedStats.has(stat) && typeof value === 'number' && Number.isFinite(value))
     .map(([stat, value]) => ({
-      id: `item:${itemId}:${source}:${stat}`,
+      id: source === 'base' ? `item:${itemId}:${stat}` : `item:${itemId}:${source}:${stat}`,
       stat,
       operation: 'flat' as const,
       value: value as number,
-      source: `item:${itemId}:${source}`,
+      source: source === 'base' ? `item:${itemId}` : `item:${itemId}:${source}`,
     }))
 }
 
