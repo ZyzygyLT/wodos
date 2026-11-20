@@ -161,7 +161,7 @@ export default function BazarPage() {
                     )}
                   </div>
                   <div className="text-right shrink-0 w-full sm:w-auto">
-                    {isAuction ? (
+                    {l.sellerId !== hero.id && (isAuction ? (
                       <div className="flex items-center gap-2 justify-end">
                         <input
                           type="number"
@@ -180,7 +180,7 @@ export default function BazarPage() {
                         className="w-full sm:w-auto px-3 py-1 rounded bg-green-700 hover:bg-green-600 text-xs transition">
                         Comprar {l.price}💰
                       </button>
-                    )}
+                    ))}
                     {l.sellerId === hero.id && (
                       <button onClick={() => cancelListing(l.id)}
                         className="mt-2 w-full sm:w-auto px-3 py-1 rounded bg-red-900 hover:bg-red-800 text-xs transition">
