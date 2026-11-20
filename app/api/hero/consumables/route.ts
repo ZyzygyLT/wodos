@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import db from "@/lib/db"
 import { updateQuestProgress } from "@/lib/quests/progress"
 import { checkAchievements } from "@/lib/achievements/checker"
+import { assertHeroItemNotListed } from "@/services/bazar-item-guard"
 
 export async function GET() {
   const session = await auth()
@@ -55,14 +56,26 @@ export async function POST(req: NextRequest) {
   const stats = hi.item.stats as Record<string, number> | null
   if (!stats) return NextResponse.json({ error: "Este item no tiene efectos" }, { status: 400 })
 
-  const updateData: Record<string, number> = {}
-  if (stats.healHp) updateData.hpCurrent = Math.min(hero.hpCurrent + stats.healHp, hero.hpMax)
-  if (stats.healMp) updateData.mpCurrent = Math.min(hero.mpCurrent + stats.healMp, hero.mpMax)
+  const result = await db.$transaction(async tx => {
+    await assertHeroItemNotListed(tx, hi.id, hero.id)
 
-  await db.$transaction([
-    db.hero.update({ where: { id: hero.id }, data: updateData }),
-    db.heroItem.delete({ where: { id: hi.id } }),
-  ])
+    const updateData: Record<string, number> = {}
+    if (stats.healHp) updateData.hpCurrent = Math.min(hero.hpCurrent + stats.healHp, hero.hpMax)
+    if (stats.healMp) updateData.mpCurrent = Math.min(hero.mpCurrent + stats.healMp, hero.mpMax)
+
+    await tx.hero.update({ where: { id: hero.id }, data: updateData })
+    const consumed = await tx.heroItem.deleteMany({ where: { id: hi.id, heroId: hero.id } })
+    if (consumed.count !== 1) throw new Error("CONSUMABLE_STALE")
+
+    return updateData
+  }).catch(error => {
+    if (error instanceof Error && error.message === "ITEM_LISTED") return { error: "No podés usar un consumible mientras esté publicado en el bazar.", status: 409 }
+    if (error instanceof Error && (error.message === "ITEM_NOT_FOUND" || error.message === "CONSUMABLE_STALE")) return { error: "El consumible ya no está disponible.", status: 409 }
+    throw error
+  })
+
+  if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status })
+  const updateData = result
 
   updateQuestProgress(hero.id, { type: "craft_items" }).catch(e => logger.error("api", "Background operation failed", e))
   checkAchievements(hero.id, { type: "craft_items" }).catch(e => logger.error("api", "Background operation failed", e))
