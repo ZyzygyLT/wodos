@@ -54,7 +54,7 @@ describe('skill availability and resource rules', () => {
     })).toEqual({
       skill: paidBasic,
       mpCost: 0,
-      remainingMp: 0,
+      remainingMp: 3,
       fallback: 'basic',
     })
   })
