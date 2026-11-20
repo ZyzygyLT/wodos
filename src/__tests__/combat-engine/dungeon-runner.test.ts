@@ -261,6 +261,26 @@ describe('runDungeon', () => {
 
     expect(damageWithItem).toBeGreaterThan(damageWithoutItem)
   })
+  it('applies equipped flat defense when resolving incoming combat damage', async () => {
+    const dungeon = makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Ogre', icon: '👹', hp: 5000, mp: 0, atk: 40, def: 1, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+    })
+    const baseHero = makeHero({ hpMax: 5000, attrs: { ...baseAttrs, dx: 0, ag: 0, pe: 0 } })
+
+    setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
+    const withoutDefense = await runDungeon([{ ...baseHero, equipStats: {} }], dungeon)
+
+    setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
+    const withDefense = await runDungeon([{ ...baseHero, equipStats: { def: 30 } }], dungeon)
+
+    expect(withDefense.heroesFinalState[0].hp).toBeGreaterThan(withoutDefense.heroesFinalState[0].hp)
+  })
+
 
   it('handles mana shield passive', async () => {
     const hero = makeHero({ manaShield: true, mpMax: 50, hpMax: 500, attrs: { ...baseAttrs, wi: 20, st: 0, dx: 0 } })
