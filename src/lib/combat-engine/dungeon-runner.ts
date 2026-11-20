@@ -1127,29 +1127,6 @@ function executeHeroAction(
 
 // ─── ACCIÓN DEL ENEMIGO (IA SIMPLE) ─────────────────────────────────────────
 
-function pickEnemyTarget(heroUnits: CombatUnit[], ai?: { type: string }, random: RandomSource = { next: () => Math.random() }): CombatUnit | null {
-  const alive = heroUnits.filter(h => h.hp > 0)
-  if (alive.length === 0) return null
-  if (ai?.type === 'weakest') {
-    return alive.reduce((min, h) => h.hp < min.hp ? h : min, alive[0])
-  }
-  if (ai?.type === 'strongest') {
-    return alive.reduce((max, h) => h.hp > max.hp ? h : max, alive[0])
-  }
-  if (nextRandom(random) < 0.4) {
-    return alive.reduce((min, h) => h.hp < min.hp ? h : min, alive[0])
-  }
-  const front = alive.filter(h => h.position === 'front')
-  const rear = alive.filter(h => h.position === 'rear')
-  let pool: CombatUnit[]
-  if (nextRandom(random) < 0.7) {
-    pool = front.length > 0 ? front : rear
-  } else {
-    pool = rear.length > 0 ? rear : front
-  }
-  return pool.length > 0 ? pool[randomIntInclusive(random, 0, pool.length - 1)] : null
-}
-
 function isEnemySkillOnCooldown(state: CombatState, actorId: string, skillId: number): boolean {
   return isSkillOnCooldown(state.skillCooldowns, actorId, skillId)
 }
@@ -1488,9 +1465,15 @@ function executeEnemyAction(
     return executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen: false }, ctx, { initiative, actionNum, totalActions }, plan.targets)
   }
 
-  if (plan.kind !== 'single_attack' || !plan.target) return null
+  const singlePlan = plan.kind === 'area_attack'
+    ? resolveSkillExecution({
+        ...executionInput,
+        skill: { ...executionSkill, effect: 'attack' },
+      })
+    : plan
+  if (singlePlan.kind !== 'single_attack' || !singlePlan.target) return null
   const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
-  return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, plan.armorPenetration, plan.target, state, ctx, initiative, actionNum, totalActions, aCat)
+  return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, singlePlan.armorPenetration, singlePlan.target, state, ctx, initiative, actionNum, totalActions, aCat)
 }
 
 // ─── EFECTOS DE ESTADO ────────────────────────────────────────────────────────
