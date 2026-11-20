@@ -16,6 +16,13 @@ import {
   BuffEntry, PassiveEffect,
 } from './tactics-evaluator'
 
+import {
+  advanceLegacyStatusRound,
+  applyLegacyStatusEffect,
+  calculateLegacyStatusDamage,
+  isLegacyCombatUnitDisabled,
+} from '../../engine/adapters/combat/status-effect-adapter'
+
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
 export interface HeroData {
@@ -1443,14 +1450,8 @@ function applyStatusEffect(
   target: CombatUnit, type: StatusEffect['type'], value: number, rounds: number,
   sourceName: string, ctx: CombatCtx
 ) {
-  target.statusEffects ??= []
-  const existing = target.statusEffects.find(s => s.type === type)
-  if (existing) {
-    existing.remainingRounds = Math.max(existing.remainingRounds, rounds)
-    existing.value = Math.max(existing.value, value)
-  } else {
-    target.statusEffects.push({ type, remainingRounds: rounds, value, source: sourceName, sourceName })
-  }
+  const incoming: StatusEffect = { type, remainingRounds: rounds, value, source: sourceName, sourceName }
+  target.statusEffects = [...applyLegacyStatusEffect(target.statusEffects ?? [], incoming)]
   const icon = statusIcon(type)
   addLog(ctx.log, 'condition_change', ctx.round, ctx.level, 'combat',
     `${icon} ${target.name} sufre ${type} (${rounds}r, ${value}/ronda)`,
@@ -1461,13 +1462,8 @@ function processDotDamage(
   unit: CombatUnit, unitName: string,
   log: LogEntry[], round: number, level: number
 ): number {
-  let doT = 0
   if (!unit.statusEffects || unit.hp <= 0) return 0
-  for (const effect of unit.statusEffects) {
-    if (['poison', 'burn', 'bleed'].includes(effect.type)) {
-      doT += effect.value
-    }
-  }
+  const doT = calculateLegacyStatusDamage(unit.statusEffects)
   if (doT > 0) {
     unit.hp = Math.max(0, unit.hp - doT)
     unit.condition = getCondition(unit.hp, unit.maxHp)
@@ -1482,15 +1478,12 @@ function processDotDamage(
 }
 
 function isUnitStunned(unit: CombatUnit): boolean {
-  return unit.statusEffects?.some(se => se.type === 'stun' || se.type === 'freeze') ?? false
+  return isLegacyCombatUnitDisabled(unit.statusEffects ?? [])
 }
 
 function decayStatusEffects(unit: CombatUnit) {
   if (!unit.statusEffects) return
-  for (const effect of unit.statusEffects) {
-    effect.remainingRounds--
-  }
-  unit.statusEffects = unit.statusEffects.filter(e => e.remainingRounds > 0)
+  unit.statusEffects = [...advanceLegacyStatusRound(unit.statusEffects)]
 }
 
 function statusEffectFromDamageType(dt: DamageType, atk: number): { type: StatusEffect['type']; value: number; rounds: number } | null {
