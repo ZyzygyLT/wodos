@@ -72,7 +72,9 @@ export interface HeroData {
   }
   skills: Array<{ skillId: number; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
   equipStats?: Record<string, number>
-  consumables?: Array<{ itemId: number; healHp?: number; healMp?: number }>
+  consumables?: Array<{ heroItemId: string; itemId: number; healHp?: number; healMp?: number }>
+  /** Inventory row IDs removed by this in-memory simulation. */
+  consumedConsumableIds?: string[]
   manaShield?: boolean
 }
 
@@ -755,13 +757,16 @@ function getSkill(hero: HeroData, skillId: number) {
   return { skillId: 1, name: 'Ataque', multiplier: 1, manaCost: 5, effect: 'attack' as const, rank: 1, cooldownRounds: 0, formula: { attrCoeffs: { st: 1, dx: 1, in: 1, wi: 1 }, skillRankCoeff: 1, diceSides: 6, diceCount: 1, diceDivisor: 6, flatBonus: 3 } }
 }
 
-function getItem(consumables: Array<{ itemId: number; healHp?: number; healMp?: number }>, itemId: number) {
+function getItem(consumables: Array<{ heroItemId: string; itemId: number; healHp?: number; healMp?: number }>, itemId: number) {
   return consumables.find(c => c.itemId === itemId)
 }
 
-function consumeItem(consumables: Array<{ itemId: number; healHp?: number; healMp?: number }>, itemId: number) {
+function consumeItem(hero: HeroData, itemId: number) {
+  const consumables = hero.consumables ?? []
   const idx = consumables.findIndex(c => c.itemId === itemId)
-  if (idx !== -1) consumables.splice(idx, 1)
+  if (idx === -1) return
+  const [consumed] = consumables.splice(idx, 1)
+  ;(hero.consumedConsumableIds ??= []).push(consumed.heroItemId)
 }
 
 // ─── RONDA PRELIMINAR ─────────────────────────────────────────────────────────
@@ -805,7 +810,7 @@ function applyPrelimItem(
     heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + actual)
     addLog(log, 'heal', 0, level, 'prelim', `${heroUnit.name} usa item_${item.itemId} → recupera ${actual} MP`, { actor: heroUnit.name, skill: `item_${item.itemId}`, value: actual })
   }
-  consumeItem(hero.consumables ?? [], rule.itemId)
+  consumeItem(hero, rule.itemId)
 }
 
 function applyPrelimSkill(
@@ -965,7 +970,7 @@ function executeHeroItemAction(
     applyHealingWithEvent(heroUnit, actual, heroUnit.id, ctx)
     const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} HP`
     addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
-    consumeItem(consumables, itemId)
+    consumeItem(hero, itemId)
     return makeDetail({ skill: null, heroUnit, target: null, action, initiative, actionNum, total: totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'hp', buffN: null, buffV: null, itemN: itemName, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
   }
   if (item.healMp) {
@@ -975,7 +980,7 @@ function executeHeroItemAction(
     if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
     const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} MP`
     addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
-    consumeItem(consumables, itemId)
+    consumeItem(hero, itemId)
     return makeDetail({ skill: null, heroUnit, target: null, action, initiative, actionNum, total: totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'mp', buffN: null, buffV: null, itemN: itemName, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
   }
   return null
