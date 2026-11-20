@@ -20,8 +20,8 @@ interface PersistParams {
 export async function persistRunResult(tx: Parameters<Parameters<typeof db.$transaction>[0]>[0], params: PersistParams) {
   const { runId, result, heroesData, totalHeroes } = params
 
-  await tx.dungeonRun.update({
-    where: { id: runId },
+  const finalized = await tx.dungeonRun.updateMany({
+    where: { id: runId, status: 'running' },
     data: {
       status: result.victory ? 'done' : 'failed',
       result: result.victory ? 'victory' : 'defeat',
@@ -36,6 +36,9 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
       completesAt: new Date(),
     },
   })
+  if (finalized.count !== 1) {
+    throw new Error('DUNGEON_RUN_ALREADY_FINALIZED')
+  }
 
   for (const fs of result.heroesFinalState) {
     const hData = heroesData.find(h => h.id === fs.id)
