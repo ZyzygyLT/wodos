@@ -57,7 +57,7 @@ The engine must not import generated Prisma types or query the database. Adapter
 - `createWodosRuneResolver` resolves each persisted `{ slotIndex, itemId }` entry against a caller-loaded rune item catalogue and sums the rune stats. The socket endpoint consumes the separate rune inventory row and stores only its item ID on the host item, so the resolver must receive the catalogue map. Supply it as `resolveRunes`.
 - Each source is preserved in modifier IDs and breakdown metadata.
 
-These adapters are deliberately one-way and do not query Prisma. No production combat calculation is replaced until the adapter's output is compared against the current Wodos rules for representative heroes and equipment.
+These adapters are deliberately one-way and do not query Prisma. The dungeon/arena preparation path in `src/lib/dungeon-helpers.ts` now loads the rune catalogue and passes the persisted hero items through this adapter before combat. The adapter preserves the legacy calculation order: base stats, replacement overrides, upgrade scaling, then rune additions. The separate `computeDefenseForHero` helper remains legacy and is not yet migrated.
 
 ## Pure stat pipeline
 
@@ -65,7 +65,7 @@ These adapters are deliberately one-way and do not query Prisma. No production c
 
 ## First hero integration seam
 
-`adapters/prisma/hero-stat-adapter.ts` provides a compatibility entry point for already-loaded hero read models: it takes base stats, equipped `HeroItem` rows and optional engine effects, then delegates to the generic pipeline. It does not query Prisma and does not replace `computeDefenseForHero`.
+`adapters/prisma/hero-stat-adapter.ts` provides a compatibility entry point for already-loaded hero read models: it takes base stats, `HeroItem` rows and optional engine effects, then delegates to the generic pipeline. It does not query Prisma. The dungeon/arena preparation path uses it for equipment totals; `computeDefenseForHero` remains a separate legacy path.
 
 ## Validation status
 
