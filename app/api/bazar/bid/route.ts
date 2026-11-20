@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       const listing = await tx.bazarListing.findUnique({
         where: { id: listingId },
         include: {
-          purchases: { orderBy: { purchasedAt: "desc" }, take: 1 },
+          purchases: { orderBy: { pricePaid: "desc" }, take: 1 },
           heroItem: { include: { item: true } },
           seller: { select: { userId: true } },
         },
@@ -226,6 +226,7 @@ export async function PUT(req: NextRequest) {
       const listing = await tx.bazarListing.findUnique({
         where: { id: listingId },
         include: {
+          purchases: { orderBy: { pricePaid: "desc" }, take: 1 },
           heroItem: { include: { item: true } },
           seller: { select: { userId: true } },
         },
@@ -245,11 +246,24 @@ export async function PUT(req: NextRequest) {
         ? listing.price
         : listing.buyNowPrice ?? listing.price
 
-      const debit = await tx.hero.updateMany({
-        where: { id: buyerId, gold: { gte: price } },
-        data: { gold: { decrement: price } },
-      })
-      if (debit.count !== 1) throw new Error("INSUFFICIENT_GOLD")
+      const previousBid = listing.purchases[0] ?? null
+      if (listing.listingType === "auction" && previousBid && previousBid.buyerId !== buyerId) {
+        await tx.hero.update({
+          where: { id: previousBid.buyerId },
+          data: { gold: { increment: previousBid.pricePaid } },
+        })
+      }
+
+      const charge = listing.listingType === "auction" && previousBid?.buyerId === buyerId
+        ? Math.max(0, price - previousBid.pricePaid)
+        : price
+      if (charge > 0) {
+        const debit = await tx.hero.updateMany({
+          where: { id: buyerId, gold: { gte: charge } },
+          data: { gold: { decrement: charge } },
+        })
+        if (debit.count !== 1) throw new Error("INSUFFICIENT_GOLD")
+      }
 
       const itemTransfer = await tx.heroItem.updateMany({
         where: { id: listing.heroItemId, heroId: listing.sellerId },
