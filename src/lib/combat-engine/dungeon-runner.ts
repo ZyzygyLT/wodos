@@ -37,7 +37,7 @@ import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
-import { isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana } from '../../engine/core/skills/skill-availability'
+import { advanceSkillCooldowns, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
 import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
@@ -1902,22 +1902,11 @@ function applySkillCooldown(state: CombatState, actorUnit: CombatUnit, hero: Her
   }
   cd = normalizeSkillCooldown(cd)
   if (cd <= 0) return
-  state.skillCooldowns ??= {}
-  if (!state.skillCooldowns[actorUnit.id]) state.skillCooldowns[actorUnit.id] = {}
-  state.skillCooldowns[actorUnit.id][skillId] = cd
+  state.skillCooldowns = setSkillCooldown(state.skillCooldowns, actorUnit.id, skillId, cd)
 }
 
 function decaySkillCooldowns(state: CombatState): void {
-  if (!state.skillCooldowns) return
-  for (const heroId of Object.keys(state.skillCooldowns)) {
-    const cds = state.skillCooldowns[heroId]
-    for (const skillId of Object.keys(cds)) {
-      cds[Number(skillId)]--
-    }
-    state.skillCooldowns[heroId] = Object.fromEntries(
-      Object.entries(cds).filter(([, v]) => v > 0)
-    )
-  }
+  state.skillCooldowns = advanceSkillCooldowns(state.skillCooldowns)
 }
 
 function applyDarknessHeal(enemyUnits: CombatUnit[], state: CombatState, log: LogEntry[], round: number, levelNum: number): void {
