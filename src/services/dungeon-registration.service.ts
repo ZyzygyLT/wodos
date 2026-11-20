@@ -77,7 +77,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   const levelUp = await checkLevelUp(hero.id)
 
   for (const fs of result.heroesFinalState) {
-    await grantMaterialDrops(fs.id, dungeon.id).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+    await grantMaterialDrops(fs.id, dungeon.id, runId).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
     const kills = (result.log as any[])?.filter((l: any) => l.type === 'death').length ?? 0
     await updateQuestProgress(fs.id, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
     if (kills > 0) await updateQuestProgress(fs.id, { type: 'total_kills', kills }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
