@@ -49,7 +49,7 @@ export class CombatEventRecorder {
 
   record(envelope: CombatEventEnvelope): void {
     const event = envelope.event.type === 'attack_started' || envelope.event.type === 'attack_resolved'
-      ? { ...envelope.event, targetIds: [...envelope.event.targetIds] } as CombatEvent
+      ? { ...envelope.event, targetIds: Object.freeze([...envelope.event.targetIds]) } as CombatEvent
       : { ...envelope.event } as CombatEvent
     this.records.push(Object.freeze({ ...envelope, event: Object.freeze(event) }))
   }
