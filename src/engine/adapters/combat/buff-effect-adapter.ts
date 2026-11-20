@@ -1,5 +1,6 @@
 import { asEntityId, type EntityId } from '../../core/entities/entity'
 import type { GameEffect } from '../../core/effects/effect'
+import { advanceEffects } from '../../core/effects/effect-lifecycle'
 
 export type LegacyCombatBuffType = 'atk' | 'def'
 export type LegacyCombatBuffSide = 'hero' | 'enemy'
@@ -111,11 +112,9 @@ export function applyLegacyCombatBuff(
 export function advanceLegacyCombatBuffs(
   current: readonly LegacyCombatBuff[],
 ): readonly LegacyCombatBuff[] {
-  return current
-    .map(buff => buff.remainingRounds === null
-      ? buff
-      : { ...buff, remainingRounds: buff.remainingRounds - 1 })
-    .filter(buff => buff.remainingRounds === null || buff.remainingRounds > 0)
+  const effects = current.map(legacyBuffToGameEffect)
+  const advanced = advanceEffects(effects, 1)
+  return advanced.effects.map(gameEffectToLegacyBuff)
 }
 
 /** Group bonuses use the strongest active buff, not the sum of all buffs. */
