@@ -29,7 +29,7 @@ describe('shared HP change primitives', () => {
     })
   })
 
-  it('keeps defeated units defeated when healing is applied through legacy callers', () => {
+  it('reports the resulting HP when healing starts from zero', () => {
     expect(applyHpHealing(0, 100, 20)).toMatchObject({
       currentHp: 20, applied: 20, defeated: false, defeatedNow: false,
     })
