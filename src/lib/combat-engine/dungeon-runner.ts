@@ -38,6 +38,7 @@ import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/atta
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
 import { isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana } from '../../engine/core/skills/skill-availability'
+import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 
 // ─── TIPOS DE ENTRADA ─────────────────────────────────────────────────────────
 
@@ -890,10 +891,9 @@ function executeHeroHealAction(
   skillName: string,
   ctx: CombatCtx,
   meta: ActionMeta,
+  target: CombatUnit | null,
 ): DetailedAction | null {
   const state = ctx.state!
-  const injured = [state.hero, ...state.allies].filter(u => u.hp > 0 && u.hp < u.maxHp)
-  const target = injured.toSorted((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0] ?? null
   if (!target) {
     return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: `${heroUnit.name} usa ${skillName} — sin objetivo para curar`, mpCost: meta.mpCost })
   }
@@ -914,10 +914,10 @@ function executeHeroBuffAction(
   ctx: CombatCtx,
   meta: ActionMeta,
   rank: number,
+  bonus: number,
 ): DetailedAction {
   const state = ctx.state!
   const isAtk = skill.effect === 'party_attack_up'
-  const bonus = Math.round((skill.multiplier || (isAtk ? 1.5 : 1)) * 10) + rank * 2
   addBuff(state, isAtk ? 'atk' : 'def', bonus, skillName, 'hero', BUFF_DURATION)
   const label = isAtk ? 'ATK grupal' : 'DEF grupal'
   const msg = `${heroUnit.name} usa ${skillName} → +${bonus}% ${label}`
@@ -973,6 +973,7 @@ function executeHeroAoeAttack(
   ctx: CombatCtx,
   meta: ActionMeta,
   atkValues: AttackValues,
+  targets: readonly CombatUnit[],
 ): DetailedAction {
   const { skill, skillName, formula } = skillInfo
   const { adjAttack, isArmorPen, isCritAuto } = atkValues
@@ -980,8 +981,7 @@ function executeHeroAoeAttack(
   const atkTotal = adjAttack
   const aCat = inferAttackCategory(skill, heroUnit.position)
   const targetResults: TargetResult[] = []
-  for (const enemy of state.enemies) {
-    if (enemy.hp <= 0) continue
+  for (const enemy of targets) {
     const aoeCfg: HeroAoeProcessConfig = { skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula }
     const tr = processAoeTarget(enemy, heroUnit, aoeCfg, ctx)
     targetResults.push(tr)
@@ -1010,6 +1010,7 @@ function executeHeroSingleTargetAttack(
   ctx: CombatCtx,
   meta: ActionMeta,
   atkValues: AttackValues,
+  resolvedTarget: CombatUnit | null,
   extraUnits?: ExtraUnitArrays,
 ): DetailedAction | null {
   const { skill, skillName, formula } = skillInfo
@@ -1017,7 +1018,7 @@ function executeHeroSingleTargetAttack(
   const state = ctx.state!
   const allHeroUnits = extraUnits?.allHeroUnits ?? [state.hero, ...state.allies]
   const allEnemyUnits = extraUnits?.allEnemyUnits ?? state.enemies
-  const target = resolveTarget(meta.action!, state, heroUnit.position, skill.tags, ctx.random)
+  const target = resolvedTarget
   if (!target) return null
 
   const aCat = inferAttackCategory(skill, heroUnit.position)
@@ -1078,31 +1079,43 @@ function executeHeroAction(
   const { skill: resolvedSkill, mpCost } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
   skill = resolvedSkill
 
-  const effect = skill.effect ?? 'attack'
+  const plan = resolveSkillExecution({
+    skill: {
+      skillId: skill.skillId,
+      name: skill.name,
+      effect: skill.effect,
+      multiplier: skill.multiplier,
+      rank,
+      healPct: skill.healPct,
+      tags: skill.tags,
+    },
+    actor: heroUnit,
+    allies: [state.hero, ...state.allies].filter(unit => unit.id !== heroUnit.id),
+    enemies: state.enemies,
+    action: { targetPos: action.targetPos, targetType: action.targetType },
+    random: ctx.random,
+  })
 
-  if (effect === 'heal' && skill.healPct) {
-    return executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost })
+  if (plan.kind === 'heal') {
+    return executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, plan.target)
   }
-  if (effect === 'party_attack_up' || effect === 'defense_up') {
-    return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, rank)
+  if (plan.kind === 'party_buff') {
+    return executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, rank, plan.bonus)
   }
-
-  const isArmorPen = effect === 'armor_penetration'
-  const isCritAuto = effect === 'critical_attack'
-  const isAoe = effect === 'aoe_attack'
 
   const fResult = evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
   const adjAttack = applyDiceMultiplier(fResult.base, fResult.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
+  const isArmorPen = plan.kind === 'single_attack' && plan.armorPenetration
+  const isCritAuto = plan.kind === 'single_attack' && plan.critical
+  const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
 
-  if (isAoe) {
-    const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
+  if (plan.kind === 'area_attack') {
     const atkValues: AttackValues = { adjAttack, isArmorPen, isCritAuto }
-    return executeHeroAoeAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues)
+    return executeHeroAoeAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, plan.targets)
   }
 
-  const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
   const atkValues: AttackValues = { fResult, adjAttack, isArmorPen, isCritAuto }
-  return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, extraUnits)
+  return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, plan.target, extraUnits)
 }
 
 // ─── ACCIÓN DEL ENEMIGO (IA SIMPLE) ─────────────────────────────────────────
