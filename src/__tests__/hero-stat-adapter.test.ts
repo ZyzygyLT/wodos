@@ -14,4 +14,14 @@ describe('persisted hero stat adapter', () => {
     })
     expect(result.values).toEqual({ strength: 13, defense: 2 })
   })
+  it('accepts explicit item bonus resolvers at the hero adapter boundary', () => {
+    const result = calculateHeroStatsFromPersistedItems({
+      heroId: asEntityId('hero-2'),
+      baseStats: { strength: 10 },
+      items: [{ id: 'ring-row', equipped: true, upgradeLevel: 2, item: { stats: {} } }],
+      itemResolvers: { resolveUpgrade: item => ({ strength: (item.upgradeLevel ?? 0) * 3 }) },
+    })
+    expect(result.values.strength).toBe(16)
+  })
+
 })
