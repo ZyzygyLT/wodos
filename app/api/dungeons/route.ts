@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { calcClanBonuses } from "@/lib/clan/upgrades"
 
 export async function GET() {
@@ -9,9 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: { combatProfiles: { orderBy: { createdAt: "asc" } } },
   })
   if (!hero) {

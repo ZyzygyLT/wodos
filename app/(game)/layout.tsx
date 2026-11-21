@@ -63,6 +63,9 @@ const MENUS: { label: string; items: MenuItem[] }[] = [
 export default function GameLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname()
   const [hero, setHero] = useState<any>(null)
+  const [heroes, setHeroes] = useState<any[]>([])
+  const [switchingHero, setSwitchingHero] = useState(false)
+  const [heroSwitchError, setHeroSwitchError] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotif, setShowNotif] = useState(false)
@@ -72,7 +75,30 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
 
   useEffect(() => {
     fetch("/api/hero").then(r => r.json()).then(setHero).catch(e => logger.error("game", "Failed to fetch data", e))
+    fetch("/api/hero/list").then(r => r.ok ? r.json() : null).then(data => {
+      setHeroes(data?.heroes ?? [])
+    }).catch(e => logger.error("game", "Failed to fetch hero list", e))
   }, [])
+
+  async function switchActiveHero(heroId: string) {
+    if (!heroId || heroId === hero?.id || switchingHero) return
+    setSwitchingHero(true)
+    setHeroSwitchError(null)
+    try {
+      const response = await fetch(`/api/hero/${heroId}/active`, { method: "POST" })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        setHeroSwitchError(data.error ?? "No se pudo cambiar de héroe")
+        return
+      }
+      window.location.reload()
+    } catch (error) {
+      logger.error("game", "Failed to switch active hero", error)
+      setHeroSwitchError("Error de conexión al cambiar de héroe")
+    } finally {
+      setSwitchingHero(false)
+    }
+  }
 
   useEffect(() => {
     fetch("/api/notifications").then(r => r.json()).then(d => {
@@ -150,7 +176,22 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
           </div>
           {hero && (
             <>
-              <span className="text-gray-300 hidden xs:inline">{hero.name}</span>
+              {heroes.length > 1 ? (
+                <select
+                  aria-label="Cambiar héroe activo"
+                  value={hero.id}
+                  disabled={switchingHero}
+                  onChange={event => void switchActiveHero(event.target.value)}
+                  className="max-w-32 sm:max-w-48 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-200 disabled:opacity-50"
+                >
+                  {heroes.map((entry: any) => (
+                    <option key={entry.id} value={entry.id}>{entry.name} · Nv.{entry.level}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-gray-300 hidden xs:inline">{hero.name}</span>
+              )}
+              {heroSwitchError && <span role="alert" className="text-red-400">{heroSwitchError}</span>}
               <span className="text-yellow-400">Nv.{hero.level}</span>
               <span className="text-yellow-300">💰{hero.gold}</span>
               <button onClick={() => signOut({ callbackUrl: "/login" })}

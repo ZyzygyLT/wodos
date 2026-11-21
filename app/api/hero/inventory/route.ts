@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { $Enums } from '@/generated/prisma'
 import logger from "@/lib/logger"
 import { assertHeroItemNotListed } from "@/services/bazar-item-guard"
@@ -11,9 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: {
       items: {
         include: { item: true },
@@ -51,9 +50,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: { skills: true, class: true, race: true },
   })
   if (!hero) {

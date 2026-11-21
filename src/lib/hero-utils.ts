@@ -2,16 +2,14 @@ import db from "@/lib/db"
 import { calcHpMax, calcMpMax } from "@/lib/combat-engine/formulas"
 
 export async function getHeroByUserId(userId: string) {
-  return db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
+  return getActiveHeroByUserId(userId, {
     include: {
       class: true,
       race: true,
       skills: { include: { skill: true } },
       items: { include: { item: true }, where: { equipped: true } },
       combatProfiles: { orderBy: { createdAt: "asc" } },
-    }
+    },
   })
 }
 
@@ -54,6 +52,19 @@ export async function createHero(userId: string, name: string, classId: number, 
   const mpMax = calcMpMax(attrs as any)
 
   return db.$transaction(async (tx) => {
+    // Serialize hero creation per account so maxHeroes and initial selection cannot race.
+    await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { currentHeroId: true, maxHeroes: true },
+    })
+    if (!user) throw new Error("USER_NOT_FOUND")
+
+    const heroCount = await tx.hero.count({ where: { userId } })
+    if (user.maxHeroes !== null && heroCount >= user.maxHeroes) {
+      throw new Error("MAX_HEROES_REACHED")
+    }
+
     const genericDefense = await tx.skill.findMany({
       where: { classId: null, defenseCategory: { not: null } }
     })
@@ -137,6 +148,96 @@ export async function createHero(userId: string, name: string, classId: number, 
       })
     }
 
+    const currentHero = user.currentHeroId
+      ? await tx.hero.findFirst({ where: { id: user.currentHeroId, userId }, select: { id: true } })
+      : null
+    if (!currentHero) {
+      const firstOwnedHero = await tx.hero.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      })
+      if (firstOwnedHero) {
+        await tx.user.update({ where: { id: userId }, data: { currentHeroId: firstOwnedHero.id } })
+      }
+    }
+
     return hero
+  })
+}
+
+
+/**
+ * Resolves the player's selected hero while enforcing ownership.
+ * A stale or missing selection is repaired to the oldest hero owned by the user.
+ * The conditional pointer update prevents a concurrent hero switch from being overwritten.
+ */
+export async function getActiveHeroByUserId(
+  userId: string,
+  options: { include?: any; select?: any } = {},
+): Promise<any | null> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { currentHeroId: true },
+  })
+  if (!user) return null
+
+  const queryOptions = options.select ? { select: options.select } : options.include ? { include: options.include } : {}
+
+  if (user.currentHeroId) {
+    const activeHero = await db.hero.findFirst({
+      where: { id: user.currentHeroId, userId },
+      ...queryOptions,
+    })
+    if (activeHero) return activeHero
+  }
+
+  const fallbackHero = await db.hero.findFirst({
+    where: { userId },
+    orderBy: { createdAt: "asc" },
+    ...queryOptions,
+  })
+  if (!fallbackHero) return null
+
+  const repaired = await db.user.updateMany({
+    where: { id: userId, currentHeroId: user.currentHeroId },
+    data: { currentHeroId: fallbackHero.id },
+  })
+
+  // If another request changed the selection while we were repairing it,
+  // return that newly selected hero rather than acting on a stale fallback.
+  if (repaired.count === 0) {
+    const latestUser = await db.user.findUnique({
+      where: { id: userId },
+      select: { currentHeroId: true },
+    })
+    if (latestUser?.currentHeroId) {
+      const concurrentlySelectedHero = await db.hero.findFirst({
+        where: { id: latestUser.currentHeroId, userId },
+        ...queryOptions,
+      })
+      if (concurrentlySelectedHero) return concurrentlySelectedHero
+    }
+  }
+
+  return fallbackHero
+}
+
+/**
+ * Changes the active hero only if it is owned by the authenticated user.
+ */
+export async function setActiveHeroForUser(userId: string, heroId: string): Promise<boolean> {
+  return db.$transaction(async (tx) => {
+    const hero = await tx.hero.findFirst({
+      where: { id: heroId, userId },
+      select: { id: true },
+    })
+    if (!hero) return false
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { currentHeroId: hero.id },
+    })
+    return true
   })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -11,11 +12,7 @@ export async function POST(req: NextRequest) {
   const { questSlug } = await req.json()
   if (!questSlug) return NextResponse.json({ error: "Falta questSlug" }, { status: 400 })
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    include: { heroQuests: true },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { include: { heroQuests: true } })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
 
   const quest = await db.quest.findUnique({ where: { slug: questSlug } })

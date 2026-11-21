@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import logger from "@/lib/logger"
 
 const MAX_GROUPS = 5
@@ -10,11 +11,7 @@ export async function GET() {
   try {
     const session = await auth()
     if (!session?.user?.id) return fallbackGroups()
-    const hero = await db.hero.findFirst({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true },
-    })
+    const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
     if (!hero) return fallbackGroups()
     const groups = await loadUserGroups(hero.id)
     return NextResponse.json(groups)
@@ -83,11 +80,7 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 })
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
 
   const { name } = await req.json()

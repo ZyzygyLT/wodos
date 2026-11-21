@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
-import { getHeroByUserId } from "@/lib/hero-utils"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { computeDefenseForHero } from "@/lib/combat-engine/hero-stats"
 import { buildHeroData } from "@/lib/dungeon-helpers"
 import { calculateEffectiveResourceMaxima } from "@/engine/core/stats/derived-stats"
@@ -12,12 +12,16 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const user = await db.user.findUnique({ where: { id: session.user.id }, select: { currentHeroId: true, maxHeroes: true, _count: { select: { heroes: true } } } })
-  let hero = null
-  if (user?.currentHeroId) {
-    hero = await db.hero.findUnique({ where: { id: user.currentHeroId }, include: { class: true, race: true, combatProfiles: { orderBy: { createdAt: 'asc' } }, skills: { include: { skill: true } }, items: { include: { item: true } } } })
-  }
-  hero ??= await getHeroByUserId(session.user.id)
+  const user = await db.user.findUnique({ where: { id: session.user.id }, select: { maxHeroes: true, _count: { select: { heroes: true } } } })
+  const hero = await getActiveHeroByUserId(session.user.id, {
+    include: {
+      class: true,
+      race: true,
+      combatProfiles: { orderBy: { createdAt: 'asc' } },
+      skills: { include: { skill: true } },
+      items: { include: { item: true } },
+    },
+  })
   if (!hero) {
     return NextResponse.json({ error: "No tenés un héroe. Creá uno primero." }, { status: 404 })
   }

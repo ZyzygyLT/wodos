@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { trackClanCreated } from "@/lib/analytics/events"
 
 export async function GET() {
@@ -9,9 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: {
       clanMember: {
         include: {
@@ -39,11 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    include: { clanMember: true },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { include: { clanMember: true } })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
   if (hero.clanMember) return NextResponse.json({ error: "Ya perteneces a un clan" }, { status: 400 })
 

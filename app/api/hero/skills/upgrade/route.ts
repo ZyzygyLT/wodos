@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { updateQuestProgress } from "@/lib/quests/progress"
 import { checkAchievements } from "@/lib/achievements/checker"
 import { z } from "zod"
@@ -24,11 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!hero) return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
 
   const result = await db.$transaction(async tx => {

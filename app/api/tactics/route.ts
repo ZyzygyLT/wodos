@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { z } from "zod"
 import { formatZodError } from "@/lib/zod-error"
 
@@ -66,10 +67,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    include: { skills: { include: { skill: true } } },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { include: { skills: { include: { skill: true } } } })
   if (!hero) {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
   }
@@ -100,11 +98,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    include: { skills: { include: { skill: true } }, items: { include: { item: true } } },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { include: { skills: { include: { skill: true } }, items: { include: { item: true } } } })
   if (!hero) {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
   }

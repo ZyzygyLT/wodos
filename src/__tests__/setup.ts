@@ -5,7 +5,9 @@ const createMock = () => ({
   findUnique: vi.fn(),
   findFirst: vi.fn(),
   findMany: vi.fn(),
+  count: vi.fn(),
   update: vi.fn(),
+  updateMany: vi.fn(),
   create: vi.fn(),
   createMany: vi.fn(),
   upsert: vi.fn(),
@@ -13,6 +15,7 @@ const createMock = () => ({
 })
 
 const mockDb = {
+  $queryRaw: vi.fn(),
   $transaction: vi.fn(async (arg: any) => {
     if (Array.isArray(arg)) {
       return Promise.all(arg.map((p: any) => Promise.resolve(p)))
