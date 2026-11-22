@@ -57,8 +57,26 @@ export function CombatPlayback({ result, dungeonName, onFinish }: Readonly<Comba
 
   if (totalRounds === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] text-gray-400">
-        No hay rondas para mostrar.
+      <div className="max-w-3xl mx-auto p-4 sm:p-6 min-h-[60vh] flex items-center justify-center">
+        <div className="w-full rounded-xl border border-gray-800 bg-gray-900 p-8 text-center space-y-4">
+          <div className="text-5xl">{result.victory ? "🏆" : "💀"}</div>
+          <h1 className={`text-2xl font-bold ${result.victory ? "text-emerald-400" : "text-red-400"}`}>
+            {result.victory ? "¡Victoria!" : "Derrota"}
+          </h1>
+          <p className="text-sm text-gray-400">
+            No hay rondas detalladas disponibles para reproducir. El resultado de la expedición se ha guardado.
+          </p>
+          <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
+            <span>⭐ +{result.epGained} EP</span>
+            <span>💰 +{result.goldGained} oro</span>
+          </div>
+          <button
+            onClick={onFinish}
+            className="px-5 py-2 rounded bg-amber-700 hover:bg-amber-600 text-sm text-white font-bold transition"
+          >
+            📜 Ver reporte completo →
+          </button>
+        </div>
       </div>
     )
   }
