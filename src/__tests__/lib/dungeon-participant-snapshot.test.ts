@@ -66,5 +66,8 @@ describe('dungeon participant snapshots', () => {
       { snapshot },
       { snapshot },
     ])).toBeNull()
+
+    const incomplete = { ...snapshot, hpCurrent: undefined }
+    expect(restoreDungeonParticipantSnapshots([{ snapshot: incomplete }])).toBeNull()
   })
 })
