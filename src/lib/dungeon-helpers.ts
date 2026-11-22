@@ -105,6 +105,32 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
   return { heroesData: [], heroIds: [] }
 }
 
+export function snapshotDungeonParticipant(participant: HeroData): HeroData {
+  return JSON.parse(JSON.stringify(participant)) as HeroData
+}
+
+export function restoreDungeonParticipantSnapshots(
+  participants: Array<{ snapshot: unknown }>
+): HeroData[] | null {
+  if (participants.length === 0) return null
+
+  const snapshots = participants.map(({ snapshot }) => snapshot as HeroData)
+  const ids = snapshots.map(participant => participant?.id)
+  if (
+    snapshots.some(participant =>
+      !participant ||
+      typeof participant.id !== 'string' ||
+      !participant.combatProfile ||
+      !Array.isArray(participant.skills)
+    ) ||
+    new Set(ids).size !== ids.length
+  ) {
+    return null
+  }
+
+  return snapshots
+}
+
 export async function buildHeroData(hero: any, profile: any): Promise<HeroData> {
   const hpMax = hero.hpMax
   const mpMax = hero.mpMax
