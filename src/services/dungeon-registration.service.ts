@@ -141,6 +141,10 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
     }
 
     const otherParticipantIds = participantIds.filter(participantId => participantId !== hero.id)
+    const prevRun = await tx.dungeonRun.findFirst({
+      where: { heroId: hero.id, status: 'registered' },
+    })
+
     const runningOwnRun = await tx.dungeonRun.findFirst({
       where: { heroId: hero.id, status: 'running' },
       select: { id: true },
@@ -163,7 +167,10 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
       const occupiedParticipant = await tx.dungeonRunParticipant.findFirst({
         where: {
           heroId: { in: otherParticipantIds },
-          run: { status: { in: ['registered', 'running'] } },
+          run: {
+            status: { in: ['registered', 'running'] },
+            ...(prevRun ? { id: { not: prevRun.id } } : {}),
+          },
         },
         select: { heroId: true },
       })
@@ -173,15 +180,13 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
         where: {
           heroId: { in: otherParticipantIds },
           status: { in: ['registered', 'running'] },
+          ...(prevRun ? { id: { not: prevRun.id } } : {}),
         },
         select: { id: true },
       })
       if (legacyActiveRun) return null
     }
 
-    const prevRun = await tx.dungeonRun.findFirst({
-      where: { heroId: hero.id, status: 'registered' },
-    })
     if (prevRun) {
       await tx.dungeonRun.update({
         where: { id: prevRun.id },
