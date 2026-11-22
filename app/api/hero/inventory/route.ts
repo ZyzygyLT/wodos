@@ -170,7 +170,7 @@ async function resolveSlotConflict(tx: any, hero: any, item: any, heroItem: any)
   })
   if (conflicts.length > 0) {
     await tx.heroItem.updateMany({
-      where: { id: { in: conflicts.map(c => c.id) } },
+      where: { id: { in: conflicts.map((conflict: { id: string }) => conflict.id) } },
       data: { equipped: false, slot: null },
     })
   }
