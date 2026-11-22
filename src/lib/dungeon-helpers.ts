@@ -140,6 +140,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     hpMax,
     mpMax,
     hpCurrent: hero.hpCurrent,
+    mpCurrent: hero.mpCurrent,
     gold: hero.gold,
     manaShield,
     combatProfile: {
