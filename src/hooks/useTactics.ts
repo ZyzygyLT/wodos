@@ -81,7 +81,7 @@ export function useTactics() {
     } catch (e) { logger.error('tactics', 'Failed to load data', e) }
   }, [router])
 
-  useEffect(() => { fetchProfiles() }, [fetchProfiles])
+  useEffect(() => { void Promise.resolve().then(fetchProfiles) }, [fetchProfiles])
 
   useEffect(() => {
     fetch("/api/hero/skills").then(r => r.json()).then(setHeroSkills).catch(e => logger.error("useTactics", "Failed to fetch data", e))
