@@ -56,7 +56,7 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
   } else if (run.groupId) {
     // Legacy runs created before participant snapshots retain the previous loading behavior.
     const groupResult = await loadGroupParticipants(run.groupId)
-    if (groupResult.heroesData.length === 0) return
+    if (groupResult.heroesData.length === 0) throw new Error('DUNGEON_RUN_GROUP_PARTICIPANTS_MISSING')
     heroesData = groupResult.heroesData
     totalHeroes = heroesData.length
   } else {
@@ -68,7 +68,7 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
         combatProfiles: true
       }
     })
-    if (!hero) return
+    if (!hero) throw new Error('DUNGEON_RUN_HERO_MISSING')
 
     const profile = run.profileId
       ? hero.combatProfiles.find((candidate: any) => candidate.id === run.profileId) ?? hero.combatProfiles[0]
