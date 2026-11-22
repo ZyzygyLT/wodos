@@ -57,6 +57,7 @@ import { applyInitiativeSkillModifiers, calculateEffectiveResourceMaxima } from 
 
 export interface HeroData {
   id: string
+  profileId?: string
   name: string
   level: number
   attrs: Record<string, number>
