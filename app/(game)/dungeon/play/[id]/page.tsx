@@ -73,7 +73,7 @@ export default function DungeonPlayPage() {
   useEffect(() => {
     let id = params?.id as string | undefined
     if (!id && globalThis.window !== undefined) {
-      const match = /\\/dungeon\\/play\\/([^/]+)/.exec(globalThis.window.location.pathname)
+      const match = /\/dungeon\/play\/([^/]+)/.exec(globalThis.window.location.pathname)
       if (match) id = match[1]
     }
 
