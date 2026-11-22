@@ -187,7 +187,7 @@ export default function DungeonPage() {
               <p className="text-xs uppercase tracking-widest text-gray-500">Estado del héroe</p>
               <p className="text-sm font-semibold text-gray-100">{hero.name} · Nivel {hero.level}</p>
             </div>
-            {(hero.hpCurrent <= 0 || hero.mpCurrent <= 0) && (
+            {(hero.hpCurrent < hero.hpMax || hero.mpCurrent < hero.mpMax) && (
               <a href="/inventory" className="rounded-lg border border-amber-700/50 bg-amber-950/40 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-900/50">
                 Revisar consumibles
               </a>
