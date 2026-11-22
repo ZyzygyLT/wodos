@@ -17,6 +17,21 @@ interface PersistParams {
   totalHeroes: number
 }
 
+export function splitIntegerReward(total: number, recipientCount: number): number[] {
+  if (!Number.isSafeInteger(total) || total < 0) {
+    throw new RangeError('Reward total must be a non-negative safe integer')
+  }
+  if (!Number.isSafeInteger(recipientCount) || recipientCount < 1) {
+    throw new RangeError('Recipient count must be a positive safe integer')
+  }
+
+  const baseShare = Math.floor(total / recipientCount)
+  const remainder = total % recipientCount
+  return Array.from({ length: recipientCount }, (_, index) =>
+    baseShare + (index < remainder ? 1 : 0)
+  )
+}
+
 export async function persistRunResult(tx: Parameters<Parameters<typeof db.$transaction>[0]>[0], params: PersistParams) {
   const { runId, result, heroesData, totalHeroes } = params
 
@@ -53,7 +68,8 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
     if (consumed.count !== consumedIds.length) throw new Error('DUNGEON_CONSUMABLE_INVENTORY_MISMATCH')
   }
 
-  for (const fs of result.heroesFinalState) {
+  const fameShares = splitIntegerReward(result.fameGained, result.heroesFinalState.length)
+  for (const [index, fs] of result.heroesFinalState.entries()) {
     const hData = heroesData.find(h => h.id === fs.id)
     if (!hData) continue
     await tx.hero.update({
@@ -61,7 +77,7 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
       data: {
         epTotal: { increment: result.epGained / totalHeroes },
         gold: { increment: result.goldGained / totalHeroes },
-        fame: { increment: Math.ceil(result.fameGained / totalHeroes) },
+        fame: { increment: fameShares[index] },
         hpCurrent: fs.hp,
         mpCurrent: fs.mp,
         dungeonRegisteredId: null,
