@@ -44,18 +44,23 @@ export default function Onboarding() {
     setLoading(true)
     setError("")
 
-    const res = await fetch("/api/hero/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), classId: selectedClass.id, raceId: selectedRace.id }),
-    })
+    try {
+      const res = await fetch("/api/hero/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), classId: selectedClass.id, raceId: selectedRace.id }),
+      })
 
-    if (res.ok) {
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setError(typeof data?.error === "string" ? data.error : "No se pudo crear el héroe. Intentá nuevamente.")
+        return
+      }
+
       router.push("/dashboard")
-    } else {
-      const text = await res.text()
-      const data = text ? JSON.parse(text) : {}
-      setError(data.error || "Error al crear el héroe")
+    } catch {
+      setError("Error de conexión. Revisá tu conexión e intentá nuevamente.")
+    } finally {
       setLoading(false)
     }
   }
