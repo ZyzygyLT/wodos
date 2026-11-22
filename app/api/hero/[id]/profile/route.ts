@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       clanMember: { select: { role: true, clan: { select: { name: true, tag: true, icon: true } } } },
       items: {
         where: { equipped: true },
-        include: { item: { select: { name: true, icon: true, rarity: true, category: true, stats: true } }, runesIn: true },
+        include: { item: { select: { name: true, icon: true, rarity: true, category: true, stats: true } } },
       },
       skills: {
         include: { skill: true },
@@ -47,9 +47,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const profile = hero.combatProfiles?.find((p: any) => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null
   const combatHero = await buildHeroData(hero, profile)
+  const equipStats = combatHero.equipStats ?? {}
   const computedAttrs = { ...(hero.attrs as Record<string, number>) }
   for (const key of ['st', 'co', 'in', 'dx', 'ch', 'ag', 'pe', 'wi']) {
-    computedAttrs[key] = (computedAttrs[key] ?? 0) + (combatHero.equipStats[key] ?? 0)
+    computedAttrs[key] = (computedAttrs[key] ?? 0) + (equipStats[key] ?? 0)
   }
   for (const skill of combatHero.skills) {
     if (skill.effect === 'accuracy_up') computedAttrs.dx = (computedAttrs.dx ?? 0) + 5
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ...hero,
     ...combatHero,
     combatProfiles: hero.combatProfiles,
-    equipStats: combatHero.equipStats,
+    equipStats,
   })
   const computedResistances = computeResistancesForHero({
     ...hero,
@@ -78,10 +79,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     level: hero.level,
     baseAttributes: hero.attrs as Record<string, number>,
     effectiveAttributes: Object.fromEntries(
-      Object.entries(hero.attrs as Record<string, number>).map(([key, value]) => [key, value + (combatHero.equipStats[key] ?? 0)])
+      Object.entries(hero.attrs as Record<string, number>).map(([key, value]) => [key, value + (equipStats[key] ?? 0)])
     ),
-    equipmentHp: combatHero.equipStats.hp,
-    equipmentMp: combatHero.equipStats.mp,
+    equipmentHp: equipStats.hp,
+    equipmentMp: equipStats.mp,
     skillEffects: combatHero.skills.map(skill => skill.effect),
   })
 
