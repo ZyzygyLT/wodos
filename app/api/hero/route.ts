@@ -31,17 +31,18 @@ export async function GET() {
     ?? hero.combatProfiles?.[0]
     ?? null
   const combatHero = await buildHeroData(hero, profile)
-  const defData = computeDefenseForHero({ ...hero, equipStats: combatHero.equipStats })
+  const equipStats = combatHero.equipStats ?? {}
+  const defData = computeDefenseForHero({ ...hero, equipStats })
   const effectiveResources = calculateEffectiveResourceMaxima({
     baseHpMax: hero.hpMax,
     baseMpMax: hero.mpMax,
     level: hero.level,
     baseAttributes: hero.attrs as Record<string, number>,
     effectiveAttributes: Object.fromEntries(
-      Object.entries(hero.attrs as Record<string, number>).map(([key, value]) => [key, value + (combatHero.equipStats[key] ?? 0)])
+      Object.entries(hero.attrs as Record<string, number>).map(([key, value]) => [key, value + (equipStats[key] ?? 0)])
     ),
-    equipmentHp: combatHero.equipStats.hp,
-    equipmentMp: combatHero.equipStats.mp,
+    equipmentHp: equipStats.hp,
+    equipmentMp: equipStats.mp,
     skillEffects: combatHero.skills.map(skill => skill.effect),
   })
 
