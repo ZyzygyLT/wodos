@@ -8,6 +8,7 @@ import { signOut } from "next-auth/react"
 import Link from "next/link"
 
 interface MenuItem { href: string; label: string; exact?: boolean }
+interface HeroListItem { id: string; name: string; level: number }
 
 const MENUS: { label: string; items: MenuItem[] }[] = [
   {
@@ -63,7 +64,7 @@ const MENUS: { label: string; items: MenuItem[] }[] = [
 export default function GameLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname()
   const [hero, setHero] = useState<any>(null)
-  const [heroes, setHeroes] = useState<any[]>([])
+  const [heroes, setHeroes] = useState<HeroListItem[]>([])
   const [switchingHero, setSwitchingHero] = useState(false)
   const [heroSwitchError, setHeroSwitchError] = useState<string | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -184,7 +185,7 @@ export default function GameLayout({ children }: Readonly<{ children: React.Reac
                   onChange={event => void switchActiveHero(event.target.value)}
                   className="max-w-32 sm:max-w-48 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-200 disabled:opacity-50"
                 >
-                  {heroes.map((entry: any) => (
+                  {heroes.map(entry => (
                     <option key={entry.id} value={entry.id}>{entry.name} · Nv.{entry.level}</option>
                   ))}
                 </select>
