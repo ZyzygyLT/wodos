@@ -257,6 +257,7 @@ model Hero {
   clanMember               ClanMember?
   combatProfiles           CombatProfile[]
   dungeonRuns              DungeonRun[]
+  dungeonRunParticipants   DungeonRunParticipant[]
   forumReplies             ForumReply[]
   forumTopics              ForumTopic[]
   groupInvites             GroupInvite[]
@@ -366,12 +367,29 @@ model DungeonRun {
   dungeon       Dungeon    @relation(fields: [dungeonId], references: [id])
   group         ClanGroup? @relation(fields: [groupId], references: [id])
   hero          Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  participants  DungeonRunParticipant[]
 
   @@index([heroId, status])
   @@index([heroId, createdAt])
   @@index([dungeonId, status])
   @@index([groupId])
   @@map("dungeon_runs")
+}
+
+
+model DungeonRunParticipant {
+  id        String     @id @default(uuid())
+  runId     String
+  heroId    String
+  profileId String?
+  snapshot  Json
+  createdAt DateTime   @default(now())
+  run       DungeonRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  hero      Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, heroId])
+  @@index([heroId, createdAt])
+  @@map("dungeon_run_participants")
 }
 
 model BazarListing {
