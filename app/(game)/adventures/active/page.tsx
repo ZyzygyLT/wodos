@@ -218,8 +218,12 @@ export default function ActiveAdventurePage() {
                     <p className="text-sm font-semibold text-yellow-400 mb-1">🎁 Recompensa</p>
                     {entry.rewards?.gold && <p className="text-sm text-gray-300">💰 +{entry.rewards.gold} oro</p>}
                     {entry.rewards?.ep && <p className="text-sm text-gray-300">⭐ +{entry.rewards.ep} EP</p>}
+                    {entry.rewards?.fame ? <p className="text-sm text-gray-300">🏆 +{entry.rewards.fame} fama</p> : null}
                     {entry.rewards?.items?.map((it: any, j: number) => (
-                      <p key={j} className="text-sm text-gray-300">📦 Item x{it.qty}</p>
+                      <p key={j} className="text-sm text-gray-300">📦 Objeto #{it.itemId} x{it.qty}</p>
+                    ))}
+                    {entry.rewards?.materials?.map((mat: any, j: number) => (
+                      <p key={j} className="text-sm text-gray-300">🧱 Material #{mat.materialId} x{mat.qty}</p>
                     ))}
                   </div>
                 )}
@@ -265,10 +269,10 @@ export default function ActiveAdventurePage() {
                   <span>⭐ EP: <span className="text-purple-400">{active.result.rewards.ep}</span></span>
                   <span>🏆 Fama: <span className="text-blue-400">{active.result.rewards.fame}</span></span>
                   {active.result.rewards.items?.length > 0 && (
-                    <span>📦 Items: <span className="text-green-400">{active.result.rewards.items.length}</span></span>
+                    <span>📦 Objetos: <span className="text-green-400">{active.result.rewards.items.reduce((total: number, item: any) => total + item.qty, 0)}</span></span>
                   )}
                   {active.result.rewards.materials?.length > 0 && (
-                    <span>🧱 Materiales: <span className="text-green-400">{active.result.rewards.materials.length}</span></span>
+                    <span>🧱 Materiales: <span className="text-green-400">{active.result.rewards.materials.reduce((total: number, material: any) => total + material.qty, 0)}</span></span>
                   )}
                 </div>
               )}
