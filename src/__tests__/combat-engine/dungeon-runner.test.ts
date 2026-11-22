@@ -115,9 +115,10 @@ describe('runDungeon', () => {
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     const result = await runDungeon([hero], makeDungeon())
     expect(hero.consumables).toEqual([{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }])
-    expect(result.levelReports[0].rounds.some(round =>
-      round.actions.some(action => action.itemName === 'item_42')
-    )).toBe(true)
+    expect(result.log.some(entry => entry.message.includes('usa item_42'))).toBe(true)
+    expect(result.consumedConsumables).toEqual([
+      { heroId: 'hero-1', heroItemId: 'hero-item-potion-1' },
+    ])
   })
 
   it('returns defeat when hero dies', async () => {
