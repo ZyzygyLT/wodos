@@ -63,7 +63,7 @@ describe('GET /api/dungeon/report/[id]', () => {
     mockRun()
 
     const { GET } = await import('@/app/api/dungeon/report/[id]/route')
-    const response = await GET(new Request('http://localhost/api/dungeon/report/run-history'), {
+    const response = await GET(new NextRequest('http://localhost/api/dungeon/report/run-history'), {
       params: Promise.resolve({ id: RUN_ID }),
     })
 
