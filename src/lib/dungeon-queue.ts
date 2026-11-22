@@ -84,7 +84,7 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
   let clanMemberRec: { clanId: string; clan: { upgrades: { upgradeId: string; tier: number }[] } } | null = null
   try {
     const cm = await db.clanMember.findUnique({
-      where: { heroId: heroesData[0].id },
+      where: { heroId: run.heroId },
       include: { clan: { include: { upgrades: true } } },
     })
     if (cm) {
