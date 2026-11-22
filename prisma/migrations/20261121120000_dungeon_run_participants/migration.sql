@@ -17,8 +17,8 @@ CREATE INDEX "dungeon_run_participants_heroId_createdAt_idx"
 
 ALTER TABLE "dungeon_run_participants"
   ADD CONSTRAINT "dungeon_run_participants_runId_fkey"
-  FOREIGN KEY ("runId") REFERENCES "dungeon_runs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  FOREIGN KEY ("runId") REFERENCES "dungeon_runs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "dungeon_run_participants"
   ADD CONSTRAINT "dungeon_run_participants_heroId_fkey"
-  FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
