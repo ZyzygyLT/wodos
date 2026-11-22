@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockDb } from '../setup'
+import type { HeroData, RunResult } from '@/lib/combat-engine/dungeon-runner'
 
 vi.mock('@/lib/level-up', () => ({
   checkLevelUp: vi.fn(() => Promise.resolve({ leveledUp: false })),
@@ -42,8 +43,8 @@ describe('dungeon post-run clan event contribution', () => {
     }
 
     await processPostRun({
-      result: result as any,
-      heroesData: [{ id: 'hero-1' }, { id: 'hero-2' }] as any,
+      result: result as unknown as RunResult,
+      heroesData: [{ id: 'hero-1' }, { id: 'hero-2' }] as unknown as HeroData[],
       totalHeroes: 2,
       dungeon: { id: 1, name: 'Test Dungeon', slug: 'test-dungeon' },
       runId: 'run-1',
@@ -69,8 +70,8 @@ describe('dungeon post-run clan event contribution', () => {
         loot: [],
         log: [{ type: 'death', actorId: 'enemy-1' }],
         heroesFinalState: [{ id: 'hero-1', hp: 10, mp: 5 }],
-      } as any,
-      heroesData: [{ id: 'hero-1' }] as any,
+      } as unknown as RunResult,
+      heroesData: [{ id: 'hero-1' }] as unknown as HeroData[],
       totalHeroes: 1,
       dungeon: { id: 1, name: 'Test Dungeon', slug: 'test-dungeon' },
       runId: 'run-2',
