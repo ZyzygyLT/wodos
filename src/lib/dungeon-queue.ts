@@ -28,17 +28,24 @@ export function isQueueAvailable() {
 async function executeRun(runId: string, heroId: string, dungeonId: number) {
   const run = await db.dungeonRun.findUnique({
     where: { id: runId },
-    include: { dungeon: true }
+    include: { dungeon: true, participants: true }
   })
   if (run?.status !== 'running') return
 
   const dungeon = run.dungeon
 
-  // Load participants
+  // Prefer the immutable party captured when the run was registered.
   let heroesData: HeroData[]
   let totalHeroes: number
 
-  if (run.groupId) {
+  if (run.participants?.length) {
+    heroesData = run.participants.map((participant: any) => participant.snapshot as unknown as HeroData)
+    if (heroesData.some(participant => !participant.id || !participant.combatProfile)) {
+      throw new Error('DUNGEON_RUN_PARTICIPANT_SNAPSHOT_INVALID')
+    }
+    totalHeroes = heroesData.length
+  } else if (run.groupId) {
+    // Legacy runs created before participant snapshots retain the previous loading behavior.
     const groupResult = await loadGroupParticipants(run.groupId)
     if (groupResult.heroesData.length === 0) return
     heroesData = groupResult.heroesData
