@@ -135,7 +135,10 @@ export default function ActiveAdventurePage() {
         return
       }
       router.push("/adventures")
-    } catch (e) { logger.error('adventures', 'Failed to fetch active adventure', e) }
+    } catch (e) {
+      logger.error('adventures', 'Failed to abandon adventure', e)
+      setError("No se pudo abandonar la aventura. Inténtalo de nuevo.")
+    }
   }
 
   if (loading) return <div className="p-6 text-center text-gray-400">Cargando aventura...</div>
