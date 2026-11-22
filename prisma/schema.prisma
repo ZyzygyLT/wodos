@@ -380,12 +380,12 @@ model DungeonRun {
 model DungeonRunParticipant {
   id        String     @id @default(uuid())
   runId     String
-  heroId    String
+  heroId    String?
   profileId String?
   snapshot  Json
   createdAt DateTime   @default(now())
   run       DungeonRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  hero      Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  hero      Hero?      @relation(fields: [heroId], references: [id], onDelete: SetNull)
 
   @@unique([runId, heroId])
   @@index([heroId, createdAt])
