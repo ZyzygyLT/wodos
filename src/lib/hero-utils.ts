@@ -1,4 +1,5 @@
 import db from "@/lib/db"
+import type { Prisma } from "@/generated/prisma"
 import { calcHpMax, calcMpMax } from "@/lib/combat-engine/formulas"
 
 export async function getHeroByUserId(userId: string) {
@@ -172,39 +173,47 @@ export async function createHero(userId: string, name: string, classId: number, 
  * A stale or missing selection is repaired to the oldest hero owned by the user.
  * The conditional pointer update prevents a concurrent hero switch from being overwritten.
  */
-type HeroFindFirstOptions = NonNullable<Parameters<typeof db.hero.findFirst>[0]>
-type ActiveHeroOptions = Pick<HeroFindFirstOptions, 'include' | 'select'>
+type ActiveHeroOptions = Pick<Prisma.HeroFindFirstArgs, 'include' | 'select'>
 
-export async function getActiveHeroByUserId(
+export async function getActiveHeroByUserId<T extends ActiveHeroOptions = {}>(
   userId: string,
-  options: ActiveHeroOptions = {},
-) {
+  options: T = {} as T,
+): Promise<Prisma.HeroGetPayload<T> | null> {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { currentHeroId: true },
   })
   if (!user) return null
 
-  const queryOptions = options.select ? { select: options.select } : options.include ? { include: options.include } : {}
-
-  if (user.currentHeroId) {
-    const activeHero = await db.hero.findFirst({
-      where: { id: user.currentHeroId, userId },
-      ...queryOptions,
-    })
-    if (activeHero) return activeHero
+  const findOwnedHero = async (
+    where: Prisma.HeroWhereInput,
+    orderBy?: Prisma.HeroOrderByWithRelationInput,
+  ) => {
+    const base = { where, ...(orderBy ? { orderBy } : {}) }
+    if (options.select) {
+      return db.hero.findFirst({ ...base, select: options.select })
+    }
+    if (options.include) {
+      return db.hero.findFirst({ ...base, include: options.include })
+    }
+    return db.hero.findFirst(base)
   }
 
-  const fallbackHero = await db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "asc" },
-    ...queryOptions,
-  })
+  if (user.currentHeroId) {
+    const activeHero = await findOwnedHero({ id: user.currentHeroId, userId })
+    if (activeHero) return activeHero as Prisma.HeroGetPayload<T>
+  }
+
+  const fallbackHero = await findOwnedHero(
+    { userId },
+    { createdAt: "asc" },
+  )
   if (!fallbackHero) return null
 
+  const fallbackHeroId = (fallbackHero as { id: string }).id
   const repaired = await db.user.updateMany({
     where: { id: userId, currentHeroId: user.currentHeroId },
-    data: { currentHeroId: fallbackHero.id },
+    data: { currentHeroId: fallbackHeroId },
   })
 
   // If another request changed the selection while we were repairing it,
@@ -215,15 +224,17 @@ export async function getActiveHeroByUserId(
       select: { currentHeroId: true },
     })
     if (latestUser?.currentHeroId) {
-      const concurrentlySelectedHero = await db.hero.findFirst({
-        where: { id: latestUser.currentHeroId, userId },
-        ...queryOptions,
+      const concurrentlySelectedHero = await findOwnedHero({
+        id: latestUser.currentHeroId,
+        userId,
       })
-      if (concurrentlySelectedHero) return concurrentlySelectedHero
+      if (concurrentlySelectedHero) {
+        return concurrentlySelectedHero as Prisma.HeroGetPayload<T>
+      }
     }
   }
 
-  return fallbackHero
+  return fallbackHero as Prisma.HeroGetPayload<T>
 }
 
 /**
