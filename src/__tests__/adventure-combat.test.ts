@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { resolveAdventureChoice, resolveCombatStep } from '@/lib/adventures/adventure-helpers'
+import { resolveAdventureChoice, resolveCombatStep, isAdventureBlockingNewStart } from '@/lib/adventures/adventure-helpers'
+
+describe('adventure start blocking', () => {
+  it('keeps active and completed adventures blocking new starts until rewards are claimed', () => {
+    expect(isAdventureBlockingNewStart('active')).toBe(true)
+    expect(isAdventureBlockingNewStart('completed')).toBe(true)
+    expect(isAdventureBlockingNewStart('claimed')).toBe(false)
+    expect(isAdventureBlockingNewStart('failed')).toBe(false)
+  })
+})
 
 const hero = {
   hpMax: 100,

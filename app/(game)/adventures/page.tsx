@@ -84,12 +84,12 @@ export default function AdventuresPage() {
 
         {data?.hasActiveAdventure && (
           <div className="bg-amber-900/30 border border-amber-700 rounded-lg p-4 mb-6">
-            <p className="text-amber-300 font-semibold">📜 Tenés una aventura en curso</p>
+            <p className="text-amber-300 font-semibold">{data.blockingAdventureStatus === 'completed' ? '🎁 Tenés recompensas pendientes' : '📜 Tenés una aventura en curso'}</p>
             <button
               onClick={() => router.push("/adventures/active")}
               className="mt-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-sm"
             >
-              Continuar aventura
+              {data.blockingAdventureStatus === 'completed' ? 'Reclamar recompensas' : 'Continuar aventura'}
             </button>
           </div>
         )}
@@ -127,7 +127,7 @@ export default function AdventuresPage() {
                     : "bg-gray-700 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                {starting === adv.id ? "Iniciando..." : data?.hasActiveAdventure ? "Ya tienes una aventura activa" : adv.canAfford ? "Iniciar aventura" : "Energía insuficiente"}
+                {starting === adv.id ? "Iniciando..." : data?.hasActiveAdventure ? (data.blockingAdventureStatus === 'completed' ? "Reclama tus recompensas primero" : "Ya tienes una aventura activa") : adv.canAfford ? "Iniciar aventura" : "Energía insuficiente"}
               </button>
             </div>
           ))}
