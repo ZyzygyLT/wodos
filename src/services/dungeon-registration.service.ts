@@ -133,9 +133,12 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
     return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
   }
 
+  const participantIds = groupResult.heroesData.map(participant => participant.id)
   const run = await db.$transaction(async tx => {
-    // Serialize registrations for the same initiating hero to prevent duplicate active runs.
-    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${hero.id} FOR UPDATE`
+    // Lock participants in a stable order so overlapping group registrations serialize safely.
+    for (const participantId of [...participantIds].sort()) {
+      await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${participantId} FOR UPDATE`
+    }
 
     const prevRun = await tx.dungeonRun.findFirst({
       where: { heroId: hero.id, status: 'registered' },
@@ -146,6 +149,24 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
         data: { status: 'failed', result: 'defeat' },
       })
     }
+
+    const occupiedParticipant = await tx.dungeonRunParticipant.findFirst({
+      where: {
+        heroId: { in: participantIds },
+        run: { status: { in: ['registered', 'running'] } },
+      },
+      select: { heroId: true },
+    })
+    if (occupiedParticipant) return null
+
+    const legacyActiveRun = await tx.dungeonRun.findFirst({
+      where: {
+        heroId: { in: participantIds },
+        status: { in: ['registered', 'running'] },
+      },
+      select: { id: true },
+    })
+    if (legacyActiveRun) return null
 
     const createdRun = await tx.dungeonRun.create({
       data: {
@@ -170,6 +191,10 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
     })
     return createdRun
   })
+
+  if (!run) {
+    return { ok: false, error: 'Uno de los héroes ya está comprometido en otra expedición', status: 409 }
+  }
 
   return { ok: true, data: { id: run.id, dungeon: dungeon.name, status: 'registered' } }
 }
