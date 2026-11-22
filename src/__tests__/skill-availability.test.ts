@@ -9,8 +9,8 @@ import {
   setSkillCooldown,
 } from '@/engine/core/skills/skill-availability'
 
-const basic = { skillId: 1, name: 'Basic', effect: 'attack', manaCost: 0 }
-const costly = { skillId: 2, name: 'Power Strike', effect: 'attack', manaCost: 10 }
+const basic = { skillId: 1, name: 'Basic', type: 'basic' as const, effect: 'attack', manaCost: 0 }
+const costly = { skillId: 2, name: 'Power Strike', type: 'active' as const, effect: 'attack', manaCost: 10 }
 
 describe('skill availability and resource rules', () => {
   it('scales mana cost by 20% of base cost per rank above one', () => {
@@ -81,8 +81,22 @@ describe('skill availability and resource rules', () => {
     })
   })
 
+  it('does not mistake an active attack skill for a basic attack', () => {
+    const activeAttack = { skillId: 5, type: 'active' as const, effect: 'attack', manaCost: 10 }
+    expect(resolveSkillMana({
+      selectedSkill: activeAttack,
+      availableSkills: [activeAttack],
+      currentMp: 2,
+    })).toEqual({
+      skill: activeAttack,
+      mpCost: 0,
+      remainingMp: 0,
+      fallback: 'forced',
+    })
+  })
+
   it('preserves the forced-skill fallback when no basic attack exists', () => {
-    const spell = { skillId: 4, effect: 'heal', manaCost: 10 }
+    const spell = { skillId: 4, type: 'active' as const, effect: 'heal', manaCost: 10 }
     expect(resolveSkillMana({
       selectedSkill: spell,
       availableSkills: [spell],

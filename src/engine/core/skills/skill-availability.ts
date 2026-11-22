@@ -2,6 +2,7 @@ export interface SkillManaCandidate {
   readonly skillId: number
   readonly manaCost?: number
   readonly effect?: string
+  readonly type?: 'basic' | 'active' | 'passive'
 }
 
 export interface SkillManaResolution<T extends SkillManaCandidate> {
@@ -9,6 +10,12 @@ export interface SkillManaResolution<T extends SkillManaCandidate> {
   readonly mpCost: number
   readonly remainingMp: number
   readonly fallback: 'free_basic' | 'basic' | 'forced' | null
+}
+
+/** Explicit database skill type is authoritative; effect-only legacy records keep their old behavior. */
+export function isBasicSkill(skill: SkillManaCandidate): boolean {
+  if (skill.type !== undefined) return skill.type === 'basic'
+  return skill.effect === 'attack' || !skill.effect
 }
 
 /** Preserves Wodos' current rank-based MP scaling. */
@@ -44,13 +51,12 @@ export function resolveSkillMana<T extends SkillManaCandidate>(input: {
     }
   }
 
-  const isBasicAttack = (skill: T) => skill.effect === 'attack' || !skill.effect
-  const freeSkill = availableSkills.find(skill => (skill.manaCost ?? 0) === 0 && isBasicAttack(skill))
+  const freeSkill = availableSkills.find(skill => (skill.manaCost ?? 0) === 0 && isBasicSkill(skill))
   if (freeSkill) {
     return { skill: freeSkill, mpCost: 0, remainingMp: currentMp, fallback: 'free_basic' }
   }
 
-  const basicSkill = availableSkills.find(isBasicAttack)
+  const basicSkill = availableSkills.find(isBasicSkill)
   if (basicSkill) {
     return { skill: basicSkill, mpCost: 0, remainingMp: currentMp, fallback: 'basic' }
   }

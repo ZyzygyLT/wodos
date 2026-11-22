@@ -42,7 +42,7 @@ import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
-import { advanceSkillCooldowns, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
+import { advanceSkillCooldowns, isBasicSkill, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
 import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { dispatchSkillExecutionPlan } from '../../engine/core/skills/skill-plan-dispatch'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
@@ -74,7 +74,7 @@ export interface HeroData {
     roundRules: RoundRule[]
     defenseSkills: Record<string, number | null>
   }
-  skills: Array<{ skillId: number; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
+  skills: Array<{ skillId: number; type?: 'basic' | 'active' | 'passive'; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
   equipStats?: Record<string, number>
   consumables?: Array<{ heroItemId: string; itemId: number; healHp?: number; healMp?: number }>
   /** Inventory row IDs removed by this in-memory simulation. */
@@ -783,7 +783,7 @@ function buildStateSnapshot(
 function getSkill(hero: HeroData, skillId: number) {
   const found = hero.skills.find(s => s.skillId === skillId)
   if (found) return found
-  const basic = hero.skills.find(s => s.effect === 'attack' || !s.effect)
+  const basic = hero.skills.find(s => isBasicSkill(s))
   if (basic) return basic
   // Fallback genérico clase-neutral
   return { skillId: 1, name: 'Ataque', multiplier: 1, manaCost: 5, effect: 'attack' as const, rank: 1, cooldownRounds: 0, formula: { attrCoeffs: { st: 1, dx: 1, in: 1, wi: 1 }, skillRankCoeff: 1, diceSides: 6, diceCount: 1, diceDivisor: 6, flatBonus: 3 } }
@@ -2112,7 +2112,7 @@ function scaleEnemiesToParty(dungeon: DungeonData, heroes: HeroData[]): void {
 function resolveCooldownOverride(hero: HeroData, action: TacticAction, state: CombatState, actorUnit: CombatUnit, log: LogEntry[], round: number, levelNum: number): TacticAction {
   const heroCooldowns = state.skillCooldowns?.[actorUnit.id] ?? {}
   if (!isSkillOnCooldown(state.skillCooldowns, actorUnit.id, action.skillId)) return action
-  const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (s.effect === 'attack' || !s.effect))
+  const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (isBasicSkill(s)))
   if (!available) return action
   const override: TacticAction = { skillId: available.skillId, targetPos: 'front', targetType: 'weakest' }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
@@ -2127,7 +2127,7 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   const isAtk = chosenBuffSkill.effect === 'party_attack_up'
   const heroBuffBonuses = groupBuffBonusesForSide(state, 'hero')
   if (isAtk ? heroBuffBonuses.atk <= 0 : heroBuffBonuses.def <= 0) return action
-  const ataque = hero.skills.find(s => s.effect === 'attack' || !s.effect)
+  const ataque = hero.skills.find(s => isBasicSkill(s))
   if (!ataque) return action
   const override: TacticAction = { skillId: ataque.skillId, targetPos: 'front', targetType: 'weakest' }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
@@ -2356,7 +2356,7 @@ export async function runDungeon(
 
   // Skill básica del primer héroe para fallback táctico
   const mainHero = heroes[0]
-  const basicSkill = mainHero?.skills.find(s => s.effect === 'attack' || !s.effect)
+  const basicSkill = mainHero?.skills.find(s => isBasicSkill(s))
   const fallbackSkillId = basicSkill?.skillId ?? (mainHero?.skills[0]?.skillId ?? 1)
 
   // Acumular groupAtkBonus de todos los héroes

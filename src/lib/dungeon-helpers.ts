@@ -199,6 +199,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     },
     skills: hero.skills.map((hs: any) => ({
       skillId: hs.skill.id,
+      type: hs.skill.type,
       name: hs.skill.name,
       icon: hs.skill.icon,
       multiplier: hs.skill.multiplier,
