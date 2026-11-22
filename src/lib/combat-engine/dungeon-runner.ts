@@ -1094,6 +1094,8 @@ function processAoeTarget(
 ): TargetResult {
   const { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula, statusBase } = cfg
   const state = ctx.state!
+  const allHeroUnits = [state.hero, ...state.allies]
+  const allEnemyUnits = state.enemies
   const { total: defVal, dice: defDice } = getDefenseValue(enemy, aCat, ctx.random)
   const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
@@ -1351,6 +1353,8 @@ function executeEnemyHealEffect(enemy: EnemyData, enemyUnit: CombatUnit, target:
 function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: CombatUnit, cfg: EnemyAoeProcessConfig, ctx: CombatCtx): TargetResult {
   const { actionId, chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen } = cfg
   const state = ctx.state!
+  const heroUnits = [state.hero, ...state.allies]
+  const allEnemyUnits = state.enemies
   const { total: defVal, dice: defDice } = getDefenseValue(hero, aCat, ctx.random)
   const hit = defVal <= atkTotal
   if (!hit) {
@@ -1427,7 +1431,8 @@ function executeEnemySingleTargetAttack(
   target: CombatUnit, state: CombatState, ctx: CombatCtx,
   initiative: number, actionNum: number, totalActions: number,
   aCat: string
-): DetailedAction | null {
+ ): DetailedAction | null {
+  const allEnemyUnits = state.enemies
   const actionId = startAttack(ctx, enemyUnit.id, [target.id])
   const { total: defVal, dice: defDice } = getDefenseValue(target, aCat, ctx.random)
   const { hit, rollBase, rollDice, attackTotal } = computeEnemyHitValues(fResult, adjAttack, enemy, defVal, ctx.random)
@@ -1543,7 +1548,7 @@ function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | nu
 
 function applyManaShieldAbsorption(target: CombatUnit, state: CombatState, dmg: number, ctx: CombatCtx): { absorbed: number; finalDmg: number } {
   const result = resolveManaShield({
-    enabled: state.manaShield,
+    enabled: state.manaShield ?? false,
     currentMp: target.mp,
     incomingDamage: dmg,
   })
