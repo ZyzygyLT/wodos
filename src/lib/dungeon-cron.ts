@@ -62,12 +62,18 @@ export async function tick() {
 
 async function processScheduledRun(run: any) {
   const times = run.dungeon.scheduledTimes as string[]
-  if (!times || times.length === 0) return
+  if (!times || times.length === 0) {
+    await failRegisteredRun(run, 'La mazmorra no tiene horarios de ejecución configurados')
+    return
+  }
 
   const dungeon = run.dungeon
 
   const participants = await loadRunParticipants(run)
-  if (!participants) return
+  if (!participants) {
+    await failRegisteredRun(run, 'No se pudieron recuperar los participantes registrados')
+    return
+  }
 
   const { heroesData, allHeroIds } = participants
   const totalHeroes = heroesData.length
@@ -131,6 +137,32 @@ async function processScheduledRun(run: any) {
       data: { status: 'registered' },
     }).catch(releaseError => logger.error('dungeon-cron', 'No se pudo liberar la ejecución fallida', releaseError))
   }
+}
+
+async function failRegisteredRun(run: any, reason: string) {
+  logger.error('dungeon-cron', `Expedición ${run.id} finalizada sin ejecución: ${reason}`)
+  const participantIds = [...new Set([
+    run.heroId,
+    ...(run.participants ?? []).map((participant: { heroId: string }) => participant.heroId),
+  ].filter(Boolean))]
+
+  await db.$transaction(async tx => {
+    const finalized = await tx.dungeonRun.updateMany({
+      where: { id: run.id, status: 'registered' },
+      data: {
+        status: 'failed',
+        result: 'defeat',
+        executedAt: new Date(),
+        completesAt: new Date(),
+      },
+    })
+    if (finalized.count !== 1) return
+
+    await tx.hero.updateMany({
+      where: { id: { in: participantIds }, dungeonRegisteredId: run.id },
+      data: { dungeonRegisteredId: null },
+    })
+  })
 }
 
 async function loadRunParticipants(run: any) {
