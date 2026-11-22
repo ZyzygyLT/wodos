@@ -11,7 +11,25 @@ export async function GET() {
   if (!session?.user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 })
 
   const hero = await getActiveHeroByUserId(session.user.id, {
-    include: { clanMember: { include: { clan: { include: { groups: { include: { members: { include: { hero: { include: { class: true } } } } } } } } } },
+    include: {
+      clanMember: {
+        include: {
+          clan: {
+            include: {
+              groups: {
+                include: {
+                  members: {
+                    include: {
+                      hero: { include: { class: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   })
   if (!hero?.clanMember) return NextResponse.json({ error: "Sin clan" }, { status: 400 })
 
