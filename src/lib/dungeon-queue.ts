@@ -71,7 +71,7 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
     if (!hero) throw new Error('DUNGEON_RUN_HERO_MISSING')
 
     const profile = run.profileId
-      ? hero.combatProfiles.find((candidate: any) => candidate.id === run.profileId) ?? hero.combatProfiles[0]
+      ? hero.combatProfiles.find(candidate => candidate.id === run.profileId) ?? hero.combatProfiles[0]
       : hero.combatProfiles[0]
     heroesData = [await buildHeroData(hero, profile)]
     totalHeroes = 1
