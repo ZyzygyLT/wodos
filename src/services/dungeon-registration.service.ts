@@ -109,7 +109,11 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
 export async function registerScheduledDungeon(params: InstantRunParams): Promise<{ ok: boolean; error?: string; status?: number; data?: { id: string; dungeon: string; status: string } }> {
   const hero = await db.hero.findFirst({
     where: { id: params.heroId },
-    include: { combatProfiles: { orderBy: { createdAt: 'asc' } } },
+    include: {
+      combatProfiles: { orderBy: { createdAt: 'asc' } },
+      skills: { include: { skill: true } },
+      items: { include: { item: true } },
+    },
   })
   if (!hero) return { ok: false, error: 'No tenés un héroe', status: 404 }
   if (hero.hpCurrent <= 0) return { ok: false, error: 'Tu héroe está derribado. Esperá a que se recupere.', status: 400 }
@@ -123,13 +127,32 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
   const cm = await db.clanMember.findUnique({ where: { heroId: hero.id } })
   const effectiveGroupId = params.groupId ?? cm?.groupId ?? null
 
+  const groupResult = await loadCombatGroup(effectiveGroupId, hero, profileId ? hero.combatProfiles.find(p => p.id === profileId) ?? hero.combatProfiles[0] ?? null : null, dungeon.levelReq)
+  if (!groupResult.ok) return { ok: false, error: groupResult.error!, status: groupResult.status! }
+  if (groupResult.isGroup && !groupResult.heroesData.some(h => h.combatProfile?.position === 'front')) {
+    return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
+  }
+
   const prevRun = await db.dungeonRun.findFirst({ where: { heroId: hero.id, status: 'registered' } })
   if (prevRun) {
     await db.dungeonRun.update({ where: { id: prevRun.id }, data: { status: 'failed', result: 'defeat' } })
   }
 
   const run = await db.dungeonRun.create({
-    data: { heroId: hero.id, dungeonId: dungeon.id, profileId, groupId: effectiveGroupId, status: 'registered' },
+    data: {
+      heroId: hero.id,
+      dungeonId: dungeon.id,
+      profileId,
+      groupId: effectiveGroupId,
+      status: 'registered',
+      participants: {
+        create: groupResult.heroesData.map(participant => ({
+          heroId: participant.id,
+          profileId: participant.profileId ?? null,
+          snapshot: JSON.parse(JSON.stringify(participant)),
+        })),
+      },
+    },
   })
 
   await db.hero.update({ where: { id: hero.id }, data: { dungeonRegisteredId: run.id } })
