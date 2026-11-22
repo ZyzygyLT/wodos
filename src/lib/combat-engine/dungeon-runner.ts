@@ -297,6 +297,7 @@ export interface RunResult {
   fameGained: number
   loot: Array<{ itemId: number; qty: number; heroId?: string; heroName?: string }>
   heroesFinalState: HeroFinalState[]
+  consumedConsumables: Array<{ heroId: string; heroItemId: string }>
   log: LogEntry[]
   levelResults: Array<{ level: number; victory: boolean; rounds: number }>
   levelReports: LevelReport[]
@@ -2591,6 +2592,9 @@ export async function runDungeon(
     fameGained,
     loot: allLoot,
     heroesFinalState: heroUnits.map(h => ({ id: h.id, hp: h.hp, mp: h.mp })),
+    consumedConsumables: heroes.flatMap(hero =>
+      (hero.consumedConsumableIds ?? []).map(heroItemId => ({ heroId: hero.id, heroItemId }))
+    ),
     log,
     levelResults,
     levelReports,
