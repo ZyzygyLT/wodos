@@ -133,29 +133,43 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
     return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
   }
 
-  const prevRun = await db.dungeonRun.findFirst({ where: { heroId: hero.id, status: 'registered' } })
-  if (prevRun) {
-    await db.dungeonRun.update({ where: { id: prevRun.id }, data: { status: 'failed', result: 'defeat' } })
-  }
+  const run = await db.$transaction(async tx => {
+    // Serialize registrations for the same initiating hero to prevent duplicate active runs.
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${hero.id} FOR UPDATE`
 
-  const run = await db.dungeonRun.create({
-    data: {
-      heroId: hero.id,
-      dungeonId: dungeon.id,
-      profileId,
-      groupId: effectiveGroupId,
-      status: 'registered',
-      participants: {
-        create: groupResult.heroesData.map(participant => ({
-          heroId: participant.id,
-          profileId: participant.profileId ?? null,
-          snapshot: JSON.parse(JSON.stringify(snapshotDungeonParticipant(participant))),
-        })),
+    const prevRun = await tx.dungeonRun.findFirst({
+      where: { heroId: hero.id, status: 'registered' },
+    })
+    if (prevRun) {
+      await tx.dungeonRun.update({
+        where: { id: prevRun.id },
+        data: { status: 'failed', result: 'defeat' },
+      })
+    }
+
+    const createdRun = await tx.dungeonRun.create({
+      data: {
+        heroId: hero.id,
+        dungeonId: dungeon.id,
+        profileId,
+        groupId: effectiveGroupId,
+        status: 'registered',
+        participants: {
+          create: groupResult.heroesData.map(participant => ({
+            heroId: participant.id,
+            profileId: participant.profileId ?? null,
+            snapshot: JSON.parse(JSON.stringify(snapshotDungeonParticipant(participant))),
+          })),
+        },
       },
-    },
-  })
+    })
 
-  await db.hero.update({ where: { id: hero.id }, data: { dungeonRegisteredId: run.id } })
+    await tx.hero.update({
+      where: { id: hero.id },
+      data: { dungeonRegisteredId: createdRun.id },
+    })
+    return createdRun
+  })
 
   return { ok: true, data: { id: run.id, dungeon: dungeon.name, status: 'registered' } }
 }
