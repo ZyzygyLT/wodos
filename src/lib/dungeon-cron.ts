@@ -5,6 +5,7 @@ import { calcClanBonuses } from '@/lib/clan/upgrades'
 import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
 import { tickTournament } from '@/lib/arena/tournament-cron'
 import logger from '@/lib/logger'
+import { recoverStaleDungeonRuns } from '@/lib/dungeon-run-recovery'
 
 function getNextScheduledTime(times: string[]): Date | null {
   if (!times || times.length === 0) return null
@@ -45,8 +46,21 @@ function hasPassed(scheduledTimes: string[], since: Date, timerReductionHours = 
   return false
 }
 
-import { recoverStaleDungeonRuns } from '@/lib/dungeon-run-recovery'
+export async function tick() {
+  try {
+    await recoverStaleDungeonRuns()
+    const pending = await db.dungeonRun.findMany({
+      where: { status: 'registered' },
+      include: { dungeon: true, participants: true },
+    })
 
+    for (const run of pending) {
+      await processScheduledRun(run)
+    }
+  } catch (err) {
+    logger.error('dungeon-cron', 'Error en tick', err)
+  }
+}
 
 async function processScheduledRun(run: any) {
   const times = run.dungeon.scheduledTimes as string[]
