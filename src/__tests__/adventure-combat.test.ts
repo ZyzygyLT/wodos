@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveCombatStep } from '@/lib/adventures/adventure-helpers'
+import { resolveAdventureChoice, resolveCombatStep } from '@/lib/adventures/adventure-helpers'
 
 const hero = {
   hpMax: 100,
@@ -50,5 +50,39 @@ describe('adventure combat resolution', () => {
     expect(result.victory).toBe(false)
     expect(result.enemiesDefeated).toBe(0)
     expect(result.log).toHaveLength(1)
+  })
+})
+
+
+describe('adventure choice resolution', () => {
+  const attrs = { st: 12, dx: 8, ag: 15, pe: 10 }
+
+  it('uses the pass branch when the selected attribute meets the difficulty', () => {
+    const result = resolveAdventureChoice({
+      text: 'Escalar el muro', nextStep: 2,
+      skillCheck: { attr: 'ag', dc: 14, passStep: 3, failStep: 4 },
+    }, attrs, 5)
+
+    expect(result).toEqual({
+      nextStep: 3,
+      skillCheck: { attr: 'ag', dc: 14, value: 15, passed: true },
+    })
+  })
+
+  it('uses the fail branch when the selected attribute is below the difficulty', () => {
+    const result = resolveAdventureChoice({
+      text: 'Forzar la cerradura', nextStep: 2,
+      skillCheck: { attr: 'dx', dc: 12, passStep: 3, failStep: 4 },
+    }, attrs, 5)
+
+    expect(result.nextStep).toBe(4)
+    expect(result.skillCheck?.passed).toBe(false)
+  })
+
+  it('rejects a skill check that references a missing attribute', () => {
+    expect(() => resolveAdventureChoice({
+      text: 'Leer runas', nextStep: 2,
+      skillCheck: { attr: 'wisdom', dc: 10, passStep: 3, failStep: 4 },
+    }, attrs, 5)).toThrow('mal configurada')
   })
 })

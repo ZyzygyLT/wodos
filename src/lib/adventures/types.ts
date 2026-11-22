@@ -58,12 +58,15 @@ export interface CombatStepResult {
 
 export interface NarrativeStepResult {
   type: 'narrative'
+  description: string
 }
 
 export interface ChoiceStepResult {
   type: 'choice'
   chosenIndex: number
   nextStep: number
+  flavor?: string
+  skillCheck?: { attr: string; dc: number; value: number; passed: boolean }
 }
 
 export interface RewardStepResult {

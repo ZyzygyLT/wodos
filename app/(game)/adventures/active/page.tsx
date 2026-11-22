@@ -90,13 +90,13 @@ export default function ActiveAdventurePage() {
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
       const result = await res.json()
 
-      setHistory((prev: any) => [...prev, { type: 'choice', chosenIndex: choiceIndex, flavor: result.flavor }])
+      setHistory((prev: any) => [...prev, result.stepResult])
 
       setActive((prev: any) => ({
         ...prev,
         currentStep: result.nextStepIndex,
         currentStepData: result.nextStep ?? null,
-        result: { steps: [...(prev.result?.steps ?? []), { type: 'choice', chosenIndex: choiceIndex }], rewards: null },
+        result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: null },
       }))
       setStepType(result.nextStep?.type ?? null)
     } catch { setError("Error al elegir") } finally {
@@ -203,6 +203,11 @@ export default function ActiveAdventurePage() {
                   <div>
                     <p className="text-sm font-semibold text-emerald-400 mb-1">🤔 Decisión tomada</p>
                     {entry.flavor && <p className="text-sm text-gray-400 italic">{entry.flavor}</p>}
+                    {entry.skillCheck && (
+                      <p className={`text-xs mt-1 ${entry.skillCheck.passed ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {entry.skillCheck.passed ? 'Prueba superada' : 'Prueba fallida'}: {entry.skillCheck.attr.toUpperCase()} {entry.skillCheck.value}/{entry.skillCheck.dc}
+                      </p>
+                    )}
                   </div>
                 )}
                 {entry.type === 'reward' && (

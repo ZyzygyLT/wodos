@@ -1,7 +1,7 @@
 import db from '@/lib/db'
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
-  calcEnergyRecharge, resolveCombatStep, rollAdventureRewards,
+  calcEnergyRecharge, resolveCombatStep, resolveAdventureChoice, rollAdventureRewards,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -175,7 +175,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     let stepResult: StepResult
     switch (currentStep.type) {
       case "narrative": {
-        stepResult = { type: "narrative" }
+        stepResult = { type: "narrative", description: currentStep.description }
         break
       }
       case "choice": {
@@ -203,7 +203,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
         break
       }
       default: {
-        stepResult = { type: "narrative" }
+        stepResult = { type: "narrative", description: currentStep.description }
       }
     }
 
@@ -268,26 +268,38 @@ export async function makeChoice(
     }
 
     const chosen = currentStep.choices[choiceIndex]
-    if (!Number.isInteger(chosen.nextStep) || chosen.nextStep < 0 || chosen.nextStep >= steps.length) {
-      throw new Error("La opción apunta a un paso inválido")
-    }
+    const hero = await tx.hero.findUnique({ where: { id: heroId }, select: { attrs: true } })
+    if (!hero) throw new Error("Héroe no encontrado")
+    const resolution = resolveAdventureChoice(
+      chosen,
+      hero.attrs as Record<string, number>,
+      steps.length,
+    )
 
     const resultData = (ha.result as any) ?? { steps: [], rewards: null }
     if (!Array.isArray(resultData.steps)) resultData.steps = []
-    const stepResult = { type: "choice" as const, chosenIndex: choiceIndex, nextStep: chosen.nextStep }
+    const stepResult = {
+      type: "choice" as const,
+      chosenIndex: choiceIndex,
+      nextStep: resolution.nextStep,
+      flavor: chosen.flavor ?? undefined,
+      skillCheck: resolution.skillCheck,
+    }
     resultData.steps.push(stepResult)
 
     const advanced = await tx.heroAdventure.updateMany({
       where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
-      data: { currentStep: chosen.nextStep, result: resultData },
+      data: { currentStep: resolution.nextStep, result: resultData },
     })
     if (advanced.count !== 1) throw new Error("AVENTURA_CHOICE_STALE")
 
     return {
       chosen: chosen.text,
-      nextStepIndex: chosen.nextStep,
+      nextStepIndex: resolution.nextStep,
       flavor: chosen.flavor ?? null,
-      nextStep: steps[chosen.nextStep] ?? null,
+      skillCheck: resolution.skillCheck ?? null,
+      stepResult,
+      nextStep: steps[resolution.nextStep] ?? null,
       totalSteps: ha.totalSteps,
     }
   })
