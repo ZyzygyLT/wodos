@@ -31,7 +31,7 @@ export default function DungeonPage() {
   const [newGroupName, setNewGroupName] = useState("")
   const [creatingGroup, setCreatingGroup] = useState(false)
 
-  async function fetchHeroAndDungeons() {
+  const fetchHeroAndDungeons = useCallback(async () => {
     try {
       const [heroRes, dungeonsRes] = await Promise.all([
         fetch("/api/hero"), fetch("/api/dungeons"),
@@ -57,7 +57,7 @@ export default function DungeonPage() {
     } catch (error) {
       throw error
     }
-  }
+  }, [router])
 
   async function fetchClan() {
     try {
@@ -98,7 +98,7 @@ export default function DungeonPage() {
     } catch (e) { logger.error('dungeon', 'Error fetching data', e) }
   }
 
-  function autoSelectGroup(mergedGroups: any[], heroId: string) {
+  const autoSelectGroup = useCallback((mergedGroups: any[], heroId: string) => {
     if (mergedGroups.length === 0 || selectedGroupId) return
     const myGroup = mergedGroups.find((g: any) => {
       const inClanMembers = g.members?.some((m: any) => m.heroId === heroId)
@@ -106,7 +106,7 @@ export default function DungeonPage() {
       return inClanMembers || inGroupMembers
     })
     if (myGroup) setSelectedGroupId(myGroup.id)
-  }
+  }, [selectedGroupId])
 
   const fetchData = useCallback(async () => {
     setLoadError("")
@@ -128,7 +128,7 @@ export default function DungeonPage() {
       logger.error("dungeon", "Error loading expedition screen", error)
       setLoadError("No pudimos cargar las expediciones. Comprueba tu conexión e inténtalo de nuevo.")
     }
-  }, [router])
+  }, [router, fetchHeroAndDungeons, autoSelectGroup])
 
   useEffect(() => {
     void Promise.resolve().then(fetchData)
