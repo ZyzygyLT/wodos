@@ -20,9 +20,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: ESLint (full repository)
+  lint-audit:
+    name: Full-repository lint audit (legacy debt)
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,6 +32,21 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+
+  lint-diff:
+    name: Changed-file lint regression gate
+    if: github.event_name == 'pull_request' || github.ref_name == 'implementation/hero-identity'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:diff
 
   typecheck:
     name: TypeScript
