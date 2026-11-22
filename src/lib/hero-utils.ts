@@ -73,6 +73,28 @@ export async function createHero(userId: string, name: string, classId: number, 
       where: { classId, defenseCategory: { not: null } }
     })
 
+    const starterSkills = cls.skills.filter(s => s.tier <= 1 || s.goldCost === 0)
+    const defaultAttackSkill = starterSkills
+      .filter(s => s.type === "active" && s.effect === "attack" && s.tier === 1 && s.manaCost <= mpMax)
+      .sort((a, b) => a.manaCost - b.manaCost || a.id - b.id)[0]
+    if (!defaultAttackSkill) throw new Error("NO_STARTER_ATTACK_SKILL")
+
+    const defaultHealSkill = starterSkills.find(
+      s => s.type === "active" && s.effect === "heal" && s.tier === 1 && s.manaCost <= mpMax
+    )
+    const roundRules = [
+      ...(defaultHealSkill ? [{
+        priority: 1,
+        condition: { type: "hp_self_lt", value: 30 },
+        action: { skillId: defaultHealSkill.id, targetPos: "auto", targetType: "most_injured_ally" as const },
+      }] : []),
+      {
+        priority: defaultHealSkill ? 2 : 1,
+        condition: { type: "always" },
+        action: { skillId: defaultAttackSkill.id, targetPos: "front", targetType: "weakest" },
+      },
+    ]
+
     const hero = await tx.hero.create({
       data: {
         userId,
@@ -91,24 +113,11 @@ export async function createHero(userId: string, name: string, classId: number, 
             name: "Estándar",
             position: cls.position,
             defenseSkills: buildDefenseDefaults(genericDefense, classDefense) as any,
-            roundRules: [
-              {
-                priority: 1,
-                condition: { type: "hp_self_lt", value: 30 },
-                action: { skillId: 1, targetPos: "auto", targetType: "most_injured_ally" as const }
-              },
-              {
-                priority: 2,
-                condition: { type: "always" },
-                action: { skillId: 1, targetPos: "front", targetType: "weakest" }
-              }
-            ]
+            roundRules,
           }
         }
       }
     })
-
-    const starterSkills = cls.skills.filter(s => s.tier <= 1 || s.goldCost === 0)
     if (starterSkills.length > 0) {
       await tx.heroSkill.createMany({
         data: starterSkills.map(s => ({ heroId: hero.id, skillId: s.id }))
