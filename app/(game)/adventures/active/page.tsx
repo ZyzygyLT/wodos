@@ -282,13 +282,21 @@ export default function ActiveAdventurePage() {
                 {executing ? "Cargando..." : "Continuar →"}
               </button>
             )}
-            {isOver && (
+            {active?.status === "completed" && (
               <button
                 onClick={claimRewards}
                 disabled={claiming}
                 className="flex-1 py-3 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 rounded-lg font-semibold"
               >
                 {claiming ? "Reclamando..." : "🎁 Reclamar recompensas"}
+              </button>
+            )}
+            {active?.status === "failed" && (
+              <button
+                onClick={() => router.push("/adventures")}
+                className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
+              >
+                Volver a aventuras
               </button>
             )}
             {!isOver && (
