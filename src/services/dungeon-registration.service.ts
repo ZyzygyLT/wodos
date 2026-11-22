@@ -71,11 +71,13 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   // Evaluate the daily bonus after reservation so concurrent runs cannot both claim first-of-day.
   let firstOfDay = false
   let result: RunResult
+  let itemMap = new Map<number, any>()
   try {
     firstOfDay = isGroup
       ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
       : !(await hasHeroRunDungeonToday(hero.id))
     result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
+    itemMap = await loadLootItemMap(result)
     await db.$transaction(async tx => {
       await persistRunResult(tx, { runId, result, heroesData, totalHeroes })
     })
@@ -88,11 +90,15 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
     return { ok: false, error: 'No se pudo completar la expedición. Intentá nuevamente.', status: 500 }
   }
 
-  const levelUp = await checkLevelUp(hero.id)
+  let levelUp: LevelUpResult | undefined
+  try {
+    levelUp = await checkLevelUp(hero.id)
+  } catch (error) {
+    logger.error('dungeon-registration', 'Leader level-up processing failed', error)
+  }
   await processPostRun({ result, heroesData, totalHeroes, dungeon, runId }).catch(error => {
     logger.error('dungeon-registration', 'Post-run processing failed', error)
   })
-  const itemMap = await loadLootItemMap(result)
 
   return {
     ok: true,
@@ -109,7 +115,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
       heroesFinalState: result.heroesFinalState,
       loot: (result.loot ?? []).map(l => ({ itemId: l.itemId, qty: l.qty, name: itemMap.get(l.itemId)?.name ?? `#${l.itemId}` })),
       log: result.log.slice(-5).map(l => l.message),
-      levelUp: levelUp.leveledUp ? levelUp : undefined,
+      levelUp: levelUp?.leveledUp ? levelUp : undefined,
       firstOfDay,
     },
   }
