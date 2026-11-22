@@ -7,6 +7,7 @@ import {
   snapshotDungeonParticipant,
   hasHeroRunDungeonToday,
   hasGroupRunDungeonToday,
+  reconcileDungeonParticipantConsumables,
 } from '@/lib/dungeon-helpers'
 
 function makeParticipant(id: string): HeroData {
@@ -74,6 +75,28 @@ describe('dungeon participant snapshots', () => {
     const incomplete = { ...snapshot, hpCurrent: undefined }
     expect(restoreDungeonParticipantSnapshots([{ snapshot: incomplete }])).toBeNull()
   })
+  it('removes snapshot consumables that no longer exist before scheduled execution', async () => {
+    const first = makeParticipant('hero-1')
+    const second = makeParticipant('hero-2')
+    ;(mockDb.heroItem.findMany as Mock).mockResolvedValue([
+      { id: 'item-hero-2', heroId: 'hero-2' },
+    ])
+
+    await reconcileDungeonParticipantConsumables([first, second])
+
+    expect(mockDb.heroItem.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['item-hero-1', 'item-hero-2'] },
+        heroId: { in: ['hero-1', 'hero-2'] },
+      },
+      select: { id: true, heroId: true },
+    })
+    expect(first.consumables).toEqual([])
+    expect(second.consumables).toEqual([
+      { heroItemId: 'item-hero-2', itemId: 9, healHp: 20 },
+    ])
+  })
+
   describe('daily expedition history', () => {
     beforeEach(() => {
       vi.clearAllMocks()

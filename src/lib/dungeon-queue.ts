@@ -2,7 +2,7 @@ import { Queue, Worker, Job } from 'bullmq'
 import { Redis } from 'ioredis'
 import db from '@/lib/db'
 import { runDungeon, HeroData } from '@/lib/combat-engine/dungeon-runner'
-import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, restoreDungeonParticipantSnapshots } from '@/lib/dungeon-helpers'
+import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, restoreDungeonParticipantSnapshots, reconcileDungeonParticipantConsumables } from '@/lib/dungeon-helpers'
 import { calcClanBonuses } from '@/lib/clan/upgrades'
 import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
 import logger from '@/lib/logger'
@@ -52,6 +52,7 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
     const snapshots = restoreDungeonParticipantSnapshots(run.participants)
     if (!snapshots) throw new Error('DUNGEON_RUN_PARTICIPANT_SNAPSHOT_INVALID')
     heroesData = snapshots
+    await reconcileDungeonParticipantConsumables(heroesData)
     totalHeroes = heroesData.length
   } else if (run.groupId) {
     // Legacy runs created before participant snapshots retain the previous loading behavior.

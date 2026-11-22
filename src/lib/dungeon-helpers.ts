@@ -149,6 +149,30 @@ export function restoreDungeonParticipantSnapshots(
   return snapshots
 }
 
+export async function reconcileDungeonParticipantConsumables(heroesData: HeroData[]): Promise<void> {
+  const consumables = heroesData.flatMap(hero =>
+    (hero.consumables ?? []).map(item => ({ heroId: hero.id, heroItemId: item.heroItemId }))
+  )
+  if (consumables.length === 0) return
+
+  const existingItems = await db.heroItem.findMany({
+    where: {
+      id: { in: consumables.map(item => item.heroItemId) },
+      heroId: { in: [...new Set(consumables.map(item => item.heroId))] },
+    },
+    select: { id: true, heroId: true },
+  })
+  const existingKeys = new Set(existingItems.map(item => `${item.heroId}:${item.id}`))
+
+  // A scheduled expedition keeps its registered build, but cannot consume an
+  // inventory row that the player removed before the scheduled execution.
+  for (const hero of heroesData) {
+    hero.consumables = (hero.consumables ?? []).filter(item =>
+      existingKeys.has(`${hero.id}:${item.heroItemId}`)
+    )
+  }
+}
+
 export async function buildHeroData(hero: any, profile: any): Promise<HeroData> {
   const hpMax = hero.hpMax
   const mpMax = hero.mpMax
