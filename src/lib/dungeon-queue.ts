@@ -49,12 +49,14 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
       include: {
         skills: { include: { skill: true } },
         items: { include: { item: true } },
-        combatProfiles: { where: { dungeonLevel: null }, take: 1 }
+        combatProfiles: true
       }
     })
     if (!hero) return
 
-    const profile = hero.combatProfiles[0]
+    const profile = run.profileId
+      ? hero.combatProfiles.find((candidate: any) => candidate.id === run.profileId) ?? hero.combatProfiles[0]
+      : hero.combatProfiles[0]
     heroesData = [await buildHeroData(hero, profile)]
     totalHeroes = 1
   }
