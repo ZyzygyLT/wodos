@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Mock } from 'vitest'
+import { mockDb } from '../setup'
 import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
 import {
   restoreDungeonParticipantSnapshots,
   snapshotDungeonParticipant,
+  hasHeroRunDungeonToday,
+  hasGroupRunDungeonToday,
 } from '@/lib/dungeon-helpers'
 
 function makeParticipant(id: string): HeroData {
@@ -70,4 +74,37 @@ describe('dungeon participant snapshots', () => {
     const incomplete = { ...snapshot, hpCurrent: undefined }
     expect(restoreDungeonParticipantSnapshots([{ snapshot: incomplete }])).toBeNull()
   })
+  describe('daily expedition history', () => {
+    beforeEach(() => {
+      vi.clearAllMocks()
+      ;(mockDb.dungeonRun.count as Mock).mockResolvedValue(0)
+    })
+
+    it('counts a run where the hero was a participant, not only its leader', async () => {
+      await hasHeroRunDungeonToday('hero-member')
+      expect(mockDb.dungeonRun.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          OR: [
+            { heroId: 'hero-member' },
+            { participants: { some: { heroId: 'hero-member' } } },
+          ],
+          status: 'done',
+        }),
+      })
+    })
+
+    it('counts group members through historical participant rows', async () => {
+      await hasGroupRunDungeonToday(['hero-one', 'hero-two'])
+      expect(mockDb.dungeonRun.count).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          OR: [
+            { heroId: { in: ['hero-one', 'hero-two'] } },
+            { participants: { some: { heroId: { in: ['hero-one', 'hero-two'] } } } },
+          ],
+          status: 'done',
+        }),
+      })
+    })
+  })
+
 })
