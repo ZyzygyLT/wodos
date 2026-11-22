@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
+import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
 import { mockDb } from '../setup'
 
@@ -44,7 +45,7 @@ describe('GET /api/dungeon/report/[id]', () => {
     mockRun()
 
     const { GET } = await import('@/app/api/dungeon/report/[id]/route')
-    const response = await GET(new Request('http://localhost/api/dungeon/report/run-history'), {
+    const response = await GET(new NextRequest('http://localhost/api/dungeon/report/run-history'), {
       params: Promise.resolve({ id: RUN_ID }),
     })
     const data = await response.json()
