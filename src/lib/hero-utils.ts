@@ -172,10 +172,13 @@ export async function createHero(userId: string, name: string, classId: number, 
  * A stale or missing selection is repaired to the oldest hero owned by the user.
  * The conditional pointer update prevents a concurrent hero switch from being overwritten.
  */
+type HeroFindFirstOptions = NonNullable<Parameters<typeof db.hero.findFirst>[0]>
+type ActiveHeroOptions = Pick<HeroFindFirstOptions, 'include' | 'select'>
+
 export async function getActiveHeroByUserId(
   userId: string,
-  options: { include?: any; select?: any } = {},
-): Promise<any | null> {
+  options: ActiveHeroOptions = {},
+) {
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { currentHeroId: true },
