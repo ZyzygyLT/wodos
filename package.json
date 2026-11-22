@@ -12,7 +12,8 @@
     "worker": "tsx scripts/start-workers.ts",
     "seed": "tsx prisma/seed.ts",
     "seed:test-groups": "tsx prisma/seed-test-groups.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "lint:diff": "node scripts/lint-diff.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
