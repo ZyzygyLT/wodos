@@ -13,7 +13,6 @@ export default function AdventuresPage() {
   const [error, setError] = useState<string | null>(null)
 
   async function fetchAdventures() {
-    setLoading(true)
     try {
       const res = await fetch("/api/adventures")
       if (res.status === 401) { router.push("/login"); return }

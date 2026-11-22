@@ -16,7 +16,6 @@ export default function ActiveAdventurePage() {
   const [stepType, setStepType] = useState<string | null>(null)
 
   async function fetchActive() {
-    setLoading(true)
     try {
       const res = await fetch("/api/adventures/active")
       if (res.status === 401) { router.push("/login"); return }
