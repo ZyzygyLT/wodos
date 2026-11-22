@@ -64,7 +64,6 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   if (params.profileId && !profile) {
     return { ok: false, error: 'Perfil de combate no válido', status: 404 }
   }
-  const profileId = profile?.id ?? null
 
   const cm = await db.clanMember.findUnique({ where: { heroId: hero.id } })
   const effectiveGroupId = params.groupId ?? cm?.groupId
