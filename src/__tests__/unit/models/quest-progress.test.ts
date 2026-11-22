@@ -104,9 +104,9 @@ describe('updateQuestProgress', () => {
     await updateQuestProgress('hero-1', { type: 'dungeon_complete', dungeonSlug: 'cueva-aranyas' })
 
     expect(mockDb.$transaction).toHaveBeenCalled()
-    expect(mockDb.heroQuest.update).toHaveBeenCalledWith(
+    expect(mockDb.heroQuest.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'hq-1' },
+        where: { id: 'hq-1', status: 'active' },
         data: expect.objectContaining({ status: 'completed' }),
       })
     )
