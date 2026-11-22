@@ -1,6 +1,6 @@
 import db from '@/lib/db'
 import { runDungeon, HeroData } from '@/lib/combat-engine/dungeon-runner'
-import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday } from '@/lib/dungeon-helpers'
+import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, restoreDungeonParticipantSnapshots } from '@/lib/dungeon-helpers'
 import { calcClanBonuses } from '@/lib/clan/upgrades'
 import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
 import { tickTournament } from '@/lib/arena/tournament-cron'
@@ -133,9 +133,9 @@ async function processScheduledRun(run: any) {
 
 async function loadRunParticipants(run: any) {
   if (run.participants?.length) {
-    const heroesData = run.participants.map((participant: any) => participant.snapshot as unknown as HeroData)
+    const heroesData = restoreDungeonParticipantSnapshots(run.participants)
+    if (!heroesData) return null
     const allHeroIds = heroesData.map((participant: HeroData) => participant.id)
-    if (heroesData.some((participant: HeroData) => !participant.id || !participant.combatProfile)) return null
     return { heroesData, allHeroIds }
   }
 
