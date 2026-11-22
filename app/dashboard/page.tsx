@@ -42,6 +42,8 @@ const POSITION_LABELS: Record<string, string> = {
 export default function Dashboard() {
   const router = useRouter()
   const [hero, setHero] = useState<HeroData | null>(null)
+  const [loadError, setLoadError] = useState("")
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [spending, setSpending] = useState<Record<string, number>>({})
   const [tab, setTab] = useState('hero')
   const [renamingProfile, setRenamingProfile] = useState<string | null>(null)
@@ -59,15 +61,34 @@ export default function Dashboard() {
   }, [message])
 
   const fetchData = useCallback(async () => {
+    setLoadError("")
     try {
       const heroRes = await fetch("/api/hero")
-      if (heroRes.status === 401) return router.push("/login")
-      if (heroRes.status === 404) return router.push("/onboarding")
-      setHero(await heroRes.json())
-    } catch (e) { logger.error('dashboard', 'Failed to load data', e) }
+      if (heroRes.status === 401) {
+        router.push("/login")
+        return
+      }
+      if (heroRes.status === 404) {
+        router.push("/onboarding")
+        return
+      }
+      if (!heroRes.ok) {
+        throw new Error("No se pudo cargar tu héroe. Intentá nuevamente.")
+      }
+      const heroData = await heroRes.json()
+      if (!heroData || typeof heroData.id !== "string") {
+        throw new Error("La respuesta del servidor no contiene un héroe válido.")
+      }
+      setHero(heroData)
+    } catch (e) {
+      logger.error('dashboard', 'Failed to load data', e)
+      setLoadError(e instanceof Error ? e.message : "Error de conexión al cargar el juego.")
+    }
   }, [router])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    void Promise.resolve().then(fetchData)
+  }, [fetchData, loadAttempt])
 
   const epForLevel = (level: number) => Math.round(200 * Math.pow(1.6, level - 1))
   const currentLevelEp = hero ? epForLevel(hero.level) : 1
@@ -162,6 +183,21 @@ export default function Dashboard() {
         fetchData()
       }
     } catch (e) { logger.error('dashboard', 'Failed to load data', e) }
+  }
+
+  if (!hero && loadError) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center p-4">
+        <div className="max-w-md text-center space-y-4">
+          <h1 className="text-xl font-bold">No pudimos cargar tu partida</h1>
+          <p role="alert" className="text-sm text-red-400">{loadError}</p>
+          <button onClick={() => setLoadAttempt(attempt => attempt + 1)}
+            className="px-5 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition">
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950"><DashboardSkeleton /></div>
