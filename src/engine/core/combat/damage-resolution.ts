@@ -1,3 +1,8 @@
+export type DamageType =
+  | 'physical' | 'fire' | 'ice' | 'lightning'
+  | 'poison' | 'holy' | 'dark' | 'psychological'
+  | 'piercing' | 'arcane' | 'healing' | 'bleed'
+
 export type DamageResistances = Readonly<Record<string, number | undefined>>
 
 export interface DamageResolutionResult {
