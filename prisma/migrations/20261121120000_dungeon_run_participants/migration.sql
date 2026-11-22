@@ -2,7 +2,7 @@
 CREATE TABLE "dungeon_run_participants" (
   "id" TEXT NOT NULL,
   "runId" TEXT NOT NULL,
-  "heroId" TEXT,
+  "heroId" TEXT NOT NULL,
   "profileId" TEXT,
   "snapshot" JSONB NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -21,4 +21,4 @@ ALTER TABLE "dungeon_run_participants"
 
 ALTER TABLE "dungeon_run_participants"
   ADD CONSTRAINT "dungeon_run_participants_heroId_fkey"
-  FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  FOREIGN KEY ("heroId") REFERENCES "heroes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
