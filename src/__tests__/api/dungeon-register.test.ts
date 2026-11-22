@@ -22,6 +22,11 @@ import { auth } from '@/auth'
 const FAKE_USER_ID = 'user-1'
 const FAKE_HERO_ID = 'hero-1'
 
+beforeEach(() => {
+  ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: null })
+  ;(mockDb.user.updateMany as Mock).mockResolvedValue({ count: 1 })
+})
+
 function mockSession() {
   ;(auth as Mock).mockResolvedValue({ user: { id: FAKE_USER_ID } })
 }
