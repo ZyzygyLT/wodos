@@ -1,4 +1,6 @@
 name: CI
+
+# Keep this workflow aligned with the base-branch CI so pull requests are validated.
 on:
   workflow_dispatch:
   push:
