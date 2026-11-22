@@ -21,8 +21,13 @@ export default function ActiveAdventurePage() {
     fetch("/api/adventures/active", { signal: controller.signal })
       .then(async (res) => {
         if (res.status === 401) { router.push("/login"); return null }
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          throw new Error(typeof body?.error === "string" ? body.error : "No se pudo cargar la aventura")
+        }
         const data = await res.json()
-        if (!data || data.active === false) {
+        if (!data) throw new Error("Respuesta inválida al cargar la aventura")
+        if (data.active === false) {
           router.push("/adventures")
           return null
         }
@@ -35,7 +40,9 @@ export default function ActiveAdventurePage() {
         setStepType(data.currentStepData?.type ?? null)
       })
       .catch((error) => {
-        if (error.name !== "AbortError") setError("Error al cargar aventura")
+        if (error.name !== "AbortError") {
+          setError(error instanceof Error ? error.message : "Error al cargar aventura")
+        }
       })
       .finally(() => setLoading(false))
     return () => controller.abort()
@@ -143,6 +150,22 @@ export default function ActiveAdventurePage() {
   }
 
   if (loading) return <div className="p-6 text-center text-gray-400">Cargando aventura...</div>
+
+  if (!active) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-gray-100 p-6">
+        <div className="max-w-3xl mx-auto bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
+          <p className="text-red-300 mb-4">{error ?? "No se pudo cargar la aventura."}</p>
+          <button
+            onClick={() => router.push("/adventures")}
+            className="px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded-lg font-semibold"
+          >
+            Volver a aventuras
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const isOver = active?.status === "completed" || active?.status === "failed"
   const currentStep = active?.currentStepData
