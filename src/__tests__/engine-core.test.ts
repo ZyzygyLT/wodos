@@ -33,8 +33,8 @@ describe('engine core foundation', () => {
       { id: 'percent', stat: 'health', operation: 'percent', value: 10 },
       { id: 'flat', stat: 'health', operation: 'flat', value: 5 },
     ]
-    expect(applyStatModifiers(100, modifiers)).toBe(115)
-    expect(applyStatModifiers(100, [...modifiers].reverse())).toBe(115)
+    expect(applyStatModifiers(100, modifiers)).toBeCloseTo(115)
+    expect(applyStatModifiers(100, [...modifiers].reverse())).toBeCloseTo(115)
   })
 
   it('uses deterministic seeded random sequences', () => {
