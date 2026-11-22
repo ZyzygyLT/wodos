@@ -104,11 +104,11 @@ export default function DungeonPlayPage() {
     return () => { cancelled = true }
   }, [params?.id, fetchReport])
 
-  const runResult: RunResult | null = report?.levelReports
+  const runResult: RunResult | null = report
     ? {
         victory: report.result === "victory",
         levelsCleared: report.levelsCleared ?? 0,
-        totalRounds: report.levelReports.reduce((s, l) => s + (l.rounds?.length ?? 0), 0),
+        totalRounds: (report.levelReports ?? []).reduce((s, l) => s + (l.rounds?.length ?? 0), 0),
         epGained: report.epGained ?? 0,
         goldGained: report.goldGained ?? 0,
         fameGained: 0,
@@ -116,7 +116,7 @@ export default function DungeonPlayPage() {
         heroesFinalState: [],
         log: [],
         levelResults: [],
-        levelReports: report.levelReports,
+        levelReports: report.levelReports ?? [],
         eventJournal: { schemaVersion: 1, events: [] },
       }
     : null
