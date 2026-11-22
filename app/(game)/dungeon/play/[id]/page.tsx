@@ -36,6 +36,7 @@ export default function DungeonPlayPage() {
   const [report, setReport] = useState<RunReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reportAttempt, setReportAttempt] = useState(0)
   const [dismissedLevelUpKey, setDismissedLevelUpKey] = useState<string | null>(null)
   const levelUpParams = {
     level: searchParams?.get("lvl") ?? null,
@@ -102,7 +103,7 @@ export default function DungeonPlayPage() {
       })
 
     return () => { cancelled = true }
-  }, [params?.id, fetchReport])
+  }, [params?.id, fetchReport, reportAttempt])
 
   const runResult: RunResult | null = report
     ? {
@@ -137,10 +138,20 @@ export default function DungeonPlayPage() {
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center max-w-md">
           <p className="text-red-400 mb-2">❌ {error}</p>
-          <button onClick={() => router.push("/dungeon")}
-            className="mt-4 px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-sm transition">
-            Volver al mapa
-          </button>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <button onClick={() => {
+              setLoading(true)
+              setError(null)
+              setReport(null)
+              setReportAttempt(attempt => attempt + 1)
+            }} className="px-4 py-2 rounded bg-amber-700 hover:bg-amber-600 text-sm transition">
+              Reintentar
+            </button>
+            <button onClick={() => router.push("/dungeon")}
+              className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-sm transition">
+              Volver al mapa
+            </button>
+          </div>
         </div>
       </div>
     )
