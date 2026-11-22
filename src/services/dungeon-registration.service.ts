@@ -2,9 +2,7 @@ import db from '@/lib/db'
 import { runDungeon, HeroData, RunResult } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, snapshotDungeonParticipant } from '@/lib/dungeon-helpers'
 import { checkLevelUp, LevelUpResult } from '@/lib/level-up'
-import { updateQuestProgress } from '@/lib/quests/progress'
-import { checkAchievements } from '@/lib/achievements/checker'
-import { grantMaterialDrops } from '@/lib/craft/material-drops'
+import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
 import { calcClanBonuses } from "@/lib/clan/upgrades"
 import logger from "@/lib/logger"
 
@@ -69,21 +67,31 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
     ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
     : !(await hasHeroRunDungeonToday(hero.id))
 
-  const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
+  const runId = await createInstantRunReservation(hero.id, dungeon, profile, effectiveGroupId, heroesData)
+  if (!runId) {
+    return { ok: false, error: 'Uno de los héroes ya está comprometido en otra expedición', status: 409 }
+  }
 
-  const itemMap = await loadLootItemMap(result)
-  const runId = await createRunTransaction(hero.id, dungeon, profile, effectiveGroupId, result, heroesData, totalHeroes)
+  let result: RunResult
+  try {
+    result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
+    await db.$transaction(async tx => {
+      await persistRunResult(tx, { runId, result, heroesData, totalHeroes })
+    })
+  } catch (error) {
+    logger.error('dungeon-registration', 'Instant dungeon execution failed', error)
+    await db.dungeonRun.updateMany({
+      where: { id: runId, status: 'running' },
+      data: { status: 'failed', result: 'defeat', executedAt: new Date(), completesAt: new Date() },
+    }).catch(updateError => logger.error('dungeon-registration', 'Could not finalize failed instant run', updateError))
+    return { ok: false, error: 'No se pudo completar la expedición. Intentá nuevamente.', status: 500 }
+  }
 
   const levelUp = await checkLevelUp(hero.id)
-
-  for (const fs of result.heroesFinalState) {
-    await grantMaterialDrops(fs.id, dungeon.id, runId).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    const kills = (result.log as any[])?.filter((l: any) => l.type === 'death').length ?? 0
-    await updateQuestProgress(fs.id, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    if (kills > 0) await updateQuestProgress(fs.id, { type: 'total_kills', kills, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    await updateQuestProgress(fs.id, { type: 'ep_total', value: result.epGained / totalHeroes, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    checkAchievements(fs.id, { type: 'dungeon_complete' }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-  }
+  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId }).catch(error => {
+    logger.error('dungeon-registration', 'Post-run processing failed', error)
+  })
+  const itemMap = await loadLootItemMap(result)
 
   return {
     ok: true,
@@ -268,76 +276,54 @@ async function loadLootItemMap(result: any) {
   return new Map(lootItems.map((i: any) => [i.id, i]))
 }
 
-async function createRunTransaction(heroId: string, dungeon: any, profile: any, effectiveGroupId: string | null | undefined, result: any, heroesData: HeroData[], totalHeroes: number) {
-  let runId = ''
-  await db.$transaction(async (tx) => {
+async function createInstantRunReservation(
+  heroId: string,
+  dungeon: any,
+  profile: any,
+  groupId: string | null | undefined,
+  heroesData: HeroData[],
+): Promise<string | null> {
+  return db.$transaction(async tx => {
+    const participantIds = heroesData.map(participant => participant.id)
+    for (const participantId of [...participantIds].sort()) {
+      await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${participantId} FOR UPDATE`
+    }
+
+    const activeParticipant = await tx.dungeonRunParticipant.findFirst({
+      where: {
+        heroId: { in: participantIds },
+        run: { is: { status: { in: ['registered', 'running'] } } },
+      },
+      select: { id: true },
+    })
+    if (activeParticipant) return null
+
+    const legacyActiveRun = await tx.dungeonRun.findFirst({
+      where: {
+        heroId: { in: participantIds },
+        status: { in: ['registered', 'running'] },
+      },
+      select: { id: true },
+    })
+    if (legacyActiveRun) return null
+
     const run = await tx.dungeonRun.create({
       data: {
-        heroId, dungeonId: dungeon.id,
+        heroId,
+        dungeonId: dungeon.id,
         profileId: profile?.id ?? null,
-        groupId: effectiveGroupId ?? null,
+        groupId: groupId ?? null,
+        status: 'running',
         participants: {
           create: heroesData.map(participant => ({
             heroId: participant.id,
             profileId: participant.profileId ?? null,
-            snapshot: JSON.parse(JSON.stringify(participant)),
+            snapshot: JSON.parse(JSON.stringify(snapshotDungeonParticipant(participant))),
           })),
         },
-        status: result.victory ? 'done' : 'failed',
-        result: result.victory ? 'victory' : 'defeat',
-        report: result.log as unknown as any,
-        levelReports: result.levelReports as unknown as any,
-        levelsCleared: result.levelsCleared,
-        epGained: result.epGained,
-        goldGained: result.goldGained,
-        fameGained: result.fameGained,
-        loot: result.loot,
-        executedAt: new Date(),
-        completesAt: new Date(),
       },
+      select: { id: true },
     })
-    runId = run.id
-
-    for (const heroData of heroesData) {
-      const consumedIds = heroData.consumedConsumableIds ?? []
-      if (consumedIds.length === 0) continue
-      const consumed = await tx.heroItem.deleteMany({ where: { id: { in: consumedIds }, heroId: heroData.id } })
-      if (consumed.count !== consumedIds.length) throw new Error('DUNGEON_CONSUMABLE_INVENTORY_MISMATCH')
-    }
-
-    for (const fs of result.heroesFinalState) {
-      const hData = heroesData.find((h: any) => h.id === fs.id)
-      if (!hData) continue
-      await tx.hero.update({
-        where: { id: fs.id },
-        data: {
-          epTotal: { increment: result.epGained / totalHeroes },
-          gold: { increment: result.goldGained / totalHeroes },
-          fame: { increment: Math.ceil(result.fameGained / totalHeroes) },
-          hpCurrent: fs.hp,
-          mpCurrent: fs.mp,
-        },
-      })
-    }
-
-    if (result.loot && result.loot.length > 0) {
-      const lootByHero = new Map<string, Array<{ itemId: number; qty: number }>>()
-      for (const l of result.loot) {
-        const hId = (l as any).heroId ?? result.heroesFinalState[0]?.id
-        if (!hId) continue
-        if (!lootByHero.has(hId)) lootByHero.set(hId, [])
-        lootByHero.get(hId)!.push({ itemId: l.itemId, qty: l.qty })
-      }
-      for (const [hId, items] of lootByHero) {
-        await tx.heroItem.createMany({
-          data: items.flatMap(l =>
-            Array.from({ length: l.qty }, () => ({
-              heroId: hId, itemId: l.itemId, equipped: false,
-            }))
-          ),
-        })
-      }
-    }
+    return run.id
   })
-  return runId
 }
