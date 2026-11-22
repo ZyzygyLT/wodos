@@ -323,7 +323,7 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
     })
     if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
     if (ha.status === 'claimed') throw new Error('Recompensas ya reclamadas')
-    if (ha.status === 'active') throw new Error('Aventura no completada')
+    if (ha.status !== 'completed') throw new Error('Solo se pueden reclamar recompensas de aventuras completadas')
 
     const result = ha.result as any
     const rewards = result?.rewards
