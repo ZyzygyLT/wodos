@@ -92,7 +92,7 @@ describe('adventure combat resource state', () => {
   const hero = { hpMax: 100, mpMax: 50, hpCurrent: 35, mpCurrent: 3, attrs: { st: 10, dx: 10, ag: 10, pe: 10 }, level: 1 }
 
   it('starts combat with persisted current HP and MP instead of maximum values', () => {
-    const result = resolveCombatStep(hero, [{ name: 'Bandit', icon: '🗡️', hp: 1, mp: 0, atk: 1, def: 0, dx: 1, ag: 1, level: 1 }])
+    const result = resolveCombatStep(hero, [{ name: 'Bandit', icon: '🗡️', hp: 1, mp: 0, atk: 10, def: 0, dx: 1, ag: 1, level: 1 }])
     expect(result.heroHpRemaining).toBeLessThan(35)
     expect(result.heroMpRemaining).toBe(2)
     expect(result.heroHpLost).toBeGreaterThan(0)
