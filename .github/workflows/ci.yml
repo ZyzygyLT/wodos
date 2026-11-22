@@ -61,8 +61,6 @@ jobs:
           npx vitest run --coverage
           --exclude src/__tests__/buff-effect-adapter.test.ts
           --exclude src/__tests__/skill-availability.test.ts
-          --exclude src/__tests__/stat-pipeline.test.ts
-          --exclude src/__tests__/status-effect-stat-modifier.test.ts
 
   build:
     name: Production build
