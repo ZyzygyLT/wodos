@@ -7,7 +7,6 @@ import logger from "@/lib/logger"
 import { trackDuelCompleted } from "@/lib/analytics/events"
 import { trackHeroEventProgress } from "@/services/event.service"
 import { adjustRep } from "@/services/faction.service"
-import db from "@/lib/db"
 import { getActiveHeroByUserId } from "@/lib/hero-utils"
 
 export async function POST(req: Request) {
