@@ -206,6 +206,13 @@ async function createRunTransaction(heroId: string, dungeon: any, profile: any, 
         heroId, dungeonId: dungeon.id,
         profileId: profile?.id ?? null,
         groupId: effectiveGroupId ?? null,
+        participants: {
+          create: heroesData.map(participant => ({
+            heroId: participant.id,
+            profileId: participant.profileId ?? null,
+            snapshot: JSON.parse(JSON.stringify(participant)),
+          })),
+        },
         status: result.victory ? 'done' : 'failed',
         result: result.victory ? 'victory' : 'defeat',
         report: result.log as unknown as any,
