@@ -3,15 +3,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/combat-engine/arena-runner', () => ({
   runArenaDuel: vi.fn(),
 }))
-vi.mock('@/lib/hero-utils', () => ({
-  getHeroByUserId: vi.fn(),
-}))
+vi.mock('@/lib/hero-utils', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/hero-utils')>('@/lib/hero-utils')
+  return { ...actual, getHeroByUserId: vi.fn() }
+})
 import { mockDb } from '../setup'
 import { auth } from '@/auth'
 import type { Mock } from 'vitest'
 
 const FAKE_USER_ID = 'user-1'
 const FAKE_HERO_ID = 'hero-1'
+
+beforeEach(() => {
+  ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: null })
+  ;(mockDb.user.updateMany as Mock).mockResolvedValue({ count: 1 })
+})
 
 function mockSession() {
   ;(auth as Mock).mockResolvedValue({ user: { id: FAKE_USER_ID } })
