@@ -116,7 +116,7 @@ describe('runDungeon', () => {
     const result = await runDungeon([hero], makeDungeon())
     expect(hero.consumables).toEqual([{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }])
     expect(result.levelReports[0].rounds.some(round =>
-      round.actions.some(action => action.itemN === 'item_42')
+      round.actions.some(action => action.itemName === 'item_42')
     )).toBe(true)
   })
 
