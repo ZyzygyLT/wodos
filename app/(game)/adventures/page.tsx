@@ -47,8 +47,9 @@ export default function AdventuresPage() {
       })
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
       router.push("/adventures/active")
-    } catch { setError("Error al iniciar aventura") }
-    setStarting(null)
+    } catch { setError("Error al iniciar aventura") } finally {
+      setStarting(null)
+    }
   }
 
   if (loading) return <div className="p-6 text-center text-gray-400">Cargando aventuras...</div>

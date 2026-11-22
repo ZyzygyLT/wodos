@@ -59,6 +59,7 @@ export default function ActiveAdventurePage() {
         setActive((prev: any) => ({
           ...prev,
           status: result.victory ? 'completed' : 'failed',
+          currentStepData: null,
           result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: result.rewards },
         }))
         setStepType(null)
@@ -66,12 +67,14 @@ export default function ActiveAdventurePage() {
         setActive((prev: any) => ({
           ...prev,
           currentStep: result.currentStep,
+          currentStepData: result.nextStep ?? null,
           result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: null },
         }))
         setStepType(result.nextStep?.type ?? null)
       }
-    } catch { setError("Error al ejecutar paso") }
-    setExecuting(false)
+    } catch { setError("Error al ejecutar paso") } finally {
+      setExecuting(false)
+    }
   }
 
   async function makeChoice(choiceIndex: number) {
@@ -92,11 +95,13 @@ export default function ActiveAdventurePage() {
       setActive((prev: any) => ({
         ...prev,
         currentStep: result.nextStepIndex,
+        currentStepData: result.nextStep ?? null,
         result: { steps: [...(prev.result?.steps ?? []), { type: 'choice', chosenIndex: choiceIndex }], rewards: null },
       }))
       setStepType(result.nextStep?.type ?? null)
-    } catch { setError("Error al elegir") }
-    setChoosing(false)
+    } catch { setError("Error al elegir") } finally {
+      setChoosing(false)
+    }
   }
 
   async function claimRewards() {
@@ -111,18 +116,24 @@ export default function ActiveAdventurePage() {
       })
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
       router.push("/adventures")
-    } catch { setError("Error al reclamar") }
-    setClaiming(false)
+    } catch { setError("Error al reclamar") } finally {
+      setClaiming(false)
+    }
   }
 
   async function abandon() {
     if (!active) return
     try {
-      await fetch("/api/adventures/abandon", {
+      const res = await fetch("/api/adventures/abandon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ heroAdventureId: active.id }),
       })
+      if (!res.ok) {
+        const result = await res.json()
+        setError(result.error ?? "No se pudo abandonar la aventura")
+        return
+      }
       router.push("/adventures")
     } catch (e) { logger.error('adventures', 'Failed to fetch active adventure', e) }
   }
