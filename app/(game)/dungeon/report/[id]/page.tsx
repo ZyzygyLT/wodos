@@ -25,10 +25,11 @@ export default function DungeonReport() {
   const [error, setError] = useState<string | null>(null)
   const [reportTab, setReportTab] = useState<'report' | 'stats' | 'loot'>('report')
 
+  const levelReports = report?.levelReports
   const heroStats: HeroStats[] = useMemo(() => {
-    if (!report?.levelReports) return []
-    return computeCombatStats(report.levelReports)
-  }, [report?.levelReports])
+    if (!levelReports) return []
+    return computeCombatStats(levelReports)
+  }, [levelReports])
 
   useEffect(() => {
     let id = params?.id as string | undefined
@@ -37,8 +38,10 @@ export default function DungeonReport() {
       if (m) id = m[1]
     }
     if (!id) {
-      setError("ID de reporte no encontrado en la URL")
-      setLoading(false)
+      Promise.resolve().then(() => {
+        setError("ID de reporte no encontrado en la URL")
+        setLoading(false)
+      })
       return
     }
 
