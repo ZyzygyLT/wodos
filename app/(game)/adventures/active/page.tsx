@@ -4,7 +4,7 @@ import logger from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
-export default function ActiveAdventurePage() {
+type AdventureRewardStack = { itemId: number; materialId?: never; qty: number } | { materialId: number; itemId?: never; qty: number }\n\nexport default function ActiveAdventurePage() {
   const router = useRouter()
   const [active, setActive] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -222,7 +222,7 @@ export default function ActiveAdventurePage() {
                     {entry.rewards?.items?.map((it: any, j: number) => (
                       <p key={j} className="text-sm text-gray-300">📦 Objeto #{it.itemId} x{it.qty}</p>
                     ))}
-                    {entry.rewards?.materials?.map((mat: any, j: number) => (
+                    {entry.rewards?.materials?.map((mat: { materialId: number; qty: number }, j: number) => (
                       <p key={j} className="text-sm text-gray-300">🧱 Material #{mat.materialId} x{mat.qty}</p>
                     ))}
                   </div>
@@ -269,10 +269,10 @@ export default function ActiveAdventurePage() {
                   <span>⭐ EP: <span className="text-purple-400">{active.result.rewards.ep}</span></span>
                   <span>🏆 Fama: <span className="text-blue-400">{active.result.rewards.fame}</span></span>
                   {active.result.rewards.items?.length > 0 && (
-                    <span>📦 Objetos: <span className="text-green-400">{active.result.rewards.items.reduce((total: number, item: any) => total + item.qty, 0)}</span></span>
+                    <span>📦 Objetos: <span className="text-green-400">{active.result.rewards.items.reduce((total: number, item: { qty: number }) => total + item.qty, 0)}</span></span>
                   )}
                   {active.result.rewards.materials?.length > 0 && (
-                    <span>🧱 Materiales: <span className="text-green-400">{active.result.rewards.materials.reduce((total: number, material: any) => total + material.qty, 0)}</span></span>
+                    <span>🧱 Materiales: <span className="text-green-400">{active.result.rewards.materials.reduce((total: number, material: { qty: number }) => total + material.qty, 0)}</span></span>
                   )}
                 </div>
               )}
