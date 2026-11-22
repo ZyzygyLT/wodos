@@ -31,7 +31,7 @@ describe('skill execution plan dispatch', () => {
     const plan: SkillExecutionPlan<typeof targets[number]> = {
       kind: 'area_attack', targets, armorPenetration: true, critical: false,
     }
-    const result = dispatchSkillExecutionPlan(plan, {
+    const result = dispatchSkillExecutionPlan<typeof targets[number], unknown>(plan, {
       heal: () => 'heal',
       party_buff: () => 'buff',
       area_attack: (units, penetration, critical) => ({ units, penetration, critical }),
@@ -45,7 +45,7 @@ describe('skill execution plan dispatch', () => {
     const plan: SkillExecutionPlan<typeof target> = {
       kind: 'single_attack', target, armorPenetration: false, critical: true,
     }
-    const result = dispatchSkillExecutionPlan(plan, {
+    const result = dispatchSkillExecutionPlan<typeof target, unknown>(plan, {
       heal: () => 'heal',
       party_buff: () => 'buff',
       area_attack: () => 'area',
