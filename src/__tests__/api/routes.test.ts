@@ -365,7 +365,7 @@ describe('POST /api/quests/complete', () => {
     mockSession()
     ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
     ;(mockDb.heroQuest.findUnique as Mock).mockResolvedValue({
-      id: 'hq-1', status: 'active', questId: 1,
+      id: 'hq-1', heroId: FAKE_HERO_ID, status: 'active', questId: 1,
       progress: { obj1: 10 },
       quest: {
         name: 'Test Quest', type: 'daily', chainNext: null,
