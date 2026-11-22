@@ -145,7 +145,8 @@ describe('POST /api/bazar', () => {
   it('rejects listing an equipped item', async () => {
     mockSession()
     const heroItem = { id: 'hi-1', itemId: 1, equipped: true, item: { name: 'Espada' } }
-    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID, items: [heroItem] })
+    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroItem.findFirst as Mock).mockResolvedValue({ ...heroItem, heroId: FAKE_HERO_ID })
     const { POST } = await import('@/app/api/bazar/route')
     const req = new Request('http://localhost/api/bazar', {
       method: 'POST',
@@ -159,7 +160,8 @@ describe('POST /api/bazar', () => {
   it('rejects duplicate listing', async () => {
     mockSession()
     const heroItem = { id: 'hi-1', itemId: 1, equipped: false, item: { name: 'Espada' } }
-    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID, items: [heroItem] })
+    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroItem.findFirst as Mock).mockResolvedValue({ ...heroItem, heroId: FAKE_HERO_ID })
     ;(mockDb.bazarListing.findUnique as Mock).mockResolvedValue({ id: 'existing', status: 'active' })
     const { POST } = await import('@/app/api/bazar/route')
     const req = new Request('http://localhost/api/bazar', {
