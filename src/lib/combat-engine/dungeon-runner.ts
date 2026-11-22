@@ -62,7 +62,7 @@ export interface HeroData {
   attrs: Record<string, number>
   hpMax: number
   mpMax: number
-  /** Persisted HP at participant load time; simulation still starts at max HP. */
+  /** Persisted HP and MP at participant load time; values are clamped to effective maxima. */
   hpCurrent?: number
   mpCurrent?: number
   gold: number
