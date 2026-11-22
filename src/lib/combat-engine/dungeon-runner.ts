@@ -64,6 +64,7 @@ export interface HeroData {
   mpMax: number
   /** Persisted HP at participant load time; simulation still starts at max HP. */
   hpCurrent?: number
+  mpCurrent?: number
   gold: number
   groupAtkBonus?: number
   combatProfile: {
@@ -634,8 +635,8 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
   const resistances = buildHeroResistances(equip)
   return {
     id: hero.id, name: hero.name, icon: '🧙', level: hero.level,
-    hp: finalHp, maxHp: finalHp,
-    mp: finalMp, maxMp: finalMp,
+    hp: Math.min(finalHp, Math.max(0, hero.hpCurrent ?? finalHp)), maxHp: finalHp,
+    mp: Math.min(finalMp, Math.max(0, hero.mpCurrent ?? finalMp)), maxMp: finalMp,
     isHero: true, isAlly: false,
     position: hero.combatProfile.position,
     condition: 'ready',
