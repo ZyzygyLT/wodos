@@ -69,12 +69,12 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   }
 
   // Evaluate the daily bonus after reservation so concurrent runs cannot both claim first-of-day.
-  const firstOfDay = isGroup
-    ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
-    : !(await hasHeroRunDungeonToday(hero.id))
-
+  let firstOfDay = false
   let result: RunResult
   try {
+    firstOfDay = isGroup
+      ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
+      : !(await hasHeroRunDungeonToday(hero.id))
     result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
     await db.$transaction(async tx => {
       await persistRunResult(tx, { runId, result, heroesData, totalHeroes })
