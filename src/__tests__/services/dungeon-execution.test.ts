@@ -4,7 +4,11 @@ import { persistRunResult } from "@/services/dungeon-execution.service"
 
 describe("persistRunResult", () => {
   it("distributes group EP, gold, and fame as integer shares without losing rewards", async () => {
-    const heroUpdate = vi.fn(async (_args: any) => ({}))
+    const heroUpdateData: unknown[] = []
+    const heroUpdate = vi.fn(async (args: { data: Record<string, unknown> }) => {
+      heroUpdateData.push(args.data)
+      return {}
+    })
     const tx = {
       dungeonRun: {
         updateMany: vi.fn(async () => ({ count: 1 })),
@@ -37,14 +41,14 @@ describe("persistRunResult", () => {
       eventJournal: { schemaVersion: 1, events: [] },
     } as unknown as RunResult
 
-    await persistRunResult(tx as any, {
+    await persistRunResult(tx as unknown as Parameters<typeof persistRunResult>[0], {
       runId: "run-1",
       result,
       heroesData: heroesFinalState.map(hero => ({ id: hero.id }) as HeroData),
       totalHeroes: 3,
     })
 
-    expect(heroUpdate.mock.calls.map(([args]) => args.data)).toEqual([
+    expect(heroUpdateData).toEqual([
       {
         epTotal: { increment: 4 },
         gold: { increment: 2 },
