@@ -157,7 +157,7 @@ describe('reproducible combat randomness', () => {
     expect(observedEvents).toContain('death:enemy_10_0')
     expect(first.loot).toHaveLength(1)
     expect(first.loot[0]).toMatchObject({ itemId: 99, qty: 1, heroId: 'hero-1' })
-    expect(heroes[0].consumables).toEqual([{ itemId: 7, healHp: 10 }])
+    expect(heroes[0].consumables).toEqual([{ heroItemId: 'hero-item-7', itemId: 7, healHp: 10 }])
   })
 
 })
