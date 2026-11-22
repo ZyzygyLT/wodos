@@ -57,6 +57,20 @@ export async function POST(req: NextRequest) {
     })
     if (!currentHero) throw new Error("HERO_NOT_FOUND")
 
+    // A registered/running expedition uses an immutable participant snapshot.
+    // Prevent consumable changes until that snapshot is no longer active.
+    const activeRun = await tx.dungeonRun.findFirst({
+      where: {
+        status: { in: ["registered", "running"] },
+        OR: [
+          { heroId: hero.id },
+          { participants: { some: { heroId: hero.id } } },
+        ],
+      },
+      select: { id: true },
+    })
+    if (activeRun) throw new Error("CONSUMABLE_EXPEDITION_ACTIVE")
+
     const hi = await tx.heroItem.findFirst({
       where: { id: heroItemId, heroId: hero.id, item: { category: "consumable" } },
       include: { item: true },
@@ -91,6 +105,9 @@ export async function POST(req: NextRequest) {
     }
     if (error instanceof Error && error.message === "HERO_NOT_FOUND") {
       return { error: "Héroe no encontrado", status: 404 }
+    }
+    if (error instanceof Error && error.message === "CONSUMABLE_EXPEDITION_ACTIVE") {
+      return { error: "No podés usar consumibles mientras participás en una expedición activa.", status: 409 }
     }
     if (error instanceof Error && error.message === "CONSUMABLE_NO_EFFECTS") {
       return { error: "Este item no tiene efectos válidos", status: 400 }
