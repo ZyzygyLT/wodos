@@ -135,7 +135,9 @@ async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   await sendNotificationForHero(heroId, result, dungeon, runId, totalHeroes)
 }
 
-async function contributeToEvent(clanMemberRec: any, kills: number) {
+type ClanMemberRecord = NonNullable<PostRunParams['clanMemberRec']>
+
+async function contributeToEvent(clanMemberRec: ClanMemberRecord | null | undefined, kills: number) {
   try {
     if (!clanMemberRec || kills <= 0) return
     const activeEvent = await db.weeklyEvent.findFirst({
