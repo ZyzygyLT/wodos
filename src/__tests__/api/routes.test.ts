@@ -1,11 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const { activeHeroMock } = vi.hoisted(() => ({ activeHeroMock: vi.fn() }))
+
 vi.mock('@/lib/combat-engine/arena-runner', () => ({
   runArenaDuel: vi.fn(),
 }))
 vi.mock('@/lib/hero-utils', async () => {
   const actual = await vi.importActual<typeof import('@/lib/hero-utils')>('@/lib/hero-utils')
-  return { ...actual, getHeroByUserId: vi.fn() }
+  return { ...actual, getHeroByUserId: vi.fn(), getActiveHeroByUserId: activeHeroMock }
+})
+vi.mock('@/lib/dungeon-helpers', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/dungeon-helpers')>('@/lib/dungeon-helpers')
+  return { ...actual, buildHeroData: vi.fn(async () => ({ equipStats: {}, skills: [] })) }
+})
+vi.mock('@/lib/combat-engine/hero-stats', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/combat-engine/hero-stats')>('@/lib/combat-engine/hero-stats')
+  return { ...actual, computeDefenseForHero: vi.fn(() => ({ values: {}, breakdown: {} })) }
+})
+vi.mock('@/engine/core/stats/derived-stats', async () => {
+  const actual = await vi.importActual<typeof import('@/engine/core/stats/derived-stats')>('@/engine/core/stats/derived-stats')
+  return { ...actual, calculateEffectiveResourceMaxima: vi.fn(() => ({ hpMax: 10, mpMax: 10 })) }
 })
 import { mockDb } from '../setup'
 import { auth } from '@/auth'
@@ -15,8 +29,16 @@ const FAKE_USER_ID = 'user-1'
 const FAKE_HERO_ID = 'hero-1'
 
 beforeEach(() => {
+  activeHeroMock.mockImplementation((userId: string, options: { include?: unknown; select?: unknown } = {}) =>
+    mockDb.hero.findFirst({
+      where: { userId },
+      ...(options.include ? { include: options.include } : {}),
+      ...(options.select ? { select: options.select } : {}),
+    })
+  )
   ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: null })
   ;(mockDb.user.updateMany as Mock).mockResolvedValue({ count: 1 })
+  ;(mockDb.hero.updateMany as Mock).mockResolvedValue({ count: 1 })
 })
 
 function mockSession() {
@@ -45,8 +67,8 @@ describe('GET /api/hero', () => {
 
   it('returns 404 if no hero exists', async () => {
     mockSession()
-    const { getHeroByUserId } = await import('@/lib/hero-utils')
-    ;(getHeroByUserId as Mock).mockResolvedValue(null)
+    const { getActiveHeroByUserId } = await import('@/lib/hero-utils')
+    ;(getActiveHeroByUserId as Mock).mockResolvedValue(null)
     const { GET } = await import('@/app/api/hero/route')
     const res = await GET()
     expect(res.status).toBe(404)
@@ -54,9 +76,9 @@ describe('GET /api/hero', () => {
 
   it('returns hero when found', async () => {
     mockSession()
-    const fakeHero = { id: FAKE_HERO_ID, name: 'TestHero', level: 5 }
-    const { getHeroByUserId } = await import('@/lib/hero-utils')
-    ;(getHeroByUserId as Mock).mockResolvedValue(fakeHero)
+    const fakeHero = { id: FAKE_HERO_ID, name: 'TestHero', level: 5, hpMax: 10, mpMax: 10, attrs: {}, skills: [], items: [], combatProfiles: [] }
+    const { getActiveHeroByUserId } = await import('@/lib/hero-utils')
+    ;(getActiveHeroByUserId as Mock).mockResolvedValue(fakeHero)
     const { GET } = await import('@/app/api/hero/route')
     const res = await GET()
     expect(res.status).toBe(200)
