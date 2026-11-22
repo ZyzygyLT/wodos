@@ -134,6 +134,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
 
   return {
     id: hero.id,
+    profileId: profile?.id ?? undefined,
     name: hero.name,
     level: hero.level,
     attrs,
