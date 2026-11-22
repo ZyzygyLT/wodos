@@ -13,6 +13,16 @@ const DUEL_COOLDOWN_MS = 5 * 60 * 1000
 /** Build the arena opponent from the same resolved attributes and equipment as its hero loadout. */
 export function heroDataToArenaOpponent(hero: HeroData, position: string): EnemyData {
   const attrs = applyInitiativeSkillModifiers(mergeHeroAttrs(hero), hero.skills.map(skill => skill.effect))
+  const defenseAttrs: HeroAttrs = {
+    st: attrs.st ?? 10,
+    co: attrs.co ?? 10,
+    in: attrs.in ?? 10,
+    dx: attrs.dx ?? 10,
+    ch: attrs.ch ?? 10,
+    ag: attrs.ag ?? 10,
+    pe: attrs.pe ?? 10,
+    wi: attrs.wi ?? 10,
+  }
   return {
     id: -1,
     name: hero.name,
@@ -20,7 +30,7 @@ export function heroDataToArenaOpponent(hero: HeroData, position: string): Enemy
     hp: hero.hpMax,
     mp: hero.mpMax,
     atk: (attrs.st ?? 10) + (attrs.dx ?? 10) / 2,
-    def: calcDefenseBase(attrs as HeroAttrs),
+    def: calcDefenseBase(defenseAttrs),
     dx: attrs.dx ?? 10,
     ag: attrs.ag ?? 10,
     level: hero.level,
