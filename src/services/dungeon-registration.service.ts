@@ -1,10 +1,22 @@
 import db from '@/lib/db'
+import type { Prisma } from '@/generated/prisma'
 import { runDungeon, HeroData, RunResult } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, snapshotDungeonParticipant } from '@/lib/dungeon-helpers'
 import { checkLevelUp, LevelUpResult } from '@/lib/level-up'
 import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
 import { calcClanBonuses } from "@/lib/clan/upgrades"
 import logger from "@/lib/logger"
+
+type CombatHero = Prisma.HeroGetPayload<{
+  include: {
+    combatProfiles: true
+    skills: { include: { skill: true } }
+    items: { include: { item: true } }
+  }
+}>
+type CombatProfile = CombatHero['combatProfiles'][number]
+type DungeonRecord = NonNullable<Awaited<ReturnType<typeof db.dungeon.findUnique>>>
+type LootItem = Awaited<ReturnType<typeof db.item.findMany>>[number]
 
 export interface InstantRunParams {
   heroId: string
@@ -83,7 +95,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   // Evaluate the daily bonus after reservation so concurrent runs cannot both claim first-of-day.
   let firstOfDay = false
   let result: RunResult
-  let itemMap = new Map<number, any>()
+  let itemMap: Map<number, LootItem> = new Map()
   try {
     firstOfDay = isGroup
       ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
@@ -271,7 +283,7 @@ interface CombatGroupResult {
   isGroup: boolean
 }
 
-async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero: any, profile: any, levelReq: number): Promise<CombatGroupResult> {
+async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero: CombatHero, profile: CombatProfile | null, levelReq: number): Promise<CombatGroupResult> {
   if (effectiveGroupId) {
     const groupResult = await loadGroupParticipants(effectiveGroupId)
     if (groupResult.heroesData.length === 0) return { ok: false, error: 'Grupo vacío o no encontrado', status: 404, heroesData: [], totalHeroes: 0, isGroup: false }
@@ -294,17 +306,17 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
   return { ok: true, heroesData, totalHeroes: 1, isGroup: false }
 }
 
-async function loadLootItemMap(result: any) {
-  const lootItemIds = [...new Set((result.loot ?? []).map((l: any) => l.itemId))] as number[]
+async function loadLootItemMap(result: RunResult): Promise<Map<number, LootItem>> {
+  const lootItemIds = [...new Set(result.loot.map(l => l.itemId))]
   if (lootItemIds.length === 0) return new Map()
   const lootItems = await db.item.findMany({ where: { id: { in: lootItemIds } } })
-  return new Map(lootItems.map((i: any) => [i.id, i]))
+  return new Map(lootItems.map(i => [i.id, i] as const))
 }
 
 async function createInstantRunReservation(
   heroId: string,
-  dungeon: any,
-  profile: any,
+  dungeon: DungeonRecord,
+  profile: CombatProfile | null,
   groupId: string | null | undefined,
   heroesData: HeroData[],
 ): Promise<string | null> {
