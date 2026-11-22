@@ -121,12 +121,13 @@ export async function startAdventure(heroId: string, adventureId: number) {
 }
 
 export async function getActiveAdventure(heroId: string) {
+  // Read the latest run regardless of status so a newer claimed run hides older failures.
   const ha = await db.heroAdventure.findFirst({
-    where: { heroId, status: { in: ['active', 'completed', 'failed'] } },
+    where: { heroId },
     orderBy: { startedAt: 'desc' },
     include: { adventure: true },
   })
-  if (!ha) return null
+  if (!ha || ha.status === 'claimed') return null
 
   const steps = ha.adventure.steps as unknown as AdventureStep[]
   const result = (ha.result as any) ?? { steps: [], rewards: null }
