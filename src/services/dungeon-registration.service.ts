@@ -147,6 +147,18 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
     })
     if (runningOwnRun) return null
 
+    const participatingInOtherRun = await tx.dungeonRunParticipant.findFirst({
+      where: {
+        heroId: hero.id,
+        run: {
+          heroId: { not: hero.id },
+          status: { in: ['registered', 'running'] },
+        },
+      },
+      select: { id: true },
+    })
+    if (participatingInOtherRun) return null
+
     if (otherParticipantIds.length > 0) {
       const occupiedParticipant = await tx.dungeonRunParticipant.findFirst({
         where: {
