@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import db from "@/lib/db"
 import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { getHeroFactionReps } from "@/services/faction.service"
 
