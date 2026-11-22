@@ -149,7 +149,7 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
         create: groupResult.heroesData.map(participant => ({
           heroId: participant.id,
           profileId: participant.profileId ?? null,
-          snapshot: snapshotDungeonParticipant(participant),
+          snapshot: JSON.parse(JSON.stringify(snapshotDungeonParticipant(participant))),
         })),
       },
     },
