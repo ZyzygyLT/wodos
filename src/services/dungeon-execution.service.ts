@@ -19,7 +19,7 @@ interface PersistParams {
 }
 
 export async function persistRunResult(tx: Parameters<Parameters<typeof db.$transaction>[0]>[0], params: PersistParams) {
-  const { runId, result, heroesData, totalHeroes } = params
+  const { runId, result, heroesData } = params
 
   const finalized = await tx.dungeonRun.updateMany({
     where: { id: runId, status: 'running' },
@@ -109,7 +109,7 @@ interface PostRunParams {
 }
 
 export async function processPostRun(params: PostRunParams) {
-  const { result, heroesData, totalHeroes, dungeon, runId, clanMemberRec } = params
+  const { result, heroesData, dungeon, runId, clanMemberRec } = params
 
   const kills = (result.log as any[])?.filter(
     (l: any) => l.type === 'death' && !l.actorId?.startsWith('hero')
