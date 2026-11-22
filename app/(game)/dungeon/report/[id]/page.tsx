@@ -45,9 +45,6 @@ export default function DungeonReport() {
       return
     }
 
-    setLoading(true)
-    setError(null)
-
     fetch(`/api/dungeon/report/${id}`)
       .then(async r => {
         if (r.status === 401) { router.push("/login"); return null }
