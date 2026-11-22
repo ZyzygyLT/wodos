@@ -1,6 +1,6 @@
 import db from '@/lib/db'
 import { runDungeon, HeroData, RunResult } from '@/lib/combat-engine/dungeon-runner'
-import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday } from '@/lib/dungeon-helpers'
+import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, snapshotDungeonParticipant } from '@/lib/dungeon-helpers'
 import { checkLevelUp, LevelUpResult } from '@/lib/level-up'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
@@ -149,7 +149,7 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
         create: groupResult.heroesData.map(participant => ({
           heroId: participant.id,
           profileId: participant.profileId ?? null,
-          snapshot: JSON.parse(JSON.stringify(participant)),
+          snapshot: snapshotDungeonParticipant(participant),
         })),
       },
     },
