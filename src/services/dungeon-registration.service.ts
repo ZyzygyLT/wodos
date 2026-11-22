@@ -63,14 +63,15 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   const clanBonuses = cm ? await loadClanBonuses(hero.id) : undefined
   const dungeonData = await enrichDungeonLevels(dungeon)
 
-  const firstOfDay = isGroup
-    ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
-    : !(await hasHeroRunDungeonToday(hero.id))
-
   const runId = await createInstantRunReservation(hero.id, dungeon, profile, effectiveGroupId, heroesData)
   if (!runId) {
     return { ok: false, error: 'Uno de los héroes ya está comprometido en otra expedición', status: 409 }
   }
+
+  // Evaluate the daily bonus after reservation so concurrent runs cannot both claim first-of-day.
+  const firstOfDay = isGroup
+    ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
+    : !(await hasHeroRunDungeonToday(hero.id))
 
   let result: RunResult
   try {
