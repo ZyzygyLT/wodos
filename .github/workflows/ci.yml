@@ -1,5 +1,6 @@
 name: CI
 on:
+  workflow_dispatch:
   push:
     branches: [master, architecture/core-foundation, implementation/hero-identity]
   pull_request:
