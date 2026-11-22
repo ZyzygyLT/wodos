@@ -57,7 +57,7 @@ export default function DungeonPage() {
     } catch (error) {
       throw error
     }
-  }, [router])
+  }, [])
 
   async function fetchClan() {
     try {
@@ -128,7 +128,7 @@ export default function DungeonPage() {
       logger.error("dungeon", "Error loading expedition screen", error)
       setLoadError("No pudimos cargar las expediciones. Comprueba tu conexión e inténtalo de nuevo.")
     }
-  }, [router, fetchHeroAndDungeons, autoSelectGroup])
+  }, [fetchHeroAndDungeons, autoSelectGroup])
 
   useEffect(() => {
     void Promise.resolve().then(fetchData)
