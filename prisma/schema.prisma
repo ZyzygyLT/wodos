@@ -350,6 +350,7 @@ model DungeonRun {
   dungeonId     Int
   profileId     String?
   startedAt     DateTime   @default(now())
+  executionStartedAt DateTime?
   completesAt   DateTime?
   registeredAt  DateTime   @default(now())
   executedAt    DateTime?
