@@ -21,33 +21,28 @@ export function mergeBuffByMaximum<T extends BuffStackingEntry>(
   current: readonly T[],
   incoming: T,
 ): readonly T[] {
-  const matching = current.find(buff =>
+  const matches = (buff: T) =>
     buff.sourceName === incoming.sourceName &&
     buff.type === incoming.type &&
     buff.side === incoming.side
-  )
+  const matchingIndex = current.findIndex(matches)
+  if (matchingIndex < 0) return [...current, incoming]
 
-  let merged = incoming
-  if (matching) {
-    merged = matching as T
-    if (incoming.value > matching.value) {
-      merged = {
-        ...matching,
-        value: incoming.value,
-        remainingRounds: incoming.remainingRounds,
-      } as T
-    } else if (incoming.remainingRounds !== null &&
-      (matching.remainingRounds === null || matching.remainingRounds < incoming.remainingRounds)) {
-      merged = { ...matching, remainingRounds: incoming.remainingRounds } as T
-    }
+  const matching = current[matchingIndex]
+  let merged = matching
+  if (incoming.value > matching.value) {
+    merged = {
+      ...matching,
+      value: incoming.value,
+      remainingRounds: incoming.remainingRounds,
+    } as T
+  } else if (incoming.remainingRounds !== null &&
+    (matching.remainingRounds === null || matching.remainingRounds < incoming.remainingRounds)) {
+    merged = { ...matching, remainingRounds: incoming.remainingRounds } as T
   }
 
-  return [
-    ...current.filter(buff =>
-      !(buff.sourceName === incoming.sourceName &&
-        buff.type === incoming.type &&
-        buff.side === incoming.side)
-    ),
-    merged,
-  ]
+  return current.flatMap((buff, index) => {
+    if (index === matchingIndex) return [merged]
+    return matches(buff) ? [] : [buff]
+  })
 }
