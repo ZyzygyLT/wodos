@@ -106,7 +106,7 @@ export async function processPostRun(params: PostRunParams) {
   ).length ?? 0
 
   for (const fs of result.heroesFinalState) {
-    await processPostRunForHero(fs.id, { result, heroesData, totalHeroes, dungeon, runId, kills })
+    await processPostRunForHero(fs.id, { result, totalHeroes, dungeon, runId, kills })
   }
 
   // Clan event contribution belongs to the expedition, not to each participant.
@@ -118,7 +118,6 @@ export async function processPostRun(params: PostRunParams) {
 
 interface PostRunHeroContext {
   result: RunResult
-  heroesData: HeroData[]
   totalHeroes: number
   dungeon: { id: number; name: string; slug: string }
   runId: string
