@@ -55,9 +55,9 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
       data: {
         epTotal: { increment: result.epGained / totalHeroes },
         gold: { increment: result.goldGained / totalHeroes },
-        fame: { increment: result.fameGained },
-        hpCurrent: hData.hpMax,
-        mpCurrent: hData.mpMax,
+        fame: { increment: Math.ceil(result.fameGained / totalHeroes) },
+        hpCurrent: fs.hp,
+        mpCurrent: fs.mp,
         dungeonRegisteredId: null,
       },
     })
