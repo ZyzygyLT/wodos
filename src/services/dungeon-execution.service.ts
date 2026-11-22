@@ -111,7 +111,7 @@ export async function processPostRun(params: PostRunParams) {
 
   // Clan event contribution belongs to the expedition, not to each participant.
   // Apply it once so group size cannot multiply the same kill count.
-  await contributeToEvent(dungeon, clanMemberRec, kills)
+  await contributeToEvent(clanMemberRec, kills)
 
   await trackAnalytics(result, heroesData, dungeon, totalHeroes, runId)
 }
@@ -136,16 +136,20 @@ async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   await sendNotificationForHero(heroId, result, dungeon, runId, totalHeroes)
 }
 
-async function contributeToEvent(dungeon: { id: number; name: string; slug: string }, clanMemberRec: any, kills: number) {
+async function contributeToEvent(clanMemberRec: any, kills: number) {
   try {
+    if (!clanMemberRec || kills <= 0) return
     const activeEvent = await db.weeklyEvent.findFirst({
       where: { isActive: true, startsAt: { lte: new Date() }, endsAt: { gte: new Date() } },
+      select: { id: true },
     })
-    if (!activeEvent || !clanMemberRec || kills <= 0) return
-    await fetch(`${process.env.AUTH_URL}/api/events/${activeEvent.id}/contribute`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clanId: clanMemberRec.clanId, kills }),
+    if (!activeEvent) return
+
+    const score = Math.max(0, Math.min(Math.floor(kills), 1000))
+    await db.clanEventParticipation.upsert({
+      where: { clanId_eventId: { clanId: clanMemberRec.clanId, eventId: activeEvent.id } },
+      update: { score: { increment: score } },
+      create: { clanId: clanMemberRec.clanId, eventId: activeEvent.id, score },
     })
   } catch (e) {
     logger.error('dungeon-service', 'Error en evento', e)
