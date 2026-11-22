@@ -1,4 +1,4 @@
-import type { LegacyPassiveTrigger } from '../../core/events/combat-events'
+import type { CombatEventType, LegacyPassiveTrigger } from '../../core/events/combat-events'
 
 export type LegacyPassiveEffectType = 'damage' | 'heal' | 'buff'
 export type LegacyPassiveTarget = 'attacker' | 'all_heroes' | 'all_enemies' | 'self'
