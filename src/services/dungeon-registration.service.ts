@@ -155,8 +155,10 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
       where: {
         heroId: hero.id,
         run: {
-          heroId: { not: hero.id },
-          status: { in: ['registered', 'running'] },
+          is: {
+            heroId: { not: hero.id },
+            status: { in: ['registered', 'running'] },
+          },
         },
       },
       select: { id: true },
@@ -168,8 +170,10 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
         where: {
           heroId: { in: otherParticipantIds },
           run: {
-            status: { in: ['registered', 'running'] },
-            ...(prevRun ? { id: { not: prevRun.id } } : {}),
+            is: {
+              status: { in: ['registered', 'running'] },
+              ...(prevRun ? { id: { not: prevRun.id } } : {}),
+            },
           },
         },
         select: { heroId: true },
