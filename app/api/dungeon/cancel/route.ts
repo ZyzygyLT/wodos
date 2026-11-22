@@ -18,9 +18,9 @@ export async function POST() {
     where: {
       status: 'registered',
       OR: [
-        { id: hero.dungeonRegisteredId ?? undefined },
         { heroId: hero.id },
         { participants: { some: { heroId: hero.id } } },
+        ...(hero.dungeonRegisteredId ? [{ id: hero.dungeonRegisteredId }] : []),
       ],
     },
     orderBy: { createdAt: 'desc' },
