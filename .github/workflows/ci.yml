@@ -1,12 +1,24 @@
 name: CI
 
-# Keep this workflow aligned with the base-branch CI so pull requests are validated.
 on:
   workflow_dispatch:
   push:
-    branches: [master, architecture/core-foundation, implementation/hero-identity]
+    branches:
+      - master
+      - architecture/core-foundation
+      - implementation/hero-identity
   pull_request:
-    branches: [master, architecture/core-foundation]
+    branches:
+      - master
+      - architecture/core-foundation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
