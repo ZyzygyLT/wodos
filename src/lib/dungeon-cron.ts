@@ -45,8 +45,11 @@ function hasPassed(scheduledTimes: string[], since: Date, timerReductionHours = 
   return false
 }
 
+const EXECUTION_STALE_AFTER_MS = 15 * 60 * 1000
+
 export async function tick() {
   try {
+    await recoverStaleDungeonRuns()
     const pending = await db.dungeonRun.findMany({
       where: { status: 'registered' },
       include: { dungeon: true, participants: true },
@@ -57,6 +60,54 @@ export async function tick() {
     }
   } catch (err) {
     logger.error('dungeon-cron', 'Error en tick', err)
+  }
+}
+
+/**
+ * A worker can disappear after claiming a run. Reconcile stale claims before
+ * scanning pending expeditions. Finalizing (rather than replaying) avoids
+ * duplicating rewards when the previous worker's commit outcome is uncertain.
+ */
+async function recoverStaleDungeonRuns() {
+  const cutoff = new Date(Date.now() - EXECUTION_STALE_AFTER_MS)
+  const staleRuns = await db.dungeonRun.findMany({
+    where: {
+      status: 'running',
+      OR: [
+        { executionStartedAt: { lt: cutoff } },
+        { executionStartedAt: null, startedAt: { lt: cutoff } },
+      ],
+    },
+    include: { participants: { select: { heroId: true } } },
+  })
+
+  for (const run of staleRuns) {
+    const participantIds = [...new Set([
+      run.heroId,
+      ...run.participants.map(participant => participant.heroId),
+    ])]
+    await db.$transaction(async tx => {
+      const finalized = await tx.dungeonRun.updateMany({
+        where: {
+          id: run.id,
+          status: 'running',
+          OR: [
+            { executionStartedAt: { lt: cutoff } },
+            { executionStartedAt: null, startedAt: { lt: cutoff } },
+          ],
+        },
+        data: {
+          status: 'failed',
+          result: 'defeat',
+          completesAt: new Date(),
+        },
+      })
+      if (finalized.count !== 1) return
+      await tx.hero.updateMany({
+        where: { id: { in: participantIds }, dungeonRegisteredId: run.id },
+        data: { dungeonRegisteredId: null },
+      })
+    })
   }
 }
 
@@ -96,21 +147,26 @@ async function processScheduledRun(run: any) {
       })
   if (downedParticipants.length > 0) {
     await db.$transaction(async tx => {
-      await tx.dungeonRun.updateMany({
+      const finalized = await tx.dungeonRun.updateMany({
         where: { id: run.id, status: 'registered' },
         data: { status: 'failed', result: 'defeat', executedAt: new Date(), completesAt: new Date() },
       })
+      if (finalized.count !== 1) return
       await tx.hero.updateMany({
-        where: { id: run.heroId, dungeonRegisteredId: run.id },
+        where: {
+          id: { in: [...new Set([run.heroId, ...run.participants.map((participant: { heroId: string }) => participant.heroId)])] },
+          dungeonRegisteredId: run.id,
+        },
         data: { dungeonRegisteredId: null },
       })
     })
     return
   }
 
+  const executionStartedAt = new Date()
   const claim = await db.dungeonRun.updateMany({
     where: { id: run.id, status: 'registered' },
-    data: { status: 'running' },
+    data: { status: 'running', executionStartedAt },
   })
   if (claim.count !== 1) return
 
@@ -133,8 +189,8 @@ async function processScheduledRun(run: any) {
     // A completed run is never reset, so committed rewards cannot be replayed.
     logger.error('dungeon-cron', `Falló la ejecución programada ${run.id}`, err)
     await db.dungeonRun.updateMany({
-      where: { id: run.id, status: 'running' },
-      data: { status: 'registered' },
+      where: { id: run.id, status: 'running', executionStartedAt },
+      data: { status: 'registered', executionStartedAt: null },
     }).catch(releaseError => logger.error('dungeon-cron', 'No se pudo liberar la ejecución fallida', releaseError))
   }
 }
