@@ -113,7 +113,12 @@ export function applyLegacyCombatBuff(
 export function advanceLegacyCombatBuffs(
   current: readonly LegacyCombatBuff[],
 ): readonly LegacyCombatBuff[] {
-  const effects = current.map(legacyBuffToGameEffect)
+  const effects = current.map((buff, index) => {
+    const effect = legacyBuffToGameEffect(buff)
+    // Legacy collections can contain repeated source/type/side entries. Give
+    // each snapshot row a unique lifecycle ID without changing its metadata.
+    return { ...effect, id: `${effect.id}:tick:${index}` }
+  })
   const advanced = advanceEffects(effects, 1)
   return advanced.effects.map(gameEffectToLegacyBuff)
 }

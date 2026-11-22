@@ -80,6 +80,13 @@ describe('legacy combat buff adapter', () => {
     ])
   })
 
+  it('ticks duplicate legacy entries without colliding on engine effect IDs', () => {
+    const duplicate = buff('atk', 10, 2)
+    expect(advanceLegacyCombatBuffs([duplicate, duplicate])).toEqual([
+      buff('atk', 10, 1), buff('atk', 10, 1),
+    ])
+  })
+
   it('uses the strongest active bonus rather than adding group buffs', () => {
     expect(calculateLegacyGroupBuffBonuses([
       buff('atk', 10, 2), buff('atk', 25, 1, 'Rally'),
