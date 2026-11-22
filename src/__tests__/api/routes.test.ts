@@ -126,7 +126,8 @@ describe('POST /api/bazar', () => {
   it('creates a fixed listing', async () => {
     mockSession()
     const heroItem = { id: 'hi-1', itemId: 1, equipped: false, item: { name: 'Espada', category: 'weapon' } }
-    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID, items: [heroItem] })
+    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroItem.findFirst as Mock).mockResolvedValue({ ...heroItem, heroId: FAKE_HERO_ID })
     ;(mockDb.bazarListing.findUnique as Mock).mockResolvedValue(null)
     ;(mockDb.bazarListing.create as Mock).mockResolvedValue({ id: 'listing-1', listingType: 'fixed', price: 500 })
 
@@ -205,6 +206,7 @@ describe('POST /api/bazar/bid', () => {
     ;(mockDb.bazarListing.findUnique as Mock).mockResolvedValue({
       id: 'listing-1', status: 'active', sellerId: 'seller-1',
       listingType: 'auction', startPrice: 100, price: 100, purchases: [],
+      seller: { userId: 'seller-user' },
       heroItem: { item: { name: 'Test Item' } },
     })
     ;(mockDb.bazarPurchase.create as Mock).mockResolvedValue({ id: 'purchase-1' })
