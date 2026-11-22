@@ -81,12 +81,16 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
 
   // Clan bonuses
   let clanBonuses: Record<string, number> | undefined
+  let clanMemberRec: { clanId: string; clan: { upgrades: { upgradeId: string; tier: number }[] } } | null = null
   try {
     const cm = await db.clanMember.findUnique({
       where: { heroId: heroesData[0].id },
       include: { clan: { include: { upgrades: true } } },
     })
-    if (cm) clanBonuses = calcClanBonuses(cm.clan.upgrades)
+    if (cm) {
+      clanBonuses = calcClanBonuses(cm.clan.upgrades)
+      clanMemberRec = { clanId: cm.clanId, clan: cm.clan }
+    }
   } catch {}
 
   const isGroup = totalHeroes > 1
@@ -100,7 +104,7 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
     await persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
   })
 
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id })
+  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id, clanMemberRec })
 
   return result
   } catch (error) {
