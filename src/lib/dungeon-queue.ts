@@ -30,8 +30,18 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
     where: { id: runId },
     include: { dungeon: true, participants: true }
   })
-  if (run?.status !== 'running') return
+  if (run?.status !== 'registered') return
 
+  // Queue and cron workers compete for the same conditional claim. Only one
+  // executor can transition a pending run to running.
+  const executionStartedAt = new Date()
+  const claim = await db.dungeonRun.updateMany({
+    where: { id: runId, status: 'registered' },
+    data: { status: 'running', executionStartedAt },
+  })
+  if (claim.count !== 1) return
+
+  try {
   const dungeon = run.dungeon
 
   // Prefer the immutable party captured when the run was registered.
@@ -93,6 +103,15 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
   await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id })
 
   return result
+  } catch (error) {
+    // Only release the claim owned by this job. A committed settlement has
+    // already changed status to done/failed and cannot be replayed here.
+    await db.dungeonRun.updateMany({
+      where: { id: runId, status: 'running', executionStartedAt },
+      data: { status: 'registered', executionStartedAt: null },
+    }).catch(releaseError => logger.error('dungeon-queue', 'No se pudo liberar la ejecución fallida', releaseError))
+    throw error
+  }
 }
 
 export async function enqueueDungeonRun(runId: string, heroId: string, dungeonId: number) {
