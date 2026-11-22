@@ -54,11 +54,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Temporary, explicit quarantine for the remaining pre-existing skill
-      # availability failure. Remove the exclusion when its baseline defect is repaired.
-      - run: >-
-          npx vitest run --coverage
-          --exclude src/__tests__/skill-availability.test.ts
+      - run: npx vitest run --coverage
 
   build:
     name: Production build
