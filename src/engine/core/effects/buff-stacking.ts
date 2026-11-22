@@ -25,10 +25,13 @@ export function mergeBuffByMaximum<T extends BuffStackingEntry>(
     buff.sourceName === incoming.sourceName &&
     buff.type === incoming.type &&
     buff.side === incoming.side
-  const matchingIndex = current.findIndex(matches)
-  if (matchingIndex < 0) return [...current, incoming]
+  const matchingIndices = current
+    .map((buff, index) => matches(buff) ? index : -1)
+    .filter(index => index >= 0)
+  if (matchingIndices.length === 0) return [...current, incoming]
 
-  const matching = current[matchingIndex]
+  // The legacy behavior uses the last matching entry as the retained instance.
+  const matching = current[matchingIndices[matchingIndices.length - 1]]
   let merged = matching
   if (incoming.value > matching.value) {
     merged = {
@@ -41,8 +44,5 @@ export function mergeBuffByMaximum<T extends BuffStackingEntry>(
     merged = { ...matching, remainingRounds: incoming.remainingRounds } as T
   }
 
-  return current.flatMap((buff, index) => {
-    if (index === matchingIndex) return [merged]
-    return matches(buff) ? [] : [buff]
-  })
+  return [...current.filter(buff => !matches(buff)), merged]
 }
