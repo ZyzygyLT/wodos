@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mergeAttrs, getActiveHeroByUserId, setActiveHeroForUser } = await import('@/lib/hero-utils')
 const { default: db } = await import('@/lib/db')
-const prisma = db as any
+const prisma = db as unknown as typeof db
 
 describe('mergeAttrs', () => {
   it('adds base attrs and mods', () => {
