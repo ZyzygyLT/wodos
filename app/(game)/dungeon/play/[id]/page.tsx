@@ -96,6 +96,7 @@ export default function DungeonPlayPage() {
         log: [],
         levelResults: [],
         levelReports: report.levelReports,
+        eventJournal: { schemaVersion: 1, events: [] },
       }
     : null
 
