@@ -14,21 +14,48 @@ export async function POST() {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
   }
 
-  if (!hero.dungeonRegisteredId) {
-    return NextResponse.json({ error: "No estás registrado en ninguna mazmorra" }, { status: 400 })
-  }
-
-  await db.$transaction(async (tx) => {
-    await tx.dungeonRun.update({
-      where: { id: hero.dungeonRegisteredId! },
-      data: { status: 'failed', result: 'defeat' },
-    })
-
-    await tx.hero.update({
-      where: { id: hero.id },
-      data: { dungeonRegisteredId: null },
-    })
+  const activeRun = await db.dungeonRun.findFirst({
+    where: {
+      status: 'registered',
+      OR: [
+        { id: hero.dungeonRegisteredId ?? undefined },
+        { heroId: hero.id },
+        { participants: { some: { heroId: hero.id } } },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      heroId: true,
+      participants: { select: { heroId: true } },
+    },
   })
 
-  return NextResponse.json({ cancelled: true })
+  if (!activeRun) {
+    return NextResponse.json({ error: "No estás registrado en ninguna expedición pendiente" }, { status: 400 })
+  }
+
+  const cancelled = await db.$transaction(async tx => {
+    const result = await tx.dungeonRun.updateMany({
+      where: { id: activeRun.id, status: 'registered' },
+      data: { status: 'failed', result: 'defeat', completesAt: new Date() },
+    })
+    if (result.count !== 1) return false
+
+    const participantIds = [...new Set([
+      activeRun.heroId,
+      ...activeRun.participants.map(participant => participant.heroId),
+    ])]
+    await tx.hero.updateMany({
+      where: { id: { in: participantIds }, dungeonRegisteredId: activeRun.id },
+      data: { dungeonRegisteredId: null },
+    })
+    return true
+  })
+
+  if (!cancelled) {
+    return NextResponse.json({ error: "La expedición ya comenzó o fue cancelada" }, { status: 409 })
+  }
+
+  return NextResponse.json({ cancelled: true, runId: activeRun.id })
 }
