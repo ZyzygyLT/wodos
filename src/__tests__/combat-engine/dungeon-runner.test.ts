@@ -113,9 +113,11 @@ describe('runDungeon', () => {
       },
     })
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
-    await runDungeon([hero], makeDungeon())
-    expect(hero.consumables).toHaveLength(0)
-    expect(hero.consumedConsumableIds).toEqual(['hero-item-potion-1'])
+    const result = await runDungeon([hero], makeDungeon())
+    expect(hero.consumables).toEqual([{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }])
+    expect(result.levelReports[0].rounds.some(round =>
+      round.actions.some(action => action.itemN === 'item_42')
+    )).toBe(true)
   })
 
   it('returns defeat when hero dies', async () => {
