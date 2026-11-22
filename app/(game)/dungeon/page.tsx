@@ -107,7 +107,9 @@ export default function DungeonPage() {
     autoSelectGroup(mergedGroups, heroData.id)
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    void Promise.resolve().then(fetchData)
+  }, [fetchData])
 
   async function createGroup() {
     if (!newGroupName.trim() || newGroupName.length < 2) return
