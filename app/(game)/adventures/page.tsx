@@ -12,27 +12,29 @@ export default function AdventuresPage() {
   const [starting, setStarting] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function fetchAdventures() {
-    try {
-      const res = await fetch("/api/adventures")
-      if (res.status === 401) { router.push("/login"); return }
-      if (res.status === 404) { setData(null); return }
-      setData(await res.json())
-    } catch { setError("Error al cargar aventuras") }
-    setLoading(false)
-  }
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch("/api/adventures", { signal: controller.signal })
+      .then(async (res) => {
+        if (res.status === 401) { router.push("/login"); return null }
+        if (res.status === 404) return null
+        return res.json()
+      })
+      .then((result) => setData(result))
+      .catch((error) => {
+        if (error.name !== "AbortError") setError("Error al cargar aventuras")
+      })
+      .finally(() => setLoading(false))
 
-  async function fetchHistory() {
-    try {
-      const res = await fetch("/api/adventures/history")
-      if (res.ok) {
-        const h = await res.json()
-        setHistory(h.history ?? [])
-      }
-    } catch (e) { logger.error('adventures', 'Failed to fetch adventures', e) }
-  }
+    fetch("/api/adventures/history", { signal: controller.signal })
+      .then(async (res) => res.ok ? res.json() : null)
+      .then((result) => { if (result) setHistory(result.history ?? []) })
+      .catch((error) => {
+        if (error.name !== "AbortError") logger.error("adventures", "Failed to fetch adventures", error)
+      })
 
-  useEffect(() => { fetchAdventures(); fetchHistory() }, [])
+    return () => controller.abort()
+  }, [router])
 
   async function startAdventure(adventureId: number) {
     setStarting(adventureId)

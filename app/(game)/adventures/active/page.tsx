@@ -15,23 +15,30 @@ export default function ActiveAdventurePage() {
   const [history, setHistory] = useState<any[]>([])
   const [stepType, setStepType] = useState<string | null>(null)
 
-  async function fetchActive() {
-    try {
-      const res = await fetch("/api/adventures/active")
-      if (res.status === 401) { router.push("/login"); return }
-      const data = await res.json()
-      if (!data || data.active === false) {
-        router.push("/adventures")
-        return
-      }
-      setActive(data)
-      setHistory(data.result?.steps ?? [])
-      setStepType(data.currentStepData?.type ?? null)
-    } catch { setError("Error al cargar aventura") }
-    setLoading(false)
-  }
-
-  useEffect(() => { fetchActive() }, [])
+  useEffect(() => {
+    const controller = new AbortController()
+    fetch("/api/adventures/active", { signal: controller.signal })
+      .then(async (res) => {
+        if (res.status === 401) { router.push("/login"); return null }
+        const data = await res.json()
+        if (!data || data.active === false) {
+          router.push("/adventures")
+          return null
+        }
+        return data
+      })
+      .then((data) => {
+        if (!data) return
+        setActive(data)
+        setHistory(data.result?.steps ?? [])
+        setStepType(data.currentStepData?.type ?? null)
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") setError("Error al cargar aventura")
+      })
+      .finally(() => setLoading(false))
+    return () => controller.abort()
+  }, [router])
 
   async function advanceStep() {
     if (!active) return
