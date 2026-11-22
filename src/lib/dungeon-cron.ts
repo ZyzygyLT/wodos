@@ -81,7 +81,7 @@ async function processScheduledRun(run: any) {
   const totalHeroes = heroesData.length
   const isGroup = totalHeroes > 1
 
-  const clanInfo = await loadClanInfo(allHeroIds[0])
+  const clanInfo = await loadClanInfo(run.heroId)
   const clanBonuses = clanInfo?.bonuses ?? {}
   const clanMemberRec = clanInfo?.memberRec ?? null
 
