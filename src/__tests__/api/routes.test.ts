@@ -364,6 +364,7 @@ describe('POST /api/quests/complete', () => {
   it('completes a quest with all objectives done', async () => {
     mockSession()
     ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroQuest.updateMany as Mock).mockResolvedValue({ count: 1 })
     ;(mockDb.heroQuest.findUnique as Mock).mockResolvedValue({
       id: 'hq-1', heroId: FAKE_HERO_ID, status: 'active', questId: 1,
       progress: { obj1: 10 },
