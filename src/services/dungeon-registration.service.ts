@@ -46,8 +46,13 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   if (!dungeon) return { ok: false, error: 'Mazmorra no encontrada', status: 404 }
   if (dungeon.levelReq > hero.level) return { ok: false, error: 'Nivel insuficiente para esta mazmorra', status: 400 }
 
-  const profileId = params.profileId ?? hero.combatProfiles[0]?.id ?? null
-  const profile = profileId ? hero.combatProfiles.find(p => p.id === profileId) ?? hero.combatProfiles[0] ?? null : null
+  const profile = params.profileId
+    ? hero.combatProfiles.find(p => p.id === params.profileId) ?? null
+    : hero.combatProfiles[0] ?? null
+  if (params.profileId && !profile) {
+    return { ok: false, error: 'Perfil de combate no válido', status: 404 }
+  }
+  const profileId = profile?.id ?? null
 
   const cm = await db.clanMember.findUnique({ where: { heroId: hero.id } })
   const effectiveGroupId = params.groupId ?? cm?.groupId
@@ -144,12 +149,18 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
   if (!dungeon) return { ok: false, error: 'Mazmorra no encontrada', status: 404 }
   if (dungeon.levelReq > hero.level) return { ok: false, error: 'Nivel insuficiente para esta mazmorra', status: 400 }
 
-  const profileId = params.profileId ?? hero.combatProfiles[0]?.id ?? null
+  const profile = params.profileId
+    ? hero.combatProfiles.find(p => p.id === params.profileId) ?? null
+    : hero.combatProfiles[0] ?? null
+  if (params.profileId && !profile) {
+    return { ok: false, error: 'Perfil de combate no válido', status: 404 }
+  }
+  const profileId = profile?.id ?? null
 
   const cm = await db.clanMember.findUnique({ where: { heroId: hero.id } })
   const effectiveGroupId = params.groupId ?? cm?.groupId ?? null
 
-  const groupResult = await loadCombatGroup(effectiveGroupId, hero, profileId ? hero.combatProfiles.find(p => p.id === profileId) ?? hero.combatProfiles[0] ?? null : null, dungeon.levelReq)
+  const groupResult = await loadCombatGroup(effectiveGroupId, hero, profile, dungeon.levelReq)
   if (!groupResult.ok) return { ok: false, error: groupResult.error!, status: groupResult.status! }
   if (groupResult.isGroup && !groupResult.heroesData.some(h => h.combatProfile?.position === 'front')) {
     return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
