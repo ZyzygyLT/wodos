@@ -147,6 +147,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
   await getHeroWithEnergy(heroId)
 
   return await db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
     await tx.$queryRaw`SELECT "id" FROM "hero_adventures" WHERE "id" = ${heroAdventureId} FOR UPDATE`
 
     const ha = await tx.heroAdventure.findUnique({
@@ -160,7 +161,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
 
     const hero = await tx.hero.findUnique({
       where: { id: heroId },
-      select: { hpMax: true, mpMax: true, attrs: true, level: true },
+      select: { hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true, attrs: true, level: true },
     })
     if (!hero) throw new Error("Héroe no encontrado")
 
@@ -183,10 +184,17 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
       }
       case "combat": {
         const combat = resolveCombatStep(
-          { hpMax: hero.hpMax, mpMax: hero.mpMax, attrs: hero.attrs as Record<string, number>, level: hero.level },
+          { hpCurrent: hero.hpCurrent, hpMax: hero.hpMax, mpCurrent: hero.mpCurrent, mpMax: hero.mpMax, attrs: hero.attrs as Record<string, number>, level: hero.level },
           currentStep.enemies ?? [],
         )
         stepResult = combat
+        await tx.hero.update({
+          where: { id: heroId },
+          data: {
+            hpCurrent: { decrement: combat.heroHpLost },
+            mpCurrent: { decrement: combat.heroMpLost },
+          },
+        })
         if (!combat.victory) {
           resultData.steps.push(stepResult)
           const failed = await tx.heroAdventure.updateMany({

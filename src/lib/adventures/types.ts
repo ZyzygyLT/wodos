@@ -53,6 +53,8 @@ export interface CombatStepResult {
   totalEnemies: number
   heroHpLost: number
   heroMpLost: number
+  heroHpRemaining: number
+  heroMpRemaining: number
   log: string[]
 }
 

@@ -38,7 +38,7 @@ export function resolveAdventureChoice(
 }
 
 export function resolveCombatStep(
-  heroStats: { hpMax: number; mpMax: number; attrs: Record<string, number>; level: number },
+  heroStats: { hpMax: number; mpMax: number; hpCurrent?: number; mpCurrent?: number; attrs: Record<string, number>; level: number },
   enemies: AdventureStepEnemy[],
 ): CombatStepResult {
   const heroAtk = (heroStats.attrs.st ?? 10) + Math.floor((heroStats.attrs.dx ?? 10) / 2)
@@ -46,7 +46,8 @@ export function resolveCombatStep(
   const log: string[] = []
   let totalHpLoss = 0
   let totalMpLoss = 0
-  let remainingHp = Math.max(0, heroStats.hpMax)
+  let remainingHp = Math.max(0, Math.min(heroStats.hpMax, heroStats.hpCurrent ?? heroStats.hpMax))
+  let remainingMp = Math.max(0, Math.min(heroStats.mpMax, heroStats.mpCurrent ?? heroStats.mpMax))
   let enemiesDefeated = 0
 
   for (const enemy of enemies) {
@@ -60,8 +61,9 @@ export function resolveCombatStep(
       : Number.POSITIVE_INFINITY
     const actualRounds = Math.min(roundsToKillEnemy, roundsToKillHero)
     const hpLost = Math.min(remainingHp, Math.round(enemyDamage * actualRounds))
-    const mpLost = Math.round(heroStats.mpMax * 0.02 * actualRounds)
+    const mpLost = Math.min(remainingMp, Math.round(heroStats.mpMax * 0.02 * actualRounds))
     remainingHp -= hpLost
+    remainingMp -= mpLost
     totalHpLoss += hpLost
     totalMpLoss += mpLost
 
@@ -81,6 +83,8 @@ export function resolveCombatStep(
     totalEnemies: enemies.length,
     heroHpLost: totalHpLoss,
     heroMpLost: totalMpLoss,
+    heroHpRemaining: remainingHp,
+    heroMpRemaining: remainingMp,
     log,
   }
 }
