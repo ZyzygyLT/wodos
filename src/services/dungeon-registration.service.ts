@@ -173,6 +173,7 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
   if (effectiveGroupId) {
     const groupResult = await loadGroupParticipants(effectiveGroupId)
     if (groupResult.heroesData.length === 0) return { ok: false, error: 'Grupo vacío o no encontrado', status: 404, heroesData: [], totalHeroes: 0, isGroup: false }
+    if (!groupResult.heroIds.includes(hero.id)) return { ok: false, error: 'Tu héroe no pertenece a este grupo', status: 403, heroesData: [], totalHeroes: 0, isGroup: false }
     for (const h of groupResult.heroesData) {
       if (h.hpCurrent !== undefined && h.hpCurrent <= 0) return { ok: false, error: `${h.name} está derribado y no puede participar`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
       if (h.level < levelReq) return { ok: false, error: `${h.name} no tiene nivel suficiente (min ${levelReq})`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
