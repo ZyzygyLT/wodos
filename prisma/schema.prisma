@@ -373,6 +373,7 @@ model DungeonRun {
   @@index([heroId, status])
   @@index([heroId, createdAt])
   @@index([dungeonId, status])
+  @@index([status, executionStartedAt])
   @@index([groupId])
   @@map("dungeon_runs")
 }
