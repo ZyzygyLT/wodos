@@ -121,7 +121,9 @@ export function restoreDungeonParticipantSnapshots(
       !participant ||
       typeof participant.id !== 'string' ||
       !participant.combatProfile ||
-      !Array.isArray(participant.skills)
+      !Array.isArray(participant.skills) ||
+      typeof participant.hpCurrent !== 'number' ||
+      typeof participant.mpCurrent !== 'number'
     ) ||
     new Set(ids).size !== ids.length
   ) {
