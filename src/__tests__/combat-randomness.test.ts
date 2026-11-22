@@ -40,7 +40,10 @@ describe('reproducible combat randomness', () => {
       enemies: [unit('e1', 'front'), unit('e2', 'front'), unit('e3', 'front')],
       round: 1,
       damagedThisRound: false,
-    } as CombatState
+      groupAtkBonus: 0,
+      groupDefBonus: 0,
+      buffs: [],
+    } satisfies CombatState
     const action = { skillId: 1, targetPos: 'front' as const, targetType: 'random' as const }
     const first = resolveTarget(action, state, 'front', [], createSeededRandom(55))
     const second = resolveTarget(action, state, 'front', [], createSeededRandom(55))
@@ -65,7 +68,7 @@ describe('reproducible combat randomness', () => {
         name: 'Basic attack',
         formula: { attrCoeffs: { st: 10 }, skillRankCoeff: 0, diceCount: 0, diceSides: 0, flatBonus: 100 },
       }],
-      consumables: [{ itemId: 7, healHp: 10 }],
+      consumables: [{ heroItemId: 'hero-item-7', itemId: 7, healHp: 10 }],
     }]
     const dungeon: DungeonData = {
       id: 1,
