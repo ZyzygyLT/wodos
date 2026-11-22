@@ -49,7 +49,7 @@ export async function tick() {
   try {
     const pending = await db.dungeonRun.findMany({
       where: { status: 'registered' },
-      include: { dungeon: true },
+      include: { dungeon: true, participants: true },
     })
 
     for (const run of pending) {
@@ -132,6 +132,14 @@ async function processScheduledRun(run: any) {
 }
 
 async function loadRunParticipants(run: any) {
+  if (run.participants?.length) {
+    const heroesData = run.participants.map((participant: any) => participant.snapshot as unknown as HeroData)
+    const allHeroIds = heroesData.map((participant: HeroData) => participant.id)
+    if (heroesData.some((participant: HeroData) => !participant.id || !participant.combatProfile)) return null
+    return { heroesData, allHeroIds }
+  }
+
+  // Legacy runs created before participant snapshots retain the previous loading behavior.
   if (run.groupId) {
     const groupResult = await loadGroupParticipants(run.groupId)
     if (groupResult.heroesData.length === 0) return null
