@@ -89,6 +89,17 @@ describe('runDungeon', () => {
     expect(result.totalRounds).toBeGreaterThanOrEqual(1)
   })
 
+  it('starts from persisted HP and MP and returns the remaining resources', async () => {
+    const hero = makeHero({ hpCurrent: 25, mpCurrent: 17 })
+    const dungeon = makeDungeon({
+      levels: [{ number: 1, enemies: [], epReward: 0, goldReward: 0 }],
+    })
+
+    const result = await runDungeon([hero], dungeon)
+
+    expect(result.heroesFinalState).toEqual([{ id: 'hero-1', hp: 25, mp: 17 }])
+  })
+
   it('tracks the exact inventory row when a preliminary consumable is used', async () => {
     const hero = makeHero({
       consumables: [{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }],
