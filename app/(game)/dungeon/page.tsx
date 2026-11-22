@@ -57,7 +57,7 @@ export default function DungeonPage() {
     } catch (error) {
       throw error
     }
-  }, [])
+  }, [router])
 
   async function fetchClan() {
     try {
