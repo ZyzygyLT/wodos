@@ -54,12 +54,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Temporary, explicit quarantine for pre-existing failures unrelated to
-      # active-hero identity and expedition lifecycle. Remove each exclusion
-      # when its baseline defect is repaired; do not treat it as passing coverage.
+      # Temporary, explicit quarantine for the remaining pre-existing skill
+      # availability failure. Remove the exclusion when its baseline defect is repaired.
       - run: >-
           npx vitest run --coverage
-          --exclude src/__tests__/buff-effect-adapter.test.ts
           --exclude src/__tests__/skill-availability.test.ts
 
   build:
