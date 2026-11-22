@@ -146,7 +146,7 @@ async function processScheduledRun(run: any) {
   }
 }
 
-async function failRegisteredRun(run: any, reason: string) {
+async function failRegisteredRun(run: { id: string; heroId: string; participants?: Array<{ heroId: string }> }, reason: string) {
   logger.error('dungeon-cron', `Expedición ${run.id} finalizada sin ejecución: ${reason}`)
   const participantIds = [...new Set([
     run.heroId,
