@@ -1,20 +1,41 @@
 name: CI
+
 on:
-  push: { branches: [main, develop] }
-  pull_request: { branches: [main, develop] }
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - architecture/core-foundation
+      - implementation/hero-identity
+  pull_request:
+    branches:
+      - master
+      - architecture/core-foundation
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 18 }
+        with:
+          node-version: 22
+          cache: npm
       - run: npm ci
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test -- --coverage
+      - run: npm run build
       - uses: SonarSource/sonarcloud-github-action@v2
-        env: { SONAR_TOKEN: \${{ secrets.SONAR_TOKEN }} }
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=sqa_4a4d554ab558b9d7cd7000e43101d999896ff1f6
