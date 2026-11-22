@@ -1,4 +1,4 @@
-import { PrismaClient } from '../src/generated/prisma'
+import { Prisma, PrismaClient } from '../src/generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 import bcrypt from 'bcryptjs'
@@ -1211,7 +1211,7 @@ async function seedAdventures() {
   for (const a of adventures) {
     await db.adventure.upsert({
       where: { slug: a.slug },
-      update: { steps: a.steps as any },
+      update: { steps: a.steps as Prisma.InputJsonValue },
       create: a as any,
     })
   }
