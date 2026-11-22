@@ -15,7 +15,7 @@ describe("CombatPlayback", () => {
       epGained: 12,
       goldGained: 7,
       levelReports: [],
-    } as RunResult
+    } as unknown as RunResult
 
     render(
       <CombatPlayback
