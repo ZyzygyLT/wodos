@@ -47,19 +47,28 @@ function hasPassed(scheduledTimes: string[], since: Date, timerReductionHours = 
 }
 
 export async function tick() {
-  try {
-    await recoverStaleDungeonRuns()
-    const pending = await db.dungeonRun.findMany({
-      where: { status: 'registered' },
-      include: { dungeon: true, participants: true },
-    })
+  await recoverStaleDungeonRuns()
+  const pending = await db.dungeonRun.findMany({
+    where: { status: 'registered' },
+    include: { dungeon: true, participants: true },
+  })
 
-    for (const run of pending) {
+  const failures: string[] = []
+  for (const run of pending) {
+    try {
       await processScheduledRun(run)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      failures.push(`${run.id}: ${message}`)
+      logger.error('dungeon-cron', `No se pudo procesar la expedición ${run.id}`, err)
     }
-  } catch (err) {
-    logger.error('dungeon-cron', 'Error en tick', err)
   }
+
+  if (failures.length > 0) {
+    throw new Error(`DUNGEON_CRON_PARTIAL_FAILURE: ${failures.length}/${pending.length} expediciones; ${failures.join('; ')}`)
+  }
+
+  return { processed: pending.length, failed: 0 }
 }
 
 async function processScheduledRun(run: any) {
@@ -143,6 +152,7 @@ async function processScheduledRun(run: any) {
       where: { id: run.id, status: 'running', executionStartedAt },
       data: { status: 'registered', executionStartedAt: null },
     }).catch(releaseError => logger.error('dungeon-cron', 'No se pudo liberar la ejecución fallida', releaseError))
+    throw err
   }
 }
 
@@ -257,10 +267,10 @@ let interval: ReturnType<typeof setInterval> | null = null
 export function startDungeonCron() {
   if (interval) return
   logger.info('dungeon-cron', 'Iniciado — revisa cada 30s')
-  tick()
+  tick().catch(e => logger.error('dungeon-cron', 'Error en dungeon tick', e))
   tickTournament().catch(e => logger.error('dungeon-cron', 'Error en tournament tick', e))
   interval = setInterval(() => {
-    tick()
+    tick().catch(e => logger.error('dungeon-cron', 'Error en dungeon tick', e))
     tickTournament().catch(e => logger.error('dungeon-cron', 'Error en tournament tick', e))
   }, 30_000)
 }
