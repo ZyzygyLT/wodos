@@ -881,7 +881,7 @@ async function seedAdventures() {
           description: 'La figura no se mueve. El musgo brilla más intensamente a su alrededor. Puedes distinguir un báculo de madera retorcida apoyado a su lado.',
           choices: [
             { text: 'Saludar a la figura', nextStep: 4, flavor: 'Tu voz rompe el silencio. La figura se incorpora lentamente...' },
-            { text: 'Tomar el báculo sigilosamente', nextStep: 5, flavor: 'Te acercas con cuidado, pero al tocar el báculo, una descarga de energía te sacude.' },
+            { text: 'Tomar el báculo sigilosamente', nextStep: 4, flavor: 'Te acercas con cuidado, pero al tocar el báculo, una descarga de energía te sacude y despierta al druida.' },
           ],
         },
         {
@@ -1000,7 +1000,7 @@ async function seedAdventures() {
           type: 'choice', name: 'El Acertijo de Hierro',
           description: 'La puerta tiene grabado: "No tengo voz, pero hablo. No tengo piernas, pero camino. No estoy vivo, pero crezco. ¿Qué soy?"',
           choices: [
-            { text: '"El fuego"', nextStep: 9, flavor: 'Las runas en la puerta brillan en rojo. La puerta se abre lentamente...' },
+            { text: '"El fuego"', nextStep: 12, flavor: 'Las runas en la puerta brillan en rojo. La puerta se abre lentamente...' },
             { text: '"La sombra"', nextStep: 11, flavor: 'La puerta no se mueve. Pero escuchas un rugido detrás de ti.' },
             { text: '"El río"', nextStep: 10, flavor: 'Las runas parpadean. La puerta parece dudar...' },
           ],
@@ -1011,14 +1011,14 @@ async function seedAdventures() {
         },
         {
           type: 'combat', name: 'El Guardián de Hierro',
-          description: '"El río" no era la respuesta correcta. La puerta se activa y un golem de hierro se desprende de la pared para castigar tu error.',
+          description: 'La respuesta incorrecta activa el mecanismo de defensa. Un golem de hierro se desprende de la pared para impedirte avanzar.',
           enemies: [
             { name: 'Gólem de Hierro', icon: '🗿', hp: 80, mp: 0, atk: 18, def: 14, dx: 4, ag: 2, level: 7 },
           ],
         },
         {
           type: 'combat', name: 'La Ira de las Catacumbas',
-          description: '"La sombra" era una afrenta al guardián. Un espectro emerge de las paredes, su forma etérea llena la cámara de un frío penetrante.',
+          description: 'El guardián espiritual despierta y emerge de las paredes; su forma etérea llena la cámara de un frío penetrante.',
           enemies: [
             { name: 'Espectro Guardián', icon: '👻', hp: 60, mp: 40, atk: 20, def: 5, dx: 12, ag: 10, level: 7, damageType: 'dark' },
           ],
@@ -1211,7 +1211,7 @@ async function seedAdventures() {
   for (const a of adventures) {
     await db.adventure.upsert({
       where: { slug: a.slug },
-      update: {},
+      update: { steps: a.steps as any },
       create: a as any,
     })
   }
