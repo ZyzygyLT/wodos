@@ -1,4 +1,5 @@
 import db from '@/lib/db'
+import { splitIntegerReward } from '@/lib/reward-distribution'
 import type { RunResult, HeroData } from '@/lib/combat-engine/dungeon-runner'
 import { checkLevelUp } from '@/lib/level-up'
 import { grantMaterialDrops } from '@/lib/craft/material-drops'
@@ -15,21 +16,6 @@ interface PersistParams {
   result: RunResult
   heroesData: HeroData[]
   totalHeroes: number
-}
-
-export function splitIntegerReward(total: number, recipientCount: number): number[] {
-  if (!Number.isSafeInteger(total) || total < 0) {
-    throw new RangeError('Reward total must be a non-negative safe integer')
-  }
-  if (!Number.isSafeInteger(recipientCount) || recipientCount < 1) {
-    throw new RangeError('Recipient count must be a positive safe integer')
-  }
-
-  const baseShare = Math.floor(total / recipientCount)
-  const remainder = total % recipientCount
-  return Array.from({ length: recipientCount }, (_, index) =>
-    baseShare + (index < remainder ? 1 : 0)
-  )
 }
 
 export async function persistRunResult(tx: Parameters<Parameters<typeof db.$transaction>[0]>[0], params: PersistParams) {
