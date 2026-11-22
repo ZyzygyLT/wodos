@@ -9,43 +9,54 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({ where: { userId: session.user.id } })
-  if (!hero) {
+  const ownedHeroes = await db.hero.findMany({
+    where: { userId: session.user.id },
+    select: { id: true, name: true },
+  })
+  if (ownedHeroes.length === 0) {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
   }
+  const ownedHeroIds = new Set(ownedHeroes.map(hero => hero.id))
 
   const run = await db.dungeonRun.findUnique({
     where: { id },
-    include: { dungeon: true }
+    include: {
+      dungeon: true,
+      participants: { select: { heroId: true, snapshot: true } },
+    },
   })
 
   if (!run) {
     return NextResponse.json({ error: "Run no encontrado" }, { status: 404 })
   }
 
-  // Autorización: el héroe debe ser el creador del run o miembro del grupo
-  let authorized = run.heroId === hero.id
-  let participants: { heroId: string; name: string }[] = []
+  // Prefer immutable participants captured at registration. Current group membership
+  // must never grant access to a historical report.
+  const historicalParticipants = run.participants.map(participant => {
+    const snapshot = participant.snapshot as { name?: string }
+    return { heroId: participant.heroId, name: snapshot?.name ?? 'Héroe' }
+  })
 
-  if (!authorized && run.groupId) {
+  let respParticipants = historicalParticipants
+  let authorized =
+    (run.heroId != null && ownedHeroIds.has(run.heroId)) ||
+    historicalParticipants.some(participant => ownedHeroIds.has(participant.heroId))
+
+  // Legacy runs predate participant snapshots; retain their old group-based access path.
+  if (run.participants.length === 0 && !authorized && run.groupId) {
     const group = await db.clanGroup.findUnique({
       where: { id: run.groupId },
       include: {
-        members: {
-          include: { hero: { select: { id: true, name: true } } },
-        },
-        groupMembers: {
-          include: { hero: { select: { id: true, name: true } } },
-        },
+        members: { include: { hero: { select: { id: true, name: true } } } },
+        groupMembers: { include: { hero: { select: { id: true, name: true } } } },
       },
     })
     if (group) {
-      const allMembers = [
-        ...group.members.map(m => ({ heroId: m.hero.id, name: m.hero.name })),
-        ...group.groupMembers.map(m => ({ heroId: m.hero.id, name: m.hero.name })),
+      respParticipants = [
+        ...group.members.map(member => ({ heroId: member.hero.id, name: member.hero.name })),
+        ...group.groupMembers.map(member => ({ heroId: member.hero.id, name: member.hero.name })),
       ]
-      authorized = allMembers.some(m => m.heroId === hero.id)
-      participants = allMembers
+      authorized = respParticipants.some(participant => ownedHeroIds.has(participant.heroId))
     }
   }
 
@@ -53,15 +64,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
-  const isGroup = participants.length > 0 || run.groupId != null
-
-  let respParticipants: { heroId: string; name: string }[]
-  if (participants.length > 0) {
-    respParticipants = participants
-  } else if (run.heroId) {
-    respParticipants = [{ heroId: run.heroId, name: hero.name }]
-  } else {
-    respParticipants = []
+  const isGroup = respParticipants.length > 1 || run.groupId != null
+  if (respParticipants.length === 0 && ownedHeroes.some(owned => owned.id === run.heroId)) {
+    const owner = ownedHeroes.find(owned => owned.id === run.heroId)!
+    respParticipants = [{ heroId: owner.id, name: owner.name }]
   }
 
   const report = run.report as any[] | null
