@@ -21,7 +21,7 @@ export default function ActiveAdventurePage() {
       const res = await fetch("/api/adventures/active")
       if (res.status === 401) { router.push("/login"); return }
       const data = await res.json()
-      if (!data) {
+      if (!data || data.active === false) {
         router.push("/adventures")
         return
       }

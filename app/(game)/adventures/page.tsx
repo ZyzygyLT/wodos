@@ -118,14 +118,14 @@ export default function AdventuresPage() {
               </div>
               <button
                 onClick={() => startAdventure(adv.id)}
-                disabled={starting === adv.id || !adv.canAfford}
+                disabled={starting === adv.id || !adv.canAfford || data?.hasActiveAdventure}
                 className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
                   adv.canAfford
                     ? "bg-emerald-700 hover:bg-emerald-600 text-white"
                     : "bg-gray-700 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                {starting === adv.id ? "Iniciando..." : adv.canAfford ? "Iniciar aventura" : "Energía insuficiente"}
+                {starting === adv.id ? "Iniciando..." : data?.hasActiveAdventure ? "Ya tienes una aventura activa" : adv.canAfford ? "Iniciar aventura" : "Energía insuficiente"}
               </button>
             </div>
           ))}
