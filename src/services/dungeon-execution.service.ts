@@ -106,8 +106,12 @@ export async function processPostRun(params: PostRunParams) {
   ).length ?? 0
 
   for (const fs of result.heroesFinalState) {
-    await processPostRunForHero(fs.id, { result, heroesData, totalHeroes, dungeon, runId, clanMemberRec, kills })
+    await processPostRunForHero(fs.id, { result, heroesData, totalHeroes, dungeon, runId, kills })
   }
+
+  // Clan event contribution belongs to the expedition, not to each participant.
+  // Apply it once so group size cannot multiply the same kill count.
+  await contributeToEvent(dungeon, clanMemberRec, kills)
 
   await trackAnalytics(result, heroesData, dungeon, totalHeroes, runId)
 }
@@ -118,15 +122,13 @@ interface PostRunHeroContext {
   totalHeroes: number
   dungeon: { id: number; name: string; slug: string }
   runId: string
-  clanMemberRec?: { clanId: string; clan: { upgrades: { upgradeId: string; tier: number }[] } } | null
   kills: number
 }
 
 async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
-  const { result, heroesData, totalHeroes, dungeon, runId, clanMemberRec, kills } = ctx
+  const { result, totalHeroes, dungeon, runId, kills } = ctx
   await checkLevelUp(heroId).catch(e => logger.error('dungeon-service', 'Error en level up', e))
   await grantMaterialDrops(heroId, dungeon.id, runId).catch(e => logger.error('dungeon-service', 'Error en material drops', e))
-  await contributeToEvent(heroId, dungeon, clanMemberRec, kills)
   await updateQuestProgressForHero(heroId, dungeon, kills, result, totalHeroes, runId)
   checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => logger.error('dungeon-service', 'Error en achievements', e))
   await trackEventProgressForHero(heroId, result)
@@ -134,7 +136,7 @@ async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   await sendNotificationForHero(heroId, result, dungeon, runId, totalHeroes)
 }
 
-async function contributeToEvent(heroId: string, dungeon: { id: number; name: string; slug: string }, clanMemberRec: any, kills: number) {
+async function contributeToEvent(dungeon: { id: number; name: string; slug: string }, clanMemberRec: any, kills: number) {
   try {
     const activeEvent = await db.weeklyEvent.findFirst({
       where: { isActive: true, startsAt: { lte: new Date() }, endsAt: { gte: new Date() } },
