@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import type { RunResult, LevelReport } from "@/lib/combat-engine/dungeon-runner"
 import { CombatPlayback } from "@/components/combat/CombatPlayback"
@@ -142,7 +142,7 @@ export default function DungeonPlayPage() {
   return (
     <>
       {levelUp && (
-        <LevelUpCelebration data={levelUp} onClose={() => setLevelUp(null)} />
+        <LevelUpCelebration data={levelUp} onClose={() => levelUpKey && setDismissedLevelUpKey(levelUpKey)} />
       )}
       {firstOfDay && (
         <div className="fixed top-4 right-4 z-50 bg-amber-900/90 border border-amber-600 rounded-lg px-4 py-2 text-amber-200 text-sm font-medium shadow-lg">
