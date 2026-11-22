@@ -91,7 +91,7 @@ describe('GET /api/hero', () => {
 
 // ─── POST /api/bazar ───────────────────────────────────────────────────────────
 describe('POST /api/bazar', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
@@ -163,7 +163,7 @@ describe('POST /api/bazar', () => {
 
 // ─── POST /api/bazar/bid ──────────────────────────────────────────────────────
 describe('POST /api/bazar/bid', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
@@ -229,7 +229,7 @@ describe('POST /api/bazar/bid', () => {
 
 // ─── POST /api/clan ────────────────────────────────────────────────────────────
 describe('POST /api/clan', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('creates a clan', async () => {
     mockSession()
@@ -273,7 +273,7 @@ describe('POST /api/clan', () => {
 
 // ─── POST /api/clan/join ───────────────────────────────────────────────────────
 describe('POST /api/clan/join', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('joins a clan', async () => {
     mockSession()
@@ -305,7 +305,7 @@ describe('POST /api/clan/join', () => {
 
 // ─── POST /api/quests/accept ───────────────────────────────────────────────────
 describe('POST /api/quests/accept', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('accepts a quest', async () => {
     mockSession()
@@ -345,7 +345,7 @@ describe('POST /api/quests/accept', () => {
 
 // ─── POST /api/quests/complete ─────────────────────────────────────────────────
 describe('POST /api/quests/complete', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('completes a quest with all objectives done', async () => {
     mockSession()
@@ -395,7 +395,7 @@ describe('POST /api/quests/complete', () => {
 
 // ─── POST /api/arena/duel ──────────────────────────────────────────────────────
 describe('POST /api/arena/duel', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
@@ -439,7 +439,7 @@ describe('POST /api/arena/duel', () => {
 
 // ─── POST /api/craft ───────────────────────────────────────────────────────────
 describe('POST /api/craft', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('crafts an item', async () => {
     mockSession()
