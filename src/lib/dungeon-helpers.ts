@@ -60,7 +60,16 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
   // Try independent groups first (GroupMember)
   const groupMembers = await db.groupMember.findMany({
     where: { groupId },
-    include: { hero: { include: { combatProfiles: true, skills: { include: { skill: true } }, items: { include: { item: true } } } } },
+    orderBy: { joinedAt: 'asc' },
+    include: {
+      hero: {
+        include: {
+          combatProfiles: { orderBy: { createdAt: 'asc' } },
+          skills: { include: { skill: true } },
+          items: { include: { item: true } },
+        },
+      },
+    },
   })
 
   if (groupMembers.length > 0) {
@@ -79,10 +88,11 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
     where: { id: groupId },
     include: {
       members: {
+        orderBy: { joinedAt: 'asc' },
         include: {
           hero: {
             include: {
-              combatProfiles: true,
+              combatProfiles: { orderBy: { createdAt: 'asc' } },
               skills: { include: { skill: true } },
               items: { include: { item: true } },
             },
