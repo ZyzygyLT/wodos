@@ -20,31 +20,38 @@ export function resolveCombatStep(
   const log: string[] = []
   let totalHpLoss = 0
   let totalMpLoss = 0
-  let victory = true
+  let remainingHp = Math.max(0, heroStats.hpMax)
+  let enemiesDefeated = 0
 
   for (const enemy of enemies) {
+    if (remainingHp <= 0) break
+
     const heroDamage = Math.max(0, heroAtk - enemy.def * 0.5)
     const enemyDamage = Math.max(0, enemy.atk - heroDef * 0.3)
     const roundsToKillEnemy = Math.ceil(enemy.hp / Math.max(1, heroDamage))
-    const roundsToKillHero = Math.ceil(heroStats.hpMax / Math.max(1, enemyDamage))
+    const roundsToKillHero = enemyDamage > 0
+      ? Math.ceil(remainingHp / enemyDamage)
+      : Number.POSITIVE_INFINITY
     const actualRounds = Math.min(roundsToKillEnemy, roundsToKillHero)
-    const hpLost = Math.round(enemyDamage * actualRounds)
+    const hpLost = Math.min(remainingHp, Math.round(enemyDamage * actualRounds))
     const mpLost = Math.round(heroStats.mpMax * 0.02 * actualRounds)
+    remainingHp -= hpLost
     totalHpLoss += hpLost
     totalMpLoss += mpLost
 
     if (roundsToKillEnemy <= roundsToKillHero) {
+      enemiesDefeated += 1
       log.push(`⚔️ ${enemy.name} derrotado en ${actualRounds} asaltos`)
     } else {
-      log.push(`💀 ${enemy.name} causa ${hpLost} de daño antes de caer`)
-      victory = false
+      log.push(`💀 ${enemy.name} te derrota tras ${actualRounds} asaltos`)
+      break
     }
   }
 
   return {
     type: 'combat',
-    victory: victory && totalHpLoss < heroStats.hpMax,
-    enemiesDefeated: enemies.length,
+    victory: enemiesDefeated === enemies.length && remainingHp > 0,
+    enemiesDefeated,
     totalEnemies: enemies.length,
     heroHpLost: totalHpLoss,
     heroMpLost: totalMpLoss,
