@@ -4,7 +4,7 @@ import logger from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
-type AdventureRewardEntry = { itemId: number; qty: number } | { materialId: number; qty: number }
+export default function ActiveAdventurePage() {
 
   const router = useRouter()
   const [active, setActive] = useState<any>(null)
