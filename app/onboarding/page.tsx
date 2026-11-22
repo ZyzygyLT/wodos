@@ -26,18 +26,50 @@ export default function Onboarding() {
   const [selectedRace, setSelectedRace] = useState<RaceData | null>(null)
   const [name, setName] = useState("")
   const [error, setError] = useState("")
+  const [loadError, setLoadError] = useState("")
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/classes").then(r => r.json()),
-      fetch("/api/races").then(r => r.json()),
-    ]).then(([cls, rac]) => {
-      setClasses(cls)
-      setRaces(rac)
-    }).catch(() => {}).finally(() => setFetching(false))
-  }, [])
+    let cancelled = false
+
+    async function loadOptions() {
+      setFetching(true)
+      setLoadError("")
+      try {
+        const [classResponse, raceResponse] = await Promise.all([
+          fetch("/api/classes"),
+          fetch("/api/races"),
+        ])
+        if (!classResponse.ok || !raceResponse.ok) {
+          throw new Error("No se pudieron cargar las clases y razas.")
+        }
+
+        const [classData, raceData] = await Promise.all([
+          classResponse.json(),
+          raceResponse.json(),
+        ])
+        if (!Array.isArray(classData) || !Array.isArray(raceData) || classData.length === 0 || raceData.length === 0) {
+          throw new Error("No hay clases o razas disponibles. Intentá nuevamente más tarde.")
+        }
+
+        if (!cancelled) {
+          setClasses(classData)
+          setRaces(raceData)
+        }
+      } catch (loadFailure) {
+        if (!cancelled) {
+          setLoadError(loadFailure instanceof Error ? loadFailure.message : "Error de conexión al cargar las opciones.")
+        }
+      } finally {
+        if (!cancelled) setFetching(false)
+      }
+    }
+
+    void loadOptions()
+    return () => { cancelled = true }
+  }, [loadAttempt])
 
   async function handleCreate() {
     if (!selectedClass || !selectedRace || !name.trim()) return
@@ -79,21 +111,29 @@ export default function Onboarding() {
             <h1 className="text-2xl font-bold text-center mb-6">Elegí tu clase</h1>
             {fetching ? (
               <p className="text-center text-gray-400 py-12">Cargando clases...</p>
-            ) : (
-            <div className="grid gap-4">
-              {classes.map(c => (
-                <button key={c.id} onClick={() => { setSelectedClass(c); setStep(2) }}
-                  className={`text-left p-4 rounded-lg border-2 transition ${selectedClass?.id === c.id ? 'border-yellow-400 bg-gray-800' : 'border-gray-700 bg-gray-900 hover:border-gray-500'}`}>
-                  <div className="text-2xl mb-1">{c.icon} {c.name}</div>
-                  <div className="text-sm text-gray-400">{c.description}</div>
-                  <div className="flex gap-2 mt-2 text-xs">
-                    <span className="px-2 py-0.5 bg-gray-800 rounded">{c.role}</span>
-                    <span className="px-2 py-0.5 bg-gray-800 rounded">{c.position}</span>
-                    <span className="px-2 py-0.5 bg-gray-800 rounded">{c.difficulty}</span>
-                  </div>
+            ) : loadError ? (
+              <div className="text-center py-12 space-y-4">
+                <p role="alert" className="text-red-400">{loadError}</p>
+                <button onClick={() => setLoadAttempt(attempt => attempt + 1)}
+                  className="px-5 py-2 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition">
+                  Reintentar
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {classes.map(c => (
+                  <button key={c.id} onClick={() => { setSelectedClass(c); setStep(2) }}
+                    className={`text-left p-4 rounded-lg border-2 transition ${selectedClass?.id === c.id ? 'border-yellow-400 bg-gray-800' : 'border-gray-700 bg-gray-900 hover:border-gray-500'}`}>
+                    <div className="text-2xl mb-1">{c.icon} {c.name}</div>
+                    <div className="text-sm text-gray-400">{c.description}</div>
+                    <div className="flex gap-2 mt-2 text-xs">
+                      <span className="px-2 py-0.5 bg-gray-800 rounded">{c.role}</span>
+                      <span className="px-2 py-0.5 bg-gray-800 rounded">{c.position}</span>
+                      <span className="px-2 py-0.5 bg-gray-800 rounded">{c.difficulty}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </>
         )}
@@ -137,7 +177,7 @@ export default function Onboarding() {
                 <button onClick={() => setStep(2)} className="flex-1 py-3 rounded bg-gray-800 hover:bg-gray-700 transition">
                   ← Atrás
                 </button>
-                <button onClick={handleCreate} disabled={loading || !name.trim()}
+                <button onClick={handleCreate} disabled={loading || !name.trim() || name.trim().length < 2}
                   className="flex-1 py-3 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-bold transition disabled:opacity-50">
                   {loading ? "Creando..." : "¡Crear héroe!"}
                 </button>
