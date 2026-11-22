@@ -36,52 +36,73 @@ export default function DungeonPlayPage() {
   const [report, setReport] = useState<RunReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [levelUp, setLevelUp] = useState<LevelUpData | null>(null)
-  const [firstOfDay, setFirstOfDay] = useState(false)
-
-  const fetchReport = useCallback(async (id: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/dungeon/report/${id}`)
-      if (res.status === 401) { router.push("/login"); return }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `Error ${res.status}`)
-      }
-      const data = await res.json()
-      if (data.error) { setError(data.error); setLoading(false); return }
-      setReport(data)
-    } catch (e: any) {
-      setError(e.message || "Error al cargar")
-    } finally {
-      setLoading(false)
+  const [dismissedLevelUpKey, setDismissedLevelUpKey] = useState<string | null>(null)
+  const levelUpParams = {
+    level: searchParams?.get("lvl") ?? null,
+    points: searchParams?.get("pts") ?? null,
+  }
+  const levelUpKey = levelUpParams.level && levelUpParams.points
+    ? `${levelUpParams.level}:${levelUpParams.points}`
+    : null
+  const levelUp = useMemo<LevelUpData | null>(() => {
+    if (!levelUpKey || dismissedLevelUpKey === levelUpKey) return null
+    return {
+      leveledUp: true,
+      levelsGained: 1,
+      newLevel: Number(levelUpParams.level),
+      newHpMax: 0,
+      newMpMax: 0,
+      pointsAwarded: Number(levelUpParams.points),
     }
+  }, [dismissedLevelUpKey, levelUpKey, levelUpParams.level, levelUpParams.points])
+  const firstOfDay = searchParams?.get("fod") === "1"
+
+  const fetchReport = useCallback(async (id: string): Promise<RunReport | null> => {
+    const res = await fetch(`/api/dungeon/report/${id}`)
+    if (res.status === 401) {
+      router.push("/login")
+      return null
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `Error ${res.status}`)
+    }
+    return await res.json() as RunReport
   }, [router])
 
   useEffect(() => {
     let id = params?.id as string | undefined
     if (!id && globalThis.window !== undefined) {
-      const m = /\/dungeon\/play\/([^/]+)/.exec(globalThis.window.location.pathname)
-      if (m) id = m[1]
+      const match = /\\/dungeon\\/play\\/([^/]+)/.exec(globalThis.window.location.pathname)
+      if (match) id = match[1]
     }
-    if (id) fetchReport(id)
 
-    const lvl = searchParams?.get("lvl")
-    const pts = searchParams?.get("pts")
-    const fod = searchParams?.get("fod")
-    if (lvl && pts) {
-      setLevelUp({
-        leveledUp: true,
-        levelsGained: 1,
-        newLevel: Number(lvl),
-        newHpMax: 0,
-        newMpMax: 0,
-        pointsAwarded: Number(pts),
+    let cancelled = false
+    if (!id) {
+      Promise.resolve().then(() => {
+        if (!cancelled) {
+          setError("No se encontró el identificador de la expedición")
+          setLoading(false)
+        }
       })
+      return () => { cancelled = true }
     }
-    if (fod === '1') setFirstOfDay(true)
-  }, [params?.id, fetchReport, searchParams])
+
+    void fetchReport(id)
+      .then(data => {
+        if (cancelled || !data) return
+        setError(null)
+        setReport(data)
+      })
+      .catch(error => {
+        if (!cancelled) setError(error instanceof Error ? error.message : "Error al cargar")
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [params?.id, fetchReport])
 
   const runResult: RunResult | null = report?.levelReports
     ? {
