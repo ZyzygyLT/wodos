@@ -28,18 +28,6 @@ import type { Mock } from 'vitest'
 const FAKE_USER_ID = 'user-1'
 const FAKE_HERO_ID = 'hero-1'
 
-beforeEach(() => {
-  activeHeroMock.mockImplementation((userId: string, options: { include?: unknown; select?: unknown } = {}) =>
-    mockDb.hero.findFirst({
-      where: { userId },
-      ...(options.include ? { include: options.include } : {}),
-      ...(options.select ? { select: options.select } : {}),
-    })
-  )
-  ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: null })
-  ;(mockDb.user.updateMany as Mock).mockResolvedValue({ count: 1 })
-  ;(mockDb.hero.updateMany as Mock).mockResolvedValue({ count: 1 })
-})
 
 function mockSession() {
   ;(auth as Mock).mockResolvedValue({ user: { id: FAKE_USER_ID } })
@@ -53,9 +41,22 @@ function jsonResponse(res: Response): Promise<any> {
   return res.json()
 }
 
+function mockActiveHeroDefault() {
+  activeHeroMock.mockImplementation((userId: string, options: { include?: unknown; select?: unknown } = {}) =>
+    mockDb.hero.findFirst({
+      where: { userId },
+      ...(options.include ? { include: options.include } : {}),
+      ...(options.select ? { select: options.select } : {}),
+    })
+  )
+  ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: null })
+  ;(mockDb.user.updateMany as Mock).mockResolvedValue({ count: 1 })
+  ;(mockDb.hero.updateMany as Mock).mockResolvedValue({ count: 1 })
+}
+
 // ─── GET /api/hero ─────────────────────────────────────────────────────────────
 describe('GET /api/hero', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
