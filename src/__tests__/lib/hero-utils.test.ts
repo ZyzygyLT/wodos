@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Mock } from 'vitest'
 
 const { mergeAttrs, getActiveHeroByUserId, setActiveHeroForUser } = await import('@/lib/hero-utils')
 const { default: db } = await import('@/lib/db')
-const prisma = db as unknown as typeof db
+const prisma = db as unknown as {
+  user: { findUnique: Mock; updateMany: Mock; update: Mock }
+  hero: { findFirst: Mock }
+}
 
 describe('mergeAttrs', () => {
   it('adds base attrs and mods', () => {
@@ -45,6 +49,7 @@ describe('getActiveHeroByUserId', () => {
 
     const hero = await getActiveHeroByUserId('user-1', { include: { class: true } })
 
+    if (!hero) throw new Error('Expected selected hero')
     expect(hero.id).toBe('hero-selected')
     expect(prisma.hero.findFirst).toHaveBeenCalledWith({
       where: { id: 'hero-selected', userId: 'user-1' },
@@ -62,6 +67,7 @@ describe('getActiveHeroByUserId', () => {
 
     const hero = await getActiveHeroByUserId('user-1')
 
+    if (!hero) throw new Error('Expected fallback hero')
     expect(hero.id).toBe('oldest-owned')
     expect(prisma.hero.findFirst).toHaveBeenNthCalledWith(2, {
       where: { userId: 'user-1' },
@@ -92,6 +98,7 @@ describe('getActiveHeroByUserId', () => {
 
     const hero = await getActiveHeroByUserId('user-1')
 
+    if (!hero) throw new Error('Expected concurrent selection')
     expect(hero.id).toBe('new-selection')
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
       where: { id: 'user-1', currentHeroId: 'stale-hero' },
