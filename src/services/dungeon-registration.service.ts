@@ -60,7 +60,14 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
     return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
   }
 
-  const clanBonuses = cm ? await loadClanBonuses(hero.id) : undefined
+  const clanInfo = cm
+    ? await db.clanMember.findUnique({
+        where: { heroId: hero.id },
+        include: { clan: { include: { upgrades: true } } },
+      })
+    : null
+  const clanBonuses = clanInfo ? calcClanBonuses(clanInfo.clan.upgrades) : undefined
+  const clanMemberRec = clanInfo ? { clanId: clanInfo.clanId, clan: clanInfo.clan } : null
   const dungeonData = await enrichDungeonLevels(dungeon)
 
   const runId = await createInstantRunReservation(hero.id, dungeon, profile, effectiveGroupId, heroesData)
@@ -96,7 +103,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   } catch (error) {
     logger.error('dungeon-registration', 'Leader level-up processing failed', error)
   }
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId }).catch(error => {
+  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId, clanMemberRec }).catch(error => {
     logger.error('dungeon-registration', 'Post-run processing failed', error)
   })
 
@@ -274,14 +281,6 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
   }
   const heroesData = [await buildHeroData(hero, profile)]
   return { ok: true, heroesData, totalHeroes: 1, isGroup: false }
-}
-
-async function loadClanBonuses(heroId: string) {
-  const full = await db.clanMember.findUnique({
-    where: { heroId },
-    include: { clan: { include: { upgrades: true } } },
-  })
-  return full ? calcClanBonuses(full.clan.upgrades) : undefined
 }
 
 async function loadLootItemMap(result: any) {
