@@ -1,4 +1,10 @@
 import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
+
+export const ADVENTURE_STATUSES_BLOCKING_NEW_START = ['active', 'completed'] as const
+
+export function isAdventureBlockingNewStart(status: string): boolean {
+  return (ADVENTURE_STATUSES_BLOCKING_NEW_START as readonly string[]).includes(status)
+}
 import type {
   AdventureStep, AdventureStepEnemy, AdventureRewardTable, AdventureChoice,
   CombatStepResult, StepRewards,

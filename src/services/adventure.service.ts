@@ -2,6 +2,7 @@ import db from '@/lib/db'
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
   calcEnergyRecharge, resolveCombatStep, resolveAdventureChoice, rollAdventureRewards,
+  ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -48,7 +49,7 @@ export async function listAdventures(heroId: string) {
   })
 
   const activeAdventure = await db.heroAdventure.findFirst({
-    where: { heroId, status: 'active' },
+    where: { heroId, status: { in: [...ADVENTURE_STATUSES_BLOCKING_NEW_START] } },
   })
 
   return {
@@ -60,6 +61,7 @@ export async function listAdventures(heroId: string) {
     energy: hero.adventureEnergy,
     energyMax: hero.adventureEnergyMax,
     hasActiveAdventure: !!activeAdventure,
+    blockingAdventureStatus: activeAdventure?.status ?? null,
   }
 }
 
@@ -76,8 +78,8 @@ export async function startAdventure(heroId: string, adventureId: number) {
     })
     const adventure = await tx.adventure.findUnique({ where: { id: adventureId } })
     const existing = await tx.heroAdventure.findFirst({
-      where: { heroId, status: "active" },
-      select: { id: true },
+      where: { heroId, status: { in: [...ADVENTURE_STATUSES_BLOCKING_NEW_START] } },
+      select: { id: true, status: true },
     })
 
     if (!hero) throw new Error("Héroe no encontrado")
@@ -85,7 +87,11 @@ export async function startAdventure(heroId: string, adventureId: number) {
     if (!adventure.isActive) throw new Error("Aventura no disponible")
     if (hero.level < adventure.levelReq) throw new Error("Nivel insuficiente")
     if (hero.level > adventure.maxLevel) throw new Error("Nivel demasiado alto")
-    if (existing) throw new Error("Ya tienes una aventura activa")
+    if (existing && isAdventureBlockingNewStart(existing.status)) {
+      throw new Error(existing.status === 'completed'
+        ? "Debes reclamar las recompensas de tu aventura completada"
+        : "Ya tienes una aventura activa")
+    }
     if (hero.adventureEnergy < adventure.energyCost) throw new Error("Energía insuficiente")
 
     const steps = adventure.steps as unknown as AdventureStep[]
