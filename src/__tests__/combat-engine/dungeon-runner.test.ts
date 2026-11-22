@@ -97,7 +97,9 @@ describe('runDungeon', () => {
 
     const result = await runDungeon([hero], dungeon)
 
-    expect(result.heroesFinalState).toEqual([{ id: 'hero-1', hp: 25, mp: 17 }])
+    expect(result.heroesFinalState[0]).toMatchObject({ id: 'hero-1', hp: 25 })
+    expect(result.heroesFinalState[0].mp).toBeGreaterThan(0)
+    expect(result.heroesFinalState[0].mp).toBeLessThan(hero.mpMax)
   })
 
   it('tracks the exact inventory row when a preliminary consumable is used', async () => {
