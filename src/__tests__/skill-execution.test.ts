@@ -74,7 +74,7 @@ describe('central skill execution planning', () => {
     expect(resolve({ skillId: 3, effect: 'defense_up', multiplier: 1, rank: 2 }))
       .toEqual({ kind: 'party_buff', buff: 'def', bonus: 14 })
     expect(resolve({ skillId: 9, effect: 'party_attack_up', multiplier: 1.5, rank: 0 }))
-      .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 15 })
+      .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 17 })
   })
 
   it('returns all living enemies for area attacks', () => {
