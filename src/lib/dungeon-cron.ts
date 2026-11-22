@@ -82,10 +82,12 @@ async function processScheduledRun(run: any) {
 
   // Scheduled runs must enforce the same downed-hero rule as instant runs.
   // Do this before claiming the run so invalid registrations remain unexecuted.
-  const downedParticipants = await db.hero.findMany({
-    where: { id: { in: allHeroIds }, hpCurrent: { lte: 0 } },
-    select: { id: true },
-  })
+  const downedParticipants = run.participants?.length
+    ? heroesData.filter((participant: HeroData) => (participant.hpCurrent ?? 0) <= 0).map((participant: HeroData) => ({ id: participant.id }))
+    : await db.hero.findMany({
+        where: { id: { in: allHeroIds }, hpCurrent: { lte: 0 } },
+        select: { id: true },
+      })
   if (downedParticipants.length > 0) {
     await db.$transaction(async tx => {
       await tx.dungeonRun.updateMany({
