@@ -262,7 +262,15 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
       if (h.hpCurrent !== undefined && h.hpCurrent <= 0) return { ok: false, error: `${h.name} está derribado y no puede participar`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
       if (h.level < levelReq) return { ok: false, error: `${h.name} no tiene nivel suficiente (min ${levelReq})`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
     }
-    return { ok: true, heroesData: groupResult.heroesData, totalHeroes: groupResult.heroesData.length, isGroup: groupResult.heroesData.length > 1 }
+    // The initiating hero may explicitly choose a combat profile. Group loading
+    // uses each member's default profile, so replace only the leader's snapshot
+    // with the already-authorized selection before freezing the party.
+    const heroesData = await Promise.all(groupResult.heroesData.map(participant =>
+      participant.id === hero.id
+        ? buildHeroData(hero, profile ?? hero.combatProfiles?.[0] ?? null)
+        : Promise.resolve(participant)
+    ))
+    return { ok: true, heroesData, totalHeroes: heroesData.length, isGroup: heroesData.length > 1 }
   }
   const heroesData = [await buildHeroData(hero, profile)]
   return { ok: true, heroesData, totalHeroes: 1, isGroup: false }
