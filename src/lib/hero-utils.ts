@@ -175,7 +175,7 @@ export async function createHero(userId: string, name: string, classId: number, 
  */
 type ActiveHeroOptions = Pick<Prisma.HeroFindFirstArgs, 'include' | 'select'>
 
-export async function getActiveHeroByUserId<T extends ActiveHeroOptions = {}>(
+export async function getActiveHeroByUserId<T extends ActiveHeroOptions = ActiveHeroOptions>(
   userId: string,
   options: T = {} as T,
 ): Promise<Prisma.HeroGetPayload<T> | null> {
