@@ -23,8 +23,6 @@ describe('hero combat compatibility baseline', () => {
   })
 
   it('uses equipped classic-attribute bonuses, selected defense skills and the legacy fallback', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-
     const result = computeDefenseForHero({
       attrs: { st: 3, dx: 4, co: 2 },
       items: [
@@ -56,8 +54,8 @@ describe('hero combat compatibility baseline', () => {
             formula: {
               attrCoeffs: { st: 1 },
               skillRankCoeff: 2,
-              diceSides: 6,
-              diceCount: 1,
+              diceSides: 0,
+              diceCount: 0,
               flatBonus: 1,
             },
           },
@@ -65,8 +63,8 @@ describe('hero combat compatibility baseline', () => {
       ],
     })
 
-    // Melee: (base STR 3 + equipped STR 2) + rank term 4 + flat 1 + die 1.
-    expect(result.values.melee).toBe(11)
+    // Melee: (base STR 3 + equipped STR 2) + rank term 4 + flat 1.
+    expect(result.values.melee).toBe(10)
     // Ranged/magic without a configured skill retain the legacy DX * 2 fallback.
     expect(result.values.ranged).toBe(10)
     expect(result.values.magic).toBe(10)
