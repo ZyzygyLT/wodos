@@ -184,6 +184,12 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
       await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${participantId} FOR UPDATE`
     }
 
+    // Reconcile the preloaded snapshot after acquiring participant locks. A potion
+    // may have been consumed between loadCombatGroup() and this transaction.
+    if (!(await snapshotConsumablesStillExist(tx, groupResult.heroesData))) {
+      return { snapshotConflict: true as const }
+    }
+
     const otherParticipantIds = participantIds.filter(participantId => participantId !== hero.id)
     const prevRun = await tx.dungeonRun.findFirst({
       where: { heroId: hero.id, status: 'registered' },
@@ -269,8 +275,31 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
   if (!run) {
     return { ok: false, error: 'Uno de los héroes ya está comprometido en otra expedición', status: 409 }
   }
+  if ('snapshotConflict' in run) {
+    return { ok: false, error: 'El inventario cambió mientras preparabas la expedición. Actualizá y volvé a registrarte.', status: 409 }
+  }
 
   return { ok: true, data: { id: run.id, dungeon: dungeon.name, status: 'registered' } }
+}
+
+async function snapshotConsumablesStillExist(
+  tx: Prisma.TransactionClient,
+  heroesData: HeroData[],
+): Promise<boolean> {
+  const consumables = heroesData.flatMap(participant =>
+    (participant.consumables ?? []).map(item => ({ id: item.heroItemId, heroId: participant.id }))
+  )
+  if (consumables.length === 0) return true
+
+  const existingItems = await tx.heroItem.findMany({
+    where: {
+      id: { in: consumables.map(item => item.id) },
+      heroId: { in: [...new Set(consumables.map(item => item.heroId))] },
+    },
+    select: { id: true, heroId: true },
+  })
+  const existingKeys = new Set(existingItems.map(item => `${item.heroId}:${item.id}`))
+  return consumables.every(item => existingKeys.has(`${item.heroId}:${item.id}`))
 }
 
 interface CombatGroupResult {
@@ -324,6 +353,9 @@ async function createInstantRunReservation(
     for (const participantId of [...participantIds].sort()) {
       await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${participantId} FOR UPDATE`
     }
+
+    // Do not persist a stale consumable snapshot if inventory changed before locks.
+    if (!(await snapshotConsumablesStillExist(tx, heroesData))) return null
 
     const activeParticipant = await tx.dungeonRunParticipant.findFirst({
       where: {
