@@ -140,6 +140,33 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
       await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${participantId} FOR UPDATE`
     }
 
+    const otherParticipantIds = participantIds.filter(participantId => participantId !== hero.id)
+    const runningOwnRun = await tx.dungeonRun.findFirst({
+      where: { heroId: hero.id, status: 'running' },
+      select: { id: true },
+    })
+    if (runningOwnRun) return null
+
+    if (otherParticipantIds.length > 0) {
+      const occupiedParticipant = await tx.dungeonRunParticipant.findFirst({
+        where: {
+          heroId: { in: otherParticipantIds },
+          run: { status: { in: ['registered', 'running'] } },
+        },
+        select: { heroId: true },
+      })
+      if (occupiedParticipant) return null
+
+      const legacyActiveRun = await tx.dungeonRun.findFirst({
+        where: {
+          heroId: { in: otherParticipantIds },
+          status: { in: ['registered', 'running'] },
+        },
+        select: { id: true },
+      })
+      if (legacyActiveRun) return null
+    }
+
     const prevRun = await tx.dungeonRun.findFirst({
       where: { heroId: hero.id, status: 'registered' },
     })
@@ -149,24 +176,6 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
         data: { status: 'failed', result: 'defeat' },
       })
     }
-
-    const occupiedParticipant = await tx.dungeonRunParticipant.findFirst({
-      where: {
-        heroId: { in: participantIds },
-        run: { status: { in: ['registered', 'running'] } },
-      },
-      select: { heroId: true },
-    })
-    if (occupiedParticipant) return null
-
-    const legacyActiveRun = await tx.dungeonRun.findFirst({
-      where: {
-        heroId: { in: participantIds },
-        status: { in: ['registered', 'running'] },
-      },
-      select: { id: true },
-    })
-    if (legacyActiveRun) return null
 
     const createdRun = await tx.dungeonRun.create({
       data: {
