@@ -42,13 +42,23 @@ function jsonResponse(res: Response): Promise<any> {
 }
 
 function mockActiveHeroDefault() {
-  activeHeroMock.mockImplementation((userId: string, options: { include?: unknown; select?: unknown } = {}) =>
-    mockDb.hero.findFirst({
+  activeHeroMock.mockImplementation(async (userId: string, options: { include?: unknown; select?: unknown } = {}) => {
+    const hero = await mockDb.hero.findFirst({
       where: { userId },
       ...(options.include ? { include: options.include } : {}),
       ...(options.select ? { select: options.select } : {}),
     })
-  )
+    if (!hero) return null
+    return {
+      ...hero,
+      items: hero.items ?? [],
+      materials: hero.materials ?? [],
+      heroQuests: hero.heroQuests ?? [],
+      skills: hero.skills ?? [],
+      combatProfiles: hero.combatProfiles ?? [],
+      clanMember: hero.clanMember ?? null,
+    }
+  })
   ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: null })
   ;(mockDb.user.updateMany as Mock).mockResolvedValue({ count: 1 })
   ;(mockDb.hero.updateMany as Mock).mockResolvedValue({ count: 1 })
