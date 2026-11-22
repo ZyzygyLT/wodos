@@ -34,7 +34,10 @@ export async function hasHeroRunDungeonToday(heroId: string): Promise<boolean> {
   todayStart.setHours(0, 0, 0, 0)
   const count = await db.dungeonRun.count({
     where: {
-      heroId,
+      OR: [
+        { heroId },
+        { participants: { some: { heroId } } },
+      ],
       status: 'done',
       createdAt: { gte: todayStart },
     },
@@ -48,7 +51,10 @@ export async function hasGroupRunDungeonToday(heroIds: string[]): Promise<boolea
   todayStart.setHours(0, 0, 0, 0)
   const count = await db.dungeonRun.count({
     where: {
-      heroId: { in: heroIds },
+      OR: [
+        { heroId: { in: heroIds } },
+        { participants: { some: { heroId: { in: heroIds } } } },
+      ],
       status: 'done',
       createdAt: { gte: todayStart },
     },
