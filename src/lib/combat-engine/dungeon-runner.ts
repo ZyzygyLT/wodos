@@ -1410,7 +1410,6 @@ function executeEnemyAoeAttack(
 ): DetailedAction {
   const { chosenSkill, skillName } = actionSkill
   const { fResult, adjAttack, isArmorPen } = atkValues
-  const state = ctx.state!
   const atkTotal = adjAttack
   const aCat = inferAttackCategory(chosenSkill ?? undefined, enemyUnit.position)
   const actionId = targets.length > 0 ? startAttack(ctx, enemyUnit.id, targets.map(target => target.id)) : undefined
@@ -2317,51 +2316,11 @@ function runEnemyTurn(
 }
 
 function cloneHeroForSimulation(hero: HeroData): HeroData {
-  return {
-    ...hero,
-    attrs: { ...hero.attrs },
-    combatProfile: {
-      ...hero.combatProfile,
-      prelimRules: hero.combatProfile.prelimRules.map(rule => ({ ...rule })),
-      roundRules: hero.combatProfile.roundRules.map(rule => ({ ...rule })),
-      defenseSkills: { ...hero.combatProfile.defenseSkills },
-    },
-    skills: hero.skills.map(skill => ({
-      ...skill,
-      tags: skill.tags ? [...skill.tags] : undefined,
-      formula: skill.formula
-        ? {
-            ...skill.formula,
-            attrCoeffs: skill.formula.attrCoeffs ? { ...skill.formula.attrCoeffs } : undefined,
-          }
-        : undefined,
-    })),
-    equipStats: hero.equipStats ? { ...hero.equipStats } : undefined,
-    consumables: hero.consumables?.map(item => ({ ...item })),
-  }
+  return JSON.parse(JSON.stringify(hero)) as HeroData
 }
 
 function cloneDungeonForSimulation(dungeon: DungeonData): DungeonData {
-  return {
-    ...dungeon,
-    lootTable: dungeon.lootTable.map(entry => ({ ...entry })),
-    levels: dungeon.levels.map(level => ({
-      ...level,
-      enemies: level.enemies.map(enemy => ({
-        ...enemy,
-        skills: enemy.skills?.map(skill => ({
-          ...skill,
-          formula: skill.formula
-            ? {
-                ...skill.formula,
-                attrCoeffs: skill.formula.attrCoeffs ? { ...skill.formula.attrCoeffs } : undefined,
-              }
-            : undefined,
-        })),
-        passiveEffects: enemy.passiveEffects?.map(effect => ({ ...effect })),
-      })),
-    })),
-  }
+  return JSON.parse(JSON.stringify(dungeon)) as DungeonData
 }
 
 export async function runDungeon(
