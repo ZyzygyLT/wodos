@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { runDungeon } from '@/lib/combat-engine/dungeon-runner'
+import { createSeededRandom } from '@/engine/core/random/random-source'
 import type { HeroData, DungeonData, EnemyData, EnemySkillRef } from '@/lib/combat-engine/dungeon-runner'
 
 function makeHeroAtLevel(level: number, id: string, name: string, pos: string, role: 'front' | 'heal' | 'ranged'): HeroData {
@@ -253,7 +254,10 @@ describe('Seed dungeon balance — 4 héroes al nivel recomendado', () => {
       const dungeon = toDungeonData(sd)
       const wins: boolean[] = []
       for (let run = 0; run < RUNS; run++) {
-        const result = await runDungeon(structuredClone(heroes), structuredClone(dungeon))
+        const seed = (SEED_DUNGEONS.indexOf(sd) + 1) * 1_000 + run + 1
+        const result = await runDungeon(structuredClone(heroes), structuredClone(dungeon), {
+          random: createSeededRandom(seed),
+        })
         wins.push(result.victory)
       }
       const wr = Math.round(wins.filter(Boolean).length / wins.length * 100)
