@@ -15,9 +15,14 @@ export async function GET() {
   }
 
   const lastRun = await db.dungeonRun.findFirst({
-    where: { heroId: hero.id },
+    where: {
+      OR: [
+        { heroId: hero.id },
+        { participants: { some: { heroId: hero.id } } },
+      ],
+    },
     orderBy: { createdAt: "desc" },
-    include: { dungeon: true }
+    include: { dungeon: true },
   })
 
   if (!lastRun) {
