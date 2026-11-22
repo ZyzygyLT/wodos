@@ -181,6 +181,42 @@ export default function DungeonPage() {
 
   return (
       <div className="max-w-5xl mx-auto p-4 sm:p-6">
+        <section aria-label="Estado del héroe" className="mb-5 rounded-xl border border-gray-800 bg-gray-900/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-gray-500">Estado del héroe</p>
+              <p className="text-sm font-semibold text-gray-100">{hero.name} · Nivel {hero.level}</p>
+            </div>
+            {(hero.hpCurrent <= 0 || hero.mpCurrent <= 0) && (
+              <a href="/inventory" className="rounded-lg border border-amber-700/50 bg-amber-950/40 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-900/50">
+                Revisar consumibles
+              </a>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="text-red-300">❤️ Vida</span>
+                <span className="tabular-nums text-gray-300">{hero.hpCurrent} / {hero.hpMax}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+                <div className="h-full rounded-full bg-red-600" style={{ width: `${hero.hpMax > 0 ? Math.max(0, Math.min(100, hero.hpCurrent / hero.hpMax * 100)) : 0}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="text-sky-300">💧 Maná</span>
+                <span className="tabular-nums text-gray-300">{hero.mpCurrent} / {hero.mpMax}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+                <div className="h-full rounded-full bg-sky-600" style={{ width: `${hero.mpMax > 0 ? Math.max(0, Math.min(100, hero.mpCurrent / hero.mpMax * 100)) : 0}%` }} />
+              </div>
+            </div>
+          </div>
+          {hero.hpCurrent <= 0 && (
+            <p className="mt-3 text-xs text-amber-300">Tu héroe no tiene vida suficiente para iniciar otra expedición. Recuperala con consumibles desde el inventario.</p>
+          )}
+        </section>
         {showCreateGroup && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateGroup(false)}>
             <div className="bg-gray-900 rounded-2xl border border-gray-700 p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
