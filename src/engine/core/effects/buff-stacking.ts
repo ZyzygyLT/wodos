@@ -6,17 +6,7 @@ export interface BuffStackingEntry {
   readonly side: string
 }
 
-/**
- * Merges Wodos-style buffs sharing type, source and side.
- *
- * A stronger incoming buff replaces potency and duration. Otherwise, a longer
- * finite incoming duration refreshes the existing entry. Unrelated buffs keep
- * their order and the merged entry is appended, matching the legacy adapter.
- *
- * The legacy permanent-to-finite refresh behavior is intentionally preserved:
- * a finite incoming duration can replace a permanent duration when its value
- * does not exceed the existing potency.
- */
+/** Merges buffs sharing Wodos' source/type/side identity. */
 export function mergeBuffByMaximum<T extends BuffStackingEntry>(
   current: readonly T[],
   incoming: T,
@@ -30,8 +20,9 @@ export function mergeBuffByMaximum<T extends BuffStackingEntry>(
     .filter(index => index >= 0)
   if (matchingIndices.length === 0) return [...current, incoming]
 
-  // The legacy behavior uses the last matching entry as the retained instance.
-  const matching = current[matchingIndices[matchingIndices.length - 1]]
+  // Preserve the first matching entry's legacy potency/source metadata, while
+  // placing the merged entry at the last matching slot after duplicate cleanup.
+  const matching = current[matchingIndices[0]]
   let merged = matching
   if (incoming.value > matching.value) {
     merged = {
@@ -44,5 +35,9 @@ export function mergeBuffByMaximum<T extends BuffStackingEntry>(
     merged = { ...matching, remainingRounds: incoming.remainingRounds } as T
   }
 
-  return [...current.filter(buff => !matches(buff)), merged]
+  const lastMatchingIndex = matchingIndices[matchingIndices.length - 1]
+  return current.flatMap((buff, index) => {
+    if (index === lastMatchingIndex) return [merged]
+    return matches(buff) ? [] : [buff]
+  })
 }
