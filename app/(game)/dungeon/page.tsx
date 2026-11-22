@@ -17,6 +17,8 @@ async function fetchGroups() {
 export default function DungeonPage() {
   const router = useRouter()
   const [hero, setHero] = useState<any>(null)
+  const [loadError, setLoadError] = useState("")
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [dungeons, setDungeons] = useState<any[]>([])
   const [clanUpgrades, setClanUpgrades] = useState<any[] | undefined>(undefined)
   const [allGroups, setAllGroups] = useState<any[]>([])
@@ -34,12 +36,27 @@ export default function DungeonPage() {
       const [heroRes, dungeonsRes] = await Promise.all([
         fetch("/api/hero"), fetch("/api/dungeons"),
       ])
-      if (heroRes.status === 401 || heroRes.status === 404) return null
-      const heroData = await heroRes.json()
+      if (heroRes.status === 401) {
+        router.replace("/login")
+        return null
+      }
+      if (heroRes.status === 404) {
+        router.replace("/onboarding")
+        return null
+      }
+      if (!heroRes.ok) throw new Error("No se pudo cargar el héroe")
+      if (!dungeonsRes.ok) throw new Error("No se pudieron cargar las expediciones")
+
+      const [heroData, dungeonData] = await Promise.all([heroRes.json(), dungeonsRes.json()])
+      if (!heroData?.id || !Array.isArray(dungeonData)) {
+        throw new Error("La respuesta del servidor no es válida")
+      }
       setHero(heroData)
-      setDungeons(await dungeonsRes.json())
+      setDungeons(dungeonData)
       return heroData
-    } catch { return null }
+    } catch (error) {
+      throw error
+    }
   }
 
   async function fetchClan() {
@@ -92,24 +109,30 @@ export default function DungeonPage() {
   }
 
   const fetchData = useCallback(async () => {
-    const heroData = await fetchHeroAndDungeons()
-    if (!heroData) return
+    setLoadError("")
+    try {
+      const heroData = await fetchHeroAndDungeons()
+      if (!heroData) return
 
-    const [clanGroups, independentGroups] = await Promise.all([
-      fetchClan(),
-      fetchGroups(),
-    ])
+      const [clanGroups, independentGroups] = await Promise.all([
+        fetchClan(),
+        fetchGroups(),
+      ])
 
-    const mergedGroups = mergeGroups(clanGroups, independentGroups)
-    setAllGroups(mergedGroups)
+      const mergedGroups = mergeGroups(clanGroups, independentGroups)
+      setAllGroups(mergedGroups)
 
-    await fetchQuestSlugs()
-    autoSelectGroup(mergedGroups, heroData.id)
-  }, [])
+      await fetchQuestSlugs()
+      autoSelectGroup(mergedGroups, heroData.id)
+    } catch (error) {
+      logger.error("dungeon", "Error loading expedition screen", error)
+      setLoadError("No pudimos cargar las expediciones. Comprueba tu conexión e inténtalo de nuevo.")
+    }
+  }, [router])
 
   useEffect(() => {
     void Promise.resolve().then(fetchData)
-  }, [fetchData])
+  }, [fetchData, loadAttempt])
 
   async function createGroup() {
     if (!newGroupName.trim() || newGroupName.length < 2) return
@@ -165,7 +188,26 @@ export default function DungeonPage() {
         fetchData()
       }
       setRunning(false)
-    } catch { setRunning(false) }
+    } catch (error) {
+      logger.error("dungeon", "Failed to register expedition", error)
+      toast("No se pudo iniciar la expedición. Inténtalo de nuevo.")
+      setRunning(false)
+    }
+  }
+
+  if (!hero && loadError) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 text-gray-100">
+        <div className="max-w-md text-center space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-6">
+          <h1 className="text-lg font-bold">No pudimos abrir las expediciones</h1>
+          <p className="text-sm text-gray-400">{loadError}</p>
+          <button onClick={() => setLoadAttempt(attempt => attempt + 1)}
+            className="rounded-lg bg-yellow-500 px-4 py-2 font-semibold text-black hover:bg-yellow-400">
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.2s]" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.4s]" /></div></div>
