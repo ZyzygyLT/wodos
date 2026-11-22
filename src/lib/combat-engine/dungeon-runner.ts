@@ -297,7 +297,7 @@ export interface RunResult {
   fameGained: number
   loot: Array<{ itemId: number; qty: number; heroId?: string; heroName?: string }>
   heroesFinalState: HeroFinalState[]
-  consumedConsumables: Array<{ heroId: string; heroItemId: string }>
+  consumedConsumables?: Array<{ heroId: string; heroItemId: string }>
   log: LogEntry[]
   levelResults: Array<{ level: number; victory: boolean; rounds: number }>
   levelReports: LevelReport[]
