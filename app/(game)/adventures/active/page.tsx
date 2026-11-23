@@ -145,15 +145,15 @@ export default function ActiveAdventurePage() {
       setClaimResult(result)
       const levelUp = result.levelUp
       if (levelUp?.leveledUp) {
-        setActive((prev) => ({
-          ...prev,
+        setActive({
+          ...active,
           heroResources: {
             hpCurrent: levelUp.newHpMax,
             hpMax: levelUp.newHpMax,
             mpCurrent: levelUp.newMpMax,
             mpMax: levelUp.newMpMax,
           },
-        }))
+        })
       }
     } catch { setError("Error al reclamar") } finally {
       setClaiming(false)
