@@ -141,21 +141,28 @@ export async function getActiveAdventure(heroId: string) {
   const currentStep = steps[ha.currentStep]
 
   // Resolve reward IDs to player-facing names without changing the persisted reward record.
-  const rewardSources = [
-    result.rewards,
-    ...(Array.isArray(result.steps)
-      ? result.steps.filter((entry: any) => entry?.type === 'reward').map((entry: any) => entry.rewards)
-      : []),
-  ].filter(Boolean)
-  const itemIds = [...new Set<number>(rewardSources.flatMap((rewards: any) =>
-    Array.isArray(rewards.items)
-      ? rewards.items.map((item: any) => item.itemId).filter((value: unknown): value is number => Number.isInteger(value))
-      : []
+  type RewardLookup = {
+    items?: Array<{ itemId?: unknown }>
+    materials?: Array<{ materialId?: unknown }>
+  }
+  type RewardStep = { type?: unknown; rewards?: RewardLookup | null }
+  type AdventureResultForCatalog = { rewards?: RewardLookup | null; steps?: RewardStep[] }
+  const catalogResult = ha.result as AdventureResultForCatalog | null
+  const rewardSources: RewardLookup[] = [
+    ...(catalogResult?.rewards ? [catalogResult.rewards] : []),
+    ...(catalogResult?.steps ?? [])
+      .filter((entry) => entry.type === 'reward' && entry.rewards)
+      .flatMap((entry) => entry.rewards ? [entry.rewards] : []),
+  ]
+  const itemIds = [...new Set(rewardSources.flatMap((rewards) =>
+    (rewards.items ?? [])
+      .map((item) => item.itemId)
+      .filter((value): value is number => typeof value === 'number' && Number.isInteger(value))
   ))]
-  const materialIds = [...new Set<number>(rewardSources.flatMap((rewards: any) =>
-    Array.isArray(rewards.materials)
-      ? rewards.materials.map((material: any) => material.materialId).filter((value: unknown): value is number => Number.isInteger(value))
-      : []
+  const materialIds = [...new Set(rewardSources.flatMap((rewards) =>
+    (rewards.materials ?? [])
+      .map((material) => material.materialId)
+      .filter((value): value is number => typeof value === 'number' && Number.isInteger(value))
   ))]
   const [rewardItems, rewardMaterials] = await Promise.all([
     itemIds.length ? db.item.findMany({ where: { id: { in: itemIds } }, select: { id: true, name: true, icon: true } }) : [],
