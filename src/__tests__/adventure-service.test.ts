@@ -200,6 +200,53 @@ describe("getActiveAdventure", () => {
     })
   })
 
+  it("previews the destination of each available choice", async () => {
+    findMany.mockResolvedValue([{
+      id: "run-preview",
+      adventureId: 4,
+      currentStep: 0,
+      totalSteps: 3,
+      status: "active",
+      startedAt: new Date("2026-11-23T12:00:00.000Z"),
+      result: { steps: [] },
+      adventure: {
+        name: "The Ruins",
+        icon: "🏚️",
+        description: "A forgotten place",
+        lore: "An old story",
+        steps: [
+          {
+            type: "choice",
+            name: "El cruce",
+            description: "Debes decidir.",
+            choices: [
+              { text: "Cruzar el puente", nextStep: 1 },
+              { text: "Convencer al guardia", nextStep: 1, skillCheck: { attr: "ch", dc: 8, passStep: 2, failStep: 1 } },
+            ],
+          },
+          { type: "narrative", name: "El sendero oscuro", description: "Un sendero." },
+          { type: "combat", name: "La emboscada", description: "Enemigos." },
+        ],
+      },
+    }] as never)
+    findHero.mockResolvedValue({
+      attrs: { pe: 10 },
+      hpCurrent: 42,
+      hpMax: 60,
+      mpCurrent: 8,
+      mpMax: 20,
+    } as never)
+
+    await expect(getActiveAdventure("hero-1")).resolves.toMatchObject({
+      currentStepData: {
+        choices: [
+          { nextStepName: "El sendero oscuro" },
+          { passStepName: "La emboscada", failStepName: "El sendero oscuro" },
+        ],
+      },
+    })
+  })
+
   it("returns effective hero attributes including equipped bonuses", async () => {
     const run = {
       id: "run-equipped",

@@ -173,6 +173,24 @@ export async function getActiveAdventure(heroId: string) {
     }
   }) : []
   const currentStep = steps[ha.currentStep]
+  // Give the player the names of the routes each decision can lead to.
+  const currentStepData = currentStep?.type === 'choice'
+    ? {
+        ...currentStep,
+        choices: currentStep.choices?.map(choice => ({
+          ...choice,
+          nextStepName: choice.skillCheck
+            ? undefined
+            : steps[choice.nextStep]?.name ?? null,
+          passStepName: choice.skillCheck
+            ? steps[choice.skillCheck.passStep]?.name ?? null
+            : undefined,
+          failStepName: choice.skillCheck
+            ? steps[choice.skillCheck.failStep]?.name ?? null
+            : undefined,
+        })),
+      }
+    : currentStep ?? null
 
   // Resolve reward IDs to player-facing names without changing the persisted reward record.
   type RewardLookup = {
@@ -232,7 +250,7 @@ export async function getActiveAdventure(heroId: string) {
       items: Object.fromEntries(rewardItems.map(item => [item.id, { name: item.name, icon: item.icon }])),
       materials: Object.fromEntries(rewardMaterials.map(material => [material.id, { name: material.name, icon: material.icon }])),
     },
-    currentStepData: currentStep ?? null,
+    currentStepData,
     heroAttributes,
     heroResources: hero ? {
       hpCurrent: hero.hpCurrent,
