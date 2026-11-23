@@ -65,7 +65,7 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
 
   if (ei) {
     return (
-      <button type="button" className="bg-gray-900 rounded-lg border border-yellow-700/60 p-2 flex items-center gap-2 hover:border-yellow-600 transition cursor-default"
+      <div className="bg-gray-900 rounded-lg border border-yellow-700/60 p-2 flex items-center gap-2 hover:border-yellow-600 transition"
         onMouseEnter={() => onHover?.(ei)} onMouseLeave={onLeave}
         onFocus={() => onHover?.(ei)} onBlur={onLeave}>
         <span className="text-lg">{ei.item.icon}</span>
@@ -78,7 +78,7 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
           <button onClick={() => onUnequip(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-800 hover:bg-yellow-700 transition"
             disabled={toggling === ei.id}>{toggling === ei.id ? "..." : "✕"}
-          </button>
+          </div>
           <button onClick={() => onEnchant(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-orange-800 hover:bg-orange-700 transition">
             +{ei.upgradeLevel ?? 0}
