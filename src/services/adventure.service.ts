@@ -65,11 +65,20 @@ export async function listAdventures(heroId: string) {
   )
 
   return {
-    adventures: adventures.map(a => ({
-      id: a.id, name: a.name, slug: a.slug, icon: a.icon, description: a.description,
-      lore: a.lore, levelReq: a.levelReq, maxLevel: a.maxLevel, duration: a.duration, energyCost: a.energyCost,
-      faction: a.faction, canAfford: hero.adventureEnergy >= a.energyCost,
-    })),
+    adventures: adventures.map(a => {
+      const rewardTable = a.rewards as unknown as AdventureRewardTable | null
+      return {
+        id: a.id, name: a.name, slug: a.slug, icon: a.icon, description: a.description,
+        lore: a.lore, levelReq: a.levelReq, maxLevel: a.maxLevel, duration: a.duration, energyCost: a.energyCost,
+        faction: a.faction, canAfford: hero.adventureEnergy >= a.energyCost,
+        completionRewards: rewardTable ? {
+          goldMin: rewardTable.goldMin,
+          goldMax: rewardTable.goldMax,
+          ep: rewardTable.ep,
+          fame: rewardTable.fame,
+        } : null,
+      }
+    }),
     energy: hero.adventureEnergy,
     energyMax: hero.adventureEnergyMax,
     hasActiveAdventure: !!activeAdventure,

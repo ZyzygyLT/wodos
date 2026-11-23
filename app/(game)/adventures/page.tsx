@@ -114,6 +114,22 @@ export default function AdventuresPage() {
                 </span>
               </div>
               <p className="text-sm text-gray-400 mb-3">{adv.description}</p>
+              {adv.completionRewards && (
+                <div className="rounded-lg border border-emerald-900/50 bg-gray-900/60 px-3 py-2 mb-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300 mb-1">
+                    Recompensa por completar
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-300">
+                    <span>
+                      💰 {adv.completionRewards.goldMin === adv.completionRewards.goldMax
+                        ? adv.completionRewards.goldMin
+                        : `${adv.completionRewards.goldMin}–${adv.completionRewards.goldMax}`} oro
+                    </span>
+                    <span>⭐ {adv.completionRewards.ep} EP</span>
+                    <span>🏆 {adv.completionRewards.fame} fama</span>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
                 <span>⏱️ {adv.duration} min</span>
                 <span>⚡ {adv.energyCost} energía</span>
