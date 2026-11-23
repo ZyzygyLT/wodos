@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("@/lib/db", () => ({
   default: {
     heroAdventure: {
-      findFirst: vi.fn(),
       findMany: vi.fn(),
     },
     hero: {
@@ -16,7 +15,7 @@ import db from "@/lib/db"
 import { canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 
-const findFirst = vi.mocked(db.heroAdventure.findFirst)
+const findMany = vi.mocked(db.heroAdventure.findMany)
 const findHero = vi.mocked(db.hero.findUnique)
 
 describe("adventure start lifecycle", () => {
@@ -90,18 +89,55 @@ describe("markAdventureAbandoned", () => {
 
 describe("getActiveAdventure", () => {
   beforeEach(() => {
-    findFirst.mockReset()
+    findMany.mockReset()
     findHero.mockReset()
   })
 
-  it("does not resurrect an older failed run after the latest run was claimed", async () => {
-    findFirst.mockResolvedValue({ status: "claimed" } as never)
+  it("does not resurrect an older abandoned run after newer runs were claimed", async () => {
+    findMany.mockResolvedValue([{
+      status: "failed",
+      result: { outcome: "abandoned", steps: [] },
+    }] as never)
 
     await expect(getActiveAdventure("hero-1")).resolves.toBeNull()
-    expect(findFirst).toHaveBeenCalledWith({
-      where: { heroId: "hero-1" },
+    expect(findMany).toHaveBeenCalledWith({
+      where: { heroId: "hero-1", status: { in: [...ADVENTURE_STATUSES_BLOCKING_NEW_START] } },
       orderBy: { startedAt: "desc" },
       include: { adventure: true },
+    })
+  })
+
+  it("recovers older unclaimed defeat loot even when a newer run was already claimed", async () => {
+    findMany.mockResolvedValue([{
+      id: "run-1",
+      adventureId: 4,
+      currentStep: 2,
+      totalSteps: 5,
+      status: "failed",
+      startedAt: new Date("2026-11-22T12:00:00.000Z"),
+      result: {
+        outcome: "defeated",
+        steps: [{ type: "reward", rewards: { gold: 12 } }],
+      },
+      adventure: {
+        name: "The Ruins",
+        icon: "🏚️",
+        description: "A forgotten place",
+        lore: "An old story",
+        steps: [],
+      },
+    }] as never)
+    findHero.mockResolvedValue({
+      hpCurrent: 42,
+      hpMax: 60,
+      mpCurrent: 8,
+      mpMax: 20,
+    } as never)
+
+    await expect(getActiveAdventure("hero-1")).resolves.toMatchObject({
+      id: "run-1",
+      status: "failed",
+      result: { outcome: "defeated" },
     })
   })
 
@@ -122,7 +158,7 @@ describe("getActiveAdventure", () => {
         steps: [],
       },
     }
-    findFirst.mockResolvedValue(failedRun as never)
+    findMany.mockResolvedValue([failedRun] as never)
     findHero.mockResolvedValue({
       hpCurrent: 42,
       hpMax: 60,

@@ -140,13 +140,18 @@ export async function startAdventure(heroId: string, adventureId: number) {
 }
 
 export async function getActiveAdventure(heroId: string) {
-  // Read the latest run regardless of status so a newer claimed run hides older failures.
-  const ha = await db.heroAdventure.findFirst({
-    where: { heroId },
+  // Prefer the newest run that still needs player action. A claimed newer run
+  // must not hide older unclaimed rewards left by pre-fix adventure flows.
+  const candidates = await db.heroAdventure.findMany({
+    where: { heroId, status: { in: [...ADVENTURE_STATUSES_BLOCKING_NEW_START] } },
     orderBy: { startedAt: 'desc' },
     include: { adventure: true },
   })
-  if (!ha || ha.status === 'claimed') return null
+  const ha = candidates.find(entry =>
+    entry.status === 'active' || entry.status === 'completed' ||
+    (entry.status === 'failed' && canClaimAdventureRewards(entry.status, entry.result))
+  )
+  if (!ha) return null
 
   const steps = ha.adventure.steps as unknown as AdventureStep[]
   const result = (ha.result as any) ?? { steps: [], rewards: null }
