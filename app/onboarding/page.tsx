@@ -89,7 +89,7 @@ export default function Onboarding() {
         return
       }
 
-      router.push("/dashboard")
+      router.push("/adventures")
     } catch {
       setError("Error de conexión. Revisá tu conexión e intentá nuevamente.")
     } finally {
@@ -106,83 +106,85 @@ export default function Onboarding() {
           ))}
         </div>
 
-        {step === 1 && (
+        {fetching ? (
+          <div className="text-center text-gray-400 py-12">Cargando opciones...</div>
+        ) : loadError ? (
+          <div className="bg-gray-900 border border-red-800 rounded-lg p-6 text-center">
+            <p className="text-red-400 mb-4">{loadError}</p>
+            <button onClick={() => setLoadAttempt(attempt => attempt + 1)}
+              className="px-5 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition">
+              Reintentar
+            </button>
+          </div>
+        ) : (
           <>
-            <h1 className="text-2xl font-bold text-center mb-6">Elegí tu clase</h1>
-            {fetching ? (
-              <p className="text-center text-gray-400 py-12">Cargando clases...</p>
-            ) : loadError ? (
-              <div className="text-center py-12 space-y-4">
-                <p role="alert" className="text-red-400">{loadError}</p>
-                <button onClick={() => setLoadAttempt(attempt => attempt + 1)}
-                  className="px-5 py-2 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-semibold transition">
-                  Reintentar
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {classes.map(c => (
-                  <button key={c.id} onClick={() => { setSelectedClass(c); setStep(2) }}
-                    className={`text-left p-4 rounded-lg border-2 transition ${selectedClass?.id === c.id ? 'border-yellow-400 bg-gray-800' : 'border-gray-700 bg-gray-900 hover:border-gray-500'}`}>
-                    <div className="text-2xl mb-1">{c.icon} {c.name}</div>
-                    <div className="text-sm text-gray-400">{c.description}</div>
-                    <div className="flex gap-2 mt-2 text-xs">
-                      <span className="px-2 py-0.5 bg-gray-800 rounded">{c.role}</span>
-                      <span className="px-2 py-0.5 bg-gray-800 rounded">{c.position}</span>
-                      <span className="px-2 py-0.5 bg-gray-800 rounded">{c.difficulty}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            {step === 1 && (
+              <>
+                <h1 className="text-2xl font-bold text-center mb-6">Elegí tu clase</h1>
+                <div className="grid gap-4">
+                  {classes.map(c => (
+                    <button key={c.id} onClick={() => { setSelectedClass(c); setStep(2) }}
+                      className={`text-left p-4 rounded-lg border-2 transition ${selectedClass?.id === c.id ? 'border-yellow-400 bg-gray-800' : 'border-gray-700 bg-gray-900 hover:border-gray-500'}`}>
+                      <div className="text-2xl mb-1">{c.icon} {c.name}</div>
+                      <div className="text-sm text-gray-400">{c.description}</div>
+                      <div className="flex gap-2 mt-2 text-xs">
+                        <span className="px-2 py-0.5 bg-gray-800 rounded">{c.role}</span>
+                        <span className="px-2 py-0.5 bg-gray-800 rounded">{c.position}</span>
+                        <span className="px-2 py-0.5 bg-gray-800 rounded">{c.difficulty}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
-          </>
-        )}
 
-        {step === 2 && (
-          <>
-            <h1 className="text-2xl font-bold text-center mb-6">Elegí tu raza</h1>
-            <RaceSelector
-              races={races as any[]}
-              classAttrs={selectedClass?.baseAttrs ?? {}}
-              onSelect={(raceId) => setSelectedRace(races.find(r => r.id === raceId) ?? null)}
-            />
-            <div className="flex gap-3 mt-4">
-              <button onClick={() => setStep(1)} className="flex-1 py-3 rounded bg-gray-800 hover:bg-gray-700 transition text-sm">
-                ← Volver a clases
-              </button>
-              <button onClick={() => setStep(3)} disabled={!selectedRace}
-                className="flex-1 py-3 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-bold transition text-sm disabled:opacity-50">
-                Continuar →
-              </button>
-            </div>
-          </>
-        )}
+            {step === 2 && (
+              <>
+                <h1 className="text-2xl font-bold text-center mb-6">Elegí tu raza</h1>
+                <RaceSelector
+                  races={races as any[]}
+                  classAttrs={selectedClass?.baseAttrs ?? {}}
+                  onSelect={(raceId) => setSelectedRace(races.find(r => r.id === raceId) ?? null)}
+                />
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => setStep(1)} className="flex-1 py-3 rounded bg-gray-800 hover:bg-gray-700 transition text-sm">
+                    ← Volver a clases
+                  </button>
+                  <button onClick={() => setStep(3)} disabled={!selectedRace}
+                    className="flex-1 py-3 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-bold transition text-sm disabled:opacity-50">
+                    Continuar →
+                  </button>
+                </div>
+              </>
+            )}
 
-        {step === 3 && (
-          <>
-            <h1 className="text-2xl font-bold text-center mb-6">Nombre de tu héroe</h1>
-            <div className="bg-gray-900 p-6 rounded-lg border border-gray-700">
-              <div className="text-center mb-4">
-                <span className="text-3xl">{selectedClass?.icon} {selectedRace?.icon}</span>
-                <p className="text-lg font-semibold mt-1">{selectedClass?.name} · {selectedRace?.name}</p>
-              </div>
-              <input
-                value={name} onChange={e => setName(e.target.value)}
-                placeholder="Nombre del héroe"
-                maxLength={30}
-                className="w-full p-3 rounded bg-gray-800 border border-gray-600 text-white text-center text-lg mb-4"
-              />
-              {error && <p className="text-red-400 text-sm text-center mb-2">{error}</p>}
-              <div className="flex gap-3">
-                <button onClick={() => setStep(2)} className="flex-1 py-3 rounded bg-gray-800 hover:bg-gray-700 transition">
-                  ← Atrás
-                </button>
-                <button onClick={handleCreate} disabled={loading || !name.trim() || name.trim().length < 2}
-                  className="flex-1 py-3 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-bold transition disabled:opacity-50">
-                  {loading ? "Creando..." : "¡Crear héroe!"}
-                </button>
-              </div>
-            </div>
+            {step === 3 && (
+              <>
+                <h1 className="text-2xl font-bold text-center mb-6">Nombre de tu héroe</h1>
+                <div className="bg-gray-900 p-6 rounded-lg border border-gray-700">
+                  <div className="text-center mb-4">
+                    <span className="text-3xl">{selectedClass?.icon} {selectedRace?.icon}</span>
+                    <p className="text-lg font-semibold mt-1">{selectedClass?.name} · {selectedRace?.name}</p>
+                  </div>
+                  <input
+                    value={name} onChange={e => setName(e.target.value)}
+                    placeholder="Nombre del héroe"
+                    maxLength={30}
+                    className="w-full p-3 rounded bg-gray-800 border border-gray-600 text-white text-center text-lg mb-4"
+                  />
+                  {error && <p className="text-red-400 text-sm text-center mb-2">{error}</p>}
+                  <div className="flex gap-3">
+                    <button onClick={() => setStep(2)} className="flex-1 py-3 rounded bg-gray-800 hover:bg-gray-700 transition">
+                      ← Atrás
+                    </button>
+                    <button onClick={handleCreate} disabled={loading || !name.trim() || name.trim().length < 2}
+                      className="flex-1 py-3 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-bold transition disabled:opacity-50">
+                      {loading ? "Creando..." : "¡Crear héroe!"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
