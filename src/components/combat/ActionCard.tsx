@@ -137,6 +137,15 @@ function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boole
         <span className="text-lg leading-none">{a.actorIcon ?? '🧙'}</span>
         <span className={`font-bold text-sm ${nameCls}`}>{a.actorName}</span>
       </div>
+      {a.skillFallback && (
+        <p className="text-[10px] text-amber-300 ml-1">
+          {a.skillFallback === 'free_basic'
+            ? `Sin maná: ataque básico gratuito (seleccionada: ${a.selectedSkillName})`
+            : a.skillFallback === 'basic'
+              ? `Sin maná: sustituida por ataque básico (seleccionada: ${a.selectedSkillName})`
+              : `Sin maná ni ataque básico disponible: se fuerza "${a.selectedSkillName}"`}
+        </p>
+      )}
       <div className="text-xs text-gray-300 ml-1 space-y-0.5">
 
         {isAttack && (

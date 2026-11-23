@@ -216,6 +216,9 @@ export interface DetailedAction {
   skillName: string
   skillIcon?: string
   mpCost?: number
+  /** Why the selected skill was replaced or forced by low-mana resolution. */
+  skillFallback?: 'free_basic' | 'basic' | 'forced'
+  selectedSkillName?: string
   targetId?: string
   targetName?: string
   attackValue?: number
@@ -1023,7 +1026,7 @@ function handleHeroSkillMana(
   hero: HeroData,
   skill: HeroSkill,
   ctx: CombatCtx,
-): { skill: HeroSkill; mpCost: number } {
+): { skill: HeroSkill; mpCost: number; fallback: 'free_basic' | 'basic' | 'forced' | null; selectedSkillName: string } {
   const rank = skill.rank ?? 1
   const previousMp = heroUnit.mp
   const resolution = resolveSkillMana({
@@ -1043,7 +1046,12 @@ function handleHeroSkillMana(
   }
   heroUnit.mp = resolution.remainingMp
   if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
-  return { skill: resolution.skill, mpCost: resolution.mpCost }
+  return {
+    skill: resolution.skill,
+    mpCost: resolution.mpCost,
+    fallback: resolution.fallback,
+    selectedSkillName: skill.name ?? `skill_${skill.skillId}`,
+  }
 }
 
 function executeHeroHealAction(
@@ -1251,7 +1259,7 @@ function executeHeroAction(
   if (action.itemId) return executeHeroItemAction(heroUnit, hero, action, ctx, meta.initiative, meta.actionNum, meta.totalActions)
 
   let skill = getSkill(hero, action.skillId)
-  const { skill: resolvedSkill, mpCost } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
+  const { skill: resolvedSkill, mpCost, fallback, selectedSkillName } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
   skill = resolvedSkill
 
   // Formula, rank and report identity must follow the skill actually executed.
@@ -1285,7 +1293,7 @@ function executeHeroAction(
   })
 
   const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
-  return dispatchSkillExecutionPlan(plan, {
+  const detailedAction = dispatchSkillExecutionPlan(plan, {
     heal: target => executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target),
     party_buff: (buff, bonus) => executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
     area_attack: (targets, armorPenetration, critical) => {
@@ -1301,6 +1309,11 @@ function executeHeroAction(
       return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, target, extraUnits)
     },
   })
+  if (detailedAction && fallback) {
+    detailedAction.skillFallback = fallback
+    detailedAction.selectedSkillName = selectedSkillName
+  }
+  return detailedAction
 }
 
 // ─── ACCIÓN DEL ENEMIGO (IA SIMPLE) ─────────────────────────────────────────

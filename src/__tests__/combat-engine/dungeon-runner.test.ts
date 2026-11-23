@@ -161,6 +161,8 @@ describe('runDungeon', () => {
 
     expect(action?.skillName).toBe('Golpe básico')
     expect(action?.attackRollBase).toBe(7)
+    expect(action?.skillFallback).toBe('free_basic')
+    expect(action?.selectedSkillName).toBe('Golpe devastador')
   })
 
   it('starts from persisted HP and MP and returns the remaining resources', async () => {
