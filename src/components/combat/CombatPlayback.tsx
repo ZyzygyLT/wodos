@@ -190,7 +190,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
           </div>
           <div className="flex items-center justify-center gap-4">
             <button
-              onClick={() => goTo(0)}
+              onClick={() => { goTo(0); setPlaying(true) }}
               className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition"
             >
               🔄 Repetir
