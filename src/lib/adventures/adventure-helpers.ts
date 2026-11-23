@@ -2,10 +2,11 @@ import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
 import type { Prisma } from '@/generated/prisma'
 import { ENERGY_RECHARGE_INTERVAL_MINUTES } from './types'
 
-export const ADVENTURE_STATUSES_BLOCKING_NEW_START = ['active', 'completed'] as const
+export const ADVENTURE_STATUSES_BLOCKING_NEW_START = ['active', 'completed', 'failed'] as const
 
-export function isAdventureBlockingNewStart(status: string): boolean {
-  return (ADVENTURE_STATUSES_BLOCKING_NEW_START as readonly string[]).includes(status)
+export function isAdventureBlockingNewStart(status: string, result?: unknown): boolean {
+  if (status === 'active' || status === 'completed') return true
+  return status === 'failed' && canClaimAdventureRewards(status, result)
 }
 
 /** Defeat preserves only rewards explicitly earned in completed reward steps. */

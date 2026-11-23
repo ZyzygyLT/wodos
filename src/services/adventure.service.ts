@@ -56,9 +56,14 @@ export async function listAdventures(heroId: string) {
     orderBy: { levelReq: 'asc' },
   })
 
-  const activeAdventure = await db.heroAdventure.findFirst({
+  const adventureCandidates = await db.heroAdventure.findMany({
     where: { heroId, status: { in: [...ADVENTURE_STATUSES_BLOCKING_NEW_START] } },
+    orderBy: { startedAt: 'desc' },
+    select: { id: true, status: true, result: true },
   })
+  const activeAdventure = adventureCandidates.find(entry =>
+    isAdventureBlockingNewStart(entry.status, entry.result)
+  )
 
   return {
     adventures: adventures.map(a => ({
@@ -85,20 +90,26 @@ export async function startAdventure(heroId: string, adventureId: number) {
       select: { id: true, level: true, adventureEnergy: true },
     })
     const adventure = await tx.adventure.findUnique({ where: { id: adventureId } })
-    const existing = await tx.heroAdventure.findFirst({
+    const existingCandidates = await tx.heroAdventure.findMany({
       where: { heroId, status: { in: [...ADVENTURE_STATUSES_BLOCKING_NEW_START] } },
-      select: { id: true, status: true },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, status: true, result: true },
     })
+    const existing = existingCandidates.find(entry =>
+      isAdventureBlockingNewStart(entry.status, entry.result)
+    )
 
     if (!hero) throw new Error("Héroe no encontrado")
     if (!adventure) throw new Error("Aventura no encontrada")
     if (!adventure.isActive) throw new Error("Aventura no disponible")
     if (hero.level < adventure.levelReq) throw new Error("Nivel insuficiente")
     if (hero.level > adventure.maxLevel) throw new Error("Nivel demasiado alto")
-    if (existing && isAdventureBlockingNewStart(existing.status)) {
+    if (existing) {
       throw new Error(existing.status === 'completed'
         ? "Debes reclamar las recompensas de tu aventura completada"
-        : "Ya tienes una aventura activa")
+        : existing.status === 'failed'
+          ? "Debes reclamar el botín recuperado antes de iniciar otra aventura"
+          : "Ya tienes una aventura activa")
     }
     if (hero.adventureEnergy < adventure.energyCost) throw new Error("Energía insuficiente")
 

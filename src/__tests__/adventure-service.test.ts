@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({
   default: {
     heroAdventure: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     hero: {
       findUnique: vi.fn(),
@@ -24,8 +25,23 @@ describe("adventure start lifecycle", () => {
     ["completed", true],
     ["failed", false],
     ["claimed", false],
-  ])("treats %s runs as blocking=%s", (status, expected) => {
+  ])("treats %s runs as blocking=%s without recoverable loot", (status, expected) => {
     expect(isAdventureBlockingNewStart(status)).toBe(expected)
+  })
+
+  it("blocks a new start while defeat loot remains unclaimed", () => {
+    expect(isAdventureBlockingNewStart('failed', {
+      outcome: 'defeated',
+      steps: [{ type: 'reward', rewards: { gold: 12 } }],
+    })).toBe(true)
+    expect(isAdventureBlockingNewStart('failed', {
+      outcome: 'defeated',
+      steps: [{ type: 'narrative' }],
+    })).toBe(false)
+    expect(isAdventureBlockingNewStart('failed', {
+      outcome: 'abandoned',
+      steps: [{ type: 'reward', rewards: { gold: 12 } }],
+    })).toBe(false)
   })
 })
 
