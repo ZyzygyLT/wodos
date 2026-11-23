@@ -119,6 +119,23 @@ describe('adventure combat resource state', () => {
 
 
 describe('adventure step graph validation', () => {
+  it('accepts valid success and failure branches for an attribute check', () => {
+    const steps = [
+      { type: 'choice', choices: [{ nextStep: 1, skillCheck: { passStep: 1, failStep: 2 } }] },
+      { type: 'reward' },
+      { type: 'combat' },
+    ]
+    expect(getAdventureStepGraphErrors(steps)).toEqual([])
+  })
+
+  it('rejects an invalid failure target in an attribute check', () => {
+    const steps = [
+      { type: 'choice', choices: [{ nextStep: 1, skillCheck: { passStep: 1, failStep: 3 } }] },
+      { type: 'reward' },
+      { type: 'combat' },
+    ]
+    expect(getAdventureStepGraphErrors(steps).some(error => error.includes('inválido'))).toBe(true)
+  })
   it('accepts forward branches that converge without crossing routes', () => {
     const steps = [
       { type: 'choice', choices: [{ nextStep: 1 }, { nextStep: 3 }] },
