@@ -12,8 +12,19 @@ vi.mock("@/lib/db", () => ({
 }))
 
 import db from "@/lib/db"
+vi.mock("@/lib/dungeon-helpers", () => ({
+  buildHeroData: vi.fn(async (hero: { attrs: { pe: number } }) => ({
+    attrs: hero.attrs,
+    equipStats: { pe: 4 },
+  })),
+  mergeHeroAttrs: vi.fn((hero: { attrs: { pe: number }; equipStats: { pe: number } }) => ({
+    pe: hero.attrs.pe + hero.equipStats.pe,
+  })),
+}))
+
 import { canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
+import { buildHeroData } from "@/lib/dungeon-helpers"
 
 const findMany = vi.mocked(db.heroAdventure.findMany)
 const findHero = vi.mocked(db.hero.findUnique)
@@ -139,6 +150,42 @@ describe("getActiveAdventure", () => {
       status: "failed",
       result: { outcome: "defeated" },
     })
+  })
+
+  it("returns effective hero attributes including equipped bonuses", async () => {
+    const run = {
+      id: "run-equipped",
+      adventureId: 4,
+      currentStep: 0,
+      totalSteps: 1,
+      status: "active",
+      startedAt: new Date("2026-11-23T12:00:00.000Z"),
+      result: { steps: [], rewards: null },
+      adventure: {
+        name: "The Ruins",
+        icon: "🏚️",
+        description: "A forgotten place",
+        lore: "An old story",
+        steps: [{ type: "narrative", description: "The gate opens" }],
+      },
+    }
+    const hero = {
+      attrs: { pe: 10 },
+      skills: [],
+      items: [{ id: "equipped-item" }],
+      combatProfiles: [],
+      hpCurrent: 42,
+      hpMax: 60,
+      mpCurrent: 8,
+      mpMax: 20,
+    }
+    findMany.mockResolvedValue([run] as never)
+    findHero.mockResolvedValue(hero as never)
+
+    await expect(getActiveAdventure("hero-1")).resolves.toMatchObject({
+      heroAttributes: { pe: 14 },
+    })
+    expect(buildHeroData).toHaveBeenCalledWith(hero, null)
   })
 
   it("still returns the latest failed run so its defeat result can be displayed", async () => {
