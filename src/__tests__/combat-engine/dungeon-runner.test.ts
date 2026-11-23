@@ -144,7 +144,7 @@ describe('runDungeon', () => {
         { skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
           formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 } },
         { skillId: 999, name: 'Rallying Cry', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 3,
-          formula: null as any },
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const result = await runDungeon([hero], makeDungeon({
