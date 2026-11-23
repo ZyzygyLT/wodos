@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { resolveAdventureChoice, resolveCombatStep, isAdventureBlockingNewStart } from '@/lib/adventures/adventure-helpers'
+import { getAdventureStepGraphErrors } from '@/lib/adventures/step-graph'
 
 describe('adventure start blocking', () => {
   it('keeps active and completed adventures blocking new starts until rewards are claimed', () => {
@@ -113,5 +114,43 @@ describe('adventure combat resource state', () => {
     ])
     expect(result.heroMpLost).toBe(1)
     expect(result.heroMpRemaining).toBe(0)
+  })
+})
+
+
+describe('adventure step graph validation', () => {
+  it('accepts forward branches that converge without crossing routes', () => {
+    const steps = [
+      { type: 'choice', choices: [{ nextStep: 1 }, { nextStep: 3 }] },
+      { type: 'combat' },
+      { type: 'choice', choices: [{ nextStep: 3 }] },
+      { type: 'reward' },
+    ]
+    expect(getAdventureStepGraphErrors(steps)).toEqual([])
+  })
+
+  it('rejects a choice that points back to itself', () => {
+    const steps = [
+      { type: 'choice', choices: [{ nextStep: 0 }] },
+      { type: 'reward' },
+    ]
+    expect(getAdventureStepGraphErrors(steps).some(error => error.includes('ciclo'))).toBe(true)
+  })
+
+  it('rejects a cycle formed by a choice and automatic step advancement', () => {
+    const steps = [
+      { type: 'choice', choices: [{ nextStep: 1 }] },
+      { type: 'narrative' },
+      { type: 'choice', choices: [{ nextStep: 0 }] },
+    ]
+    expect(getAdventureStepGraphErrors(steps).some(error => error.includes('ciclo'))).toBe(true)
+  })
+
+  it('rejects choice targets outside the adventure', () => {
+    const steps = [
+      { type: 'choice', choices: [{ nextStep: 2 }] },
+      { type: 'reward' },
+    ]
+    expect(getAdventureStepGraphErrors(steps).some(error => error.includes('inválido'))).toBe(true)
   })
 })

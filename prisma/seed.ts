@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '../src/generated/prisma'
+import { getAdventureStepGraphErrors } from '../src/lib/adventures/step-graph'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 import bcrypt from 'bcryptjs'
@@ -1089,11 +1090,11 @@ async function seedAdventures() {
         },
         {
           type: 'choice', name: 'Preparativos de Ascensión',
-          description: 'Bjorn el Viejo tiene su puesto en el campamento. Sobre su mostrador: cuerdas resistentes, antorchas especiales que queman incluso en tormenta, y un mapa hecho con piel de yeti. También hay un báculo de madera blanca con runas grabadas.',
+          description: 'Bjorn el Viejo ofrece tres formas de afrontar la montaña: equipo para resistir la tormenta, el mapa y el báculo del antiguo mago, o la ayuda de una cazadora local.',
           choices: [
             { text: 'Comprar las cuerdas y antorchas', nextStep: 2, flavor: 'Bjorn asiente con aprobación. "Sabio. La montaña no perdona a los imprudentes."' },
-            { text: 'Comprar el mapa y el báculo rúnico', nextStep: 3, flavor: 'Bjorn duda antes de venderte el báculo. "Eso perteneció al último mago que intentó la cumbre. Que tengas más suerte."' },
-            { text: 'Aceptar la ayuda de una cazadora local', nextStep: 4, flavor: 'Una joven con pieles blancas se acerca. "Yo conozco un camino que no está en ningún mapa."' },
+            { text: 'Comprar el mapa y el báculo rúnico', nextStep: 5, flavor: 'Bjorn duda antes de venderte el báculo. "Eso perteneció al último mago que intentó la cumbre. Que tengas más suerte."' },
+            { text: 'Aceptar la ayuda de una cazadora local', nextStep: 8, flavor: 'Una joven con pieles blancas se acerca. "Yo conozco un camino que no está en ningún mapa."' },
           ],
         },
         {
@@ -1111,6 +1112,13 @@ async function seedAdventures() {
           rewards: { gold: 25, ep: 10, materials: [{ materialId: 3, qty: 2 }] },
         },
         {
+          type: 'choice', name: 'Cruce de la Ascensión',
+          description: 'El sendero protegido por las cuerdas desemboca en la misma entrada del templo que los otros caminos.',
+          choices: [
+            { text: 'Continuar hacia el templo', nextStep: 14, flavor: 'Dejas atrás la tormenta y avanzas hacia las puertas de Frostvorn.' },
+          ],
+        },
+        {
           type: 'narrative', name: 'El Camino del Mago',
           description: 'El báculo rúnico te guía por un camino oculto que los mapas convencionales no marcan: un puente de hielo natural que cruza un abismo profundo. Las runas brillan cuando te acercas al borde. Del otro lado, la entrada al templo te espera, custodiada por estatuas de dragones que parecen observarte.',
         },
@@ -1120,11 +1128,18 @@ async function seedAdventures() {
           rewards: { gold: 50, ep: 12 },
         },
         {
+          type: 'choice', name: 'Cruce del Puente de Hielo',
+          description: 'El puente natural te deja frente a la entrada del templo.',
+          choices: [
+            { text: 'Entrar en el templo', nextStep: 14, flavor: 'Guardas el mapa y el báculo, y cruzas el umbral.' },
+          ],
+        },
+        {
           type: 'choice', name: 'La Guía del Norte',
           description: 'Sigrid, la cazadora, conoce un secreto: un paso de gigantes que los dragones no sellaron. "A cambio, quiero una parte del tesoro. Trato justo."',
           choices: [
-            { text: 'Aceptar el trato de Sigrid', nextStep: 6, flavor: '"Sabia decisión. Los gigantes dejaron marcas en las rocas. Yo sé leerlas."' },
-            { text: 'Rechazar e ir por tu cuenta', nextStep: 7, flavor: '"Como quieras. Pero recuerda: la montaña siempre cobra su precio."' },
+            { text: 'Aceptar el trato de Sigrid', nextStep: 9, flavor: '"Sabia decisión. Los gigantes dejaron marcas en las rocas. Yo sé leerlas."' },
+            { text: 'Rechazar e ir por tu cuenta', nextStep: 12, flavor: '"Como quieras. Pero recuerda: la montaña siempre cobra su precio."' },
           ],
         },
         {
@@ -1137,12 +1152,23 @@ async function seedAdventures() {
           rewards: { gold: 80, ep: 15, items: [{ itemId: 5, qty: 1 }] },
         },
         {
+          type: 'choice', name: 'Entrada del Paso de los Gigantes',
+          description: 'Tras repartir el botín, Sigrid te espera junto a la entrada lateral.',
+          choices: [
+            { text: 'Entrar en el templo', nextStep: 14, flavor: 'Te despides de Sigrid y cruzas la entrada lateral.' },
+          ],
+        },
+        {
           type: 'combat', name: 'El Precio de la Soledad',
           description: 'Sin Sigrid, caes en una trampa de hielo. Dos yetis, alertados por tu torpeza, emergen de la nieve.',
           enemies: [
             { name: 'Yeti', icon: '❄️', hp: 90, mp: 5, atk: 20, def: 12, dx: 6, ag: 4, level: 13 },
             { name: 'Yeti', icon: '❄️', hp: 90, mp: 5, atk: 20, def: 12, dx: 6, ag: 4, level: 13 },
           ],
+        },
+        {
+          type: 'narrative', name: 'La Senda Solitaria',
+          description: 'Superas la emboscada de los yetis y encuentras una ruta estrecha que conduce hasta las puertas del templo.',
         },
         {
           type: 'narrative', name: 'La Entrada al Templo',
@@ -1152,9 +1178,9 @@ async function seedAdventures() {
           type: 'choice', name: 'El Vestíbulo de Hielo',
           description: 'Dentro del templo, el vestíbulo tiene tres altares dedicados a aspectos del dragón: el Ala (sabiduría), la Garra (poder) y el Ojo (conocimiento). En cada altar hay un acertijo que, de resolverse, otorga una bendición. Pero solo puedes elegir uno.',
           choices: [
-            { text: 'Resolver el acertijo del Ala', nextStep: 12, flavor: 'El acertijo del Ala trata sobre el viento y el tiempo. Sientes que la respuesta te dará visión más allá de lo visible.' },
-            { text: 'Resolver el acertijo de la Garra', nextStep: 13, flavor: 'El acertijo de la Garra es sobre la fuerza y el sacrificio. El poder fluye hacia ti.' },
-            { text: 'Resolver el acertijo del Ojo', nextStep: 13, flavor: 'El acertijo del Ojo es sobre la verdad y las mentiras. El conocimiento te envuelve.' },
+            { text: 'Resolver el acertijo del Ala', nextStep: 16, flavor: 'El acertijo del Ala trata sobre el viento y el tiempo. Sientes que la respuesta te dará visión más allá de lo visible.' },
+            { text: 'Resolver el acertijo de la Garra', nextStep: 17, flavor: 'El acertijo de la Garra es sobre la fuerza y el sacrificio. El poder fluye hacia ti.' },
+            { text: 'Resolver el acertijo del Ojo', nextStep: 17, flavor: 'El acertijo del Ojo es sobre la verdad y las mentiras. El conocimiento te envuelve.' },
           ],
         },
         {
@@ -1174,9 +1200,9 @@ async function seedAdventures() {
           type: 'choice', name: 'El Guerrero de Escarcha',
           description: 'El guerrero empuña un hacha de hielo. Su armadura está hecha de escamas de dragón. "Vete, o comparte el destino de los otros."',
           choices: [
-            { text: 'Enfrentarlo en combate', nextStep: 16, flavor: 'Desenvainas tu arma. El guerrero sonríe. "Como todos los demás."' },
-            { text: 'Negociar: el martillo para ti, el tesoro para él', nextStep: 19, flavor: 'El guerrero ríe. "¿Y qué me dices de la gloria? La gloria no se negocia."' },
-            { text: 'Ofrecerle un duelo ceremonial por el martillo', nextStep: 23, flavor: 'El guerrero se detiene. "Un duelo... como en los tiempos antiguos. Acepto."' },
+            { text: 'Enfrentarlo en combate', nextStep: 20, flavor: 'Desenvainas tu arma. El guerrero sonríe. "Como todos los demás."' },
+            { text: 'Negociar: el martillo para ti, el tesoro para él', nextStep: 24, flavor: 'El guerrero ríe. "¿Y qué me dices de la gloria? La gloria no se negocia."' },
+            { text: 'Ofrecerle un duelo ceremonial por el martillo', nextStep: 29, flavor: 'El guerrero se detiene. "Un duelo... como en los tiempos antiguos. Acepto."' },
           ],
         },
         {
@@ -1195,6 +1221,13 @@ async function seedAdventures() {
           type: 'reward', name: 'El Rompehielos',
           description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
           rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
+        },
+        {
+          type: 'choice', name: 'Fin del combate directo',
+          description: 'El enfrentamiento ha terminado. Te preparas para abandonar la cámara del trono.',
+          choices: [
+            { text: 'Continuar', nextStep: 34, flavor: 'Guardas el Rompehielos y dejas atrás el templo.' },
+          ],
         },
         {
           type: 'narrative', name: 'Negociación Fallida',
@@ -1217,6 +1250,13 @@ async function seedAdventures() {
           rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
         },
         {
+          type: 'choice', name: 'Fin de la negociación',
+          description: 'El guerrero ha aceptado tu victoria y el acuerdo queda sellado.',
+          choices: [
+            { text: 'Continuar', nextStep: 34, flavor: 'Te despides del guerrero y abandonas el templo.' },
+          ],
+        },
+        {
           type: 'narrative', name: 'Duelo de Campeones',
           description: 'El guerrero acepta el duelo ceremonial. Os enfrentáis en el círculo de hielo, bajo la mirada del esqueleto del dragón. "Que Frostvorn juzgue al vencedor", declara.',
         },
@@ -1236,6 +1276,17 @@ async function seedAdventures() {
           description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
           rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
         },
+        {
+          type: 'choice', name: 'Fin del duelo',
+          description: 'El duelo ha concluido y el Rompehielos tiene un nuevo portador.',
+          choices: [
+            { text: 'Continuar', nextStep: 34, flavor: 'Abandonas la cámara con el martillo.' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'El Legado de Frostvorn',
+          description: 'Con el Rompehielos en tus manos, dejas atrás el templo. La montaña guarda silencio, pero las historias sobre tu expedición llegarán a todos los clanes del norte.',
+        },
       ],
       rewards: { goldMin: 120, goldMax: 250, ep: 70, fame: 10, items: [{ itemId: 7, chance: 25, qty: 1 }], materials: [{ materialId: 3, chance: 60, qty: 3 }, { materialId: 6, chance: 20, qty: 1 }] },
       factionId: fm['herreria-del-norte'] ?? null, factionRep: 20,
@@ -1244,6 +1295,10 @@ async function seedAdventures() {
   ]
 
   for (const a of adventures) {
+    const graphErrors = getAdventureStepGraphErrors(a.steps)
+    if (graphErrors.length > 0) {
+      throw new Error(`Adventure "${a.slug}" has an invalid step graph: ${graphErrors.join('; ')}`)
+    }
     await db.adventure.upsert({
       where: { slug: a.slug },
       update: { steps: a.steps as Prisma.InputJsonValue },
