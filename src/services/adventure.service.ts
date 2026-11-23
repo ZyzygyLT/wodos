@@ -7,7 +7,7 @@ import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/ad
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
   calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
-  ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned,
+  ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned, combineAdventureRewards, combineAdventureRewards,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -421,58 +421,44 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
     if (ha.status !== 'completed') throw new Error('Solo se pueden reclamar recompensas de aventuras completadas')
 
     const result = ha.result as any
-    const rewards = result?.rewards
-    if (rewards) {
-      const stepRewards = (result?.steps ?? [])
-        .filter((step: any) => step.type === 'reward' && step.rewards)
-        .reduce((acc: any, step: any) => {
-          if (step.rewards.gold) acc.gold = (acc.gold ?? 0) + step.rewards.gold
-          if (step.rewards.ep) acc.ep = (acc.ep ?? 0) + step.rewards.ep
-          if (step.rewards.fame) acc.fame = (acc.fame ?? 0) + step.rewards.fame
-          if (step.rewards.items) acc.items = [...(acc.items ?? []), ...step.rewards.items]
-          if (step.rewards.materials) acc.materials = [...(acc.materials ?? []), ...step.rewards.materials]
-          return acc
-        }, {})
+    // Step rewards are valid on their own; do not gate them on a global reward roll.
+    const rewards = combineAdventureRewards(result?.rewards, result?.steps ?? [])
+    const totalGold = rewards.gold ?? 0
+    const totalEp = rewards.ep ?? 0
+    const totalFame = rewards.fame ?? 0
+    awardedEp = totalEp
 
-      const totalGold = (rewards.gold ?? 0) + (stepRewards.gold ?? 0)
-      const totalEp = (rewards.ep ?? 0) + (stepRewards.ep ?? 0)
-      const totalFame = (rewards.fame ?? 0) + (stepRewards.fame ?? 0)
-      awardedEp = totalEp
+    await tx.hero.update({
+      where: { id: heroId },
+      data: {
+        gold: { increment: totalGold },
+        epTotal: { increment: totalEp },
+        fame: { increment: totalFame },
+      },
+    })
 
-      await tx.hero.update({
-        where: { id: heroId },
-        data: {
-          gold: { increment: totalGold },
-          epTotal: { increment: totalEp },
-          fame: { increment: totalFame },
-        },
+    for (const item of rewards.items ?? []) {
+      await tx.heroItem.createMany({
+        data: Array.from({ length: item.qty }, () => ({
+          heroId, itemId: item.itemId, equipped: false,
+        })),
       })
+    }
 
-      const allItems = [...(rewards.items ?? []), ...(stepRewards.items ?? [])]
-      for (const item of allItems) {
-        await tx.heroItem.createMany({
-          data: Array.from({ length: item.qty }, () => ({
-            heroId, itemId: item.itemId, equipped: false,
-          })),
-        })
-      }
+    for (const mat of rewards.materials ?? []) {
+      await tx.heroMaterial.upsert({
+        where: { heroId_materialId: { heroId, materialId: mat.materialId } },
+        create: { heroId, materialId: mat.materialId, quantity: mat.qty },
+        update: { quantity: { increment: mat.qty } },
+      })
+    }
 
-      const allMaterials = [...(rewards.materials ?? []), ...(stepRewards.materials ?? [])]
-      for (const mat of allMaterials) {
-        await tx.heroMaterial.upsert({
-          where: { heroId_materialId: { heroId, materialId: mat.materialId } },
-          create: { heroId, materialId: mat.materialId, quantity: mat.qty },
-          update: { quantity: { increment: mat.qty } },
-        })
-      }
-
-      if (ha.adventure.factionId && ha.adventure.factionRep > 0) {
-        await tx.heroFactionRep.upsert({
-          where: { heroId_factionId: { heroId, factionId: ha.adventure.factionId } },
-          create: { heroId, factionId: ha.adventure.factionId, rep: ha.adventure.factionRep },
-          update: { rep: { increment: ha.adventure.factionRep } },
-        })
-      }
+    if (ha.adventure.factionId && ha.adventure.factionRep > 0) {
+      await tx.heroFactionRep.upsert({
+        where: { heroId_factionId: { heroId, factionId: ha.adventure.factionId } },
+        create: { heroId, factionId: ha.adventure.factionId, rep: ha.adventure.factionRep },
+        update: { rep: { increment: ha.adventure.factionRep } },
+      })
     }
 
     const claimed = await tx.heroAdventure.updateMany({
@@ -481,7 +467,7 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
     })
     if (claimed.count !== 1) throw new Error('AVENTURA_CLAIM_STALE')
 
-    return { claimed: true, rewards: result?.rewards }
+    return { claimed: true, rewards }
   })
 
   // Adventure EP must trigger the same level progression as dungeon rewards.

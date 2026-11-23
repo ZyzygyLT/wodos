@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
 }))
 
 import db from "@/lib/db"
-import { isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
+import { combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 
 const findFirst = vi.mocked(db.heroAdventure.findFirst)
@@ -95,6 +95,58 @@ describe("getActiveAdventure", () => {
       status: "failed",
       adventureName: "The Ruins",
       heroResources: { hpCurrent: 42, hpMax: 60, mpCurrent: 8, mpMax: 20 },
+    })
+  })
+})
+
+
+describe("combineAdventureRewards", () => {
+  it("grants step rewards even when there is no global reward roll", () => {
+    expect(combineAdventureRewards(undefined, [
+      { type: "narrative" },
+      { type: "reward", rewards: { gold: 15, ep: 4, items: [{ itemId: 7, qty: 2 }] } },
+      { type: "reward", rewards: { gold: 5, fame: 3, materials: [{ materialId: 9, qty: 4 }] } },
+    ])).toEqual({
+      gold: 20,
+      ep: 4,
+      fame: 3,
+      items: [{ itemId: 7, qty: 2 }],
+      materials: [{ materialId: 9, qty: 4 }],
+    })
+  })
+
+  it("combines global and step rewards without dropping either source", () => {
+    expect(combineAdventureRewards(
+      { gold: 10, ep: 2, items: [{ itemId: 1, qty: 1 }] },
+      [{ type: "reward", rewards: { gold: 5, ep: 3, items: [{ itemId: 2, qty: 2 }] } }],
+    )).toEqual({
+      gold: 15,
+      ep: 5,
+      items: [{ itemId: 1, qty: 1 }, { itemId: 2, qty: 2 }],
+    })
+  })
+})
+
+
+describe("combineAdventureRewards", () => {
+  it("grants step rewards even when there is no global reward roll", () => {
+    expect(combineAdventureRewards(undefined, [
+      { type: "narrative" },
+      { type: "reward", rewards: { gold: 15, ep: 4, items: [{ itemId: 7, qty: 2 }] } },
+      { type: "reward", rewards: { gold: 5, fame: 3, materials: [{ materialId: 9, qty: 4 }] } },
+    ])).toEqual({
+      gold: 20, ep: 4, fame: 3,
+      items: [{ itemId: 7, qty: 2 }],
+      materials: [{ materialId: 9, qty: 4 }],
+    })
+  })
+  it("combines global and step rewards without dropping either source", () => {
+    expect(combineAdventureRewards(
+      { gold: 10, ep: 2, items: [{ itemId: 1, qty: 1 }] },
+      [{ type: "reward", rewards: { gold: 5, ep: 3, items: [{ itemId: 2, qty: 2 }] } }],
+    )).toEqual({
+      gold: 15, ep: 5,
+      items: [{ itemId: 1, qty: 1 }, { itemId: 2, qty: 2 }],
     })
   })
 })
