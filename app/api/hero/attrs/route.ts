@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import type { Prisma } from "@/generated/prisma"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { getActiveHeroByUserId } from "@/lib/hero-utils"
@@ -73,7 +74,7 @@ export async function PUT(req: NextRequest) {
         where: { id: hero.id, epSpent: { gte: refund.epRefund } },
         data: {
           attrs: newAttrs,
-          attrPointLedger: refund.ledger as any,
+          attrPointLedger: refund.ledger as Prisma.InputJsonValue,
           hpMax: newHpMax,
           mpMax: newMpMax,
           hpCurrent: Math.min(currentHero.hpCurrent, newHpMax),
@@ -134,7 +135,7 @@ export async function PUT(req: NextRequest) {
       },
       data: {
         attrs: newAttrs,
-        attrPointLedger: ledger as any,
+        attrPointLedger: ledger as Prisma.InputJsonValue,
         hpMax: newHpMax,
         mpMax: newMpMax,
         hpCurrent: Math.min(currentHero.hpCurrent + (newHpMax - currentHero.hpMax), newHpMax),
