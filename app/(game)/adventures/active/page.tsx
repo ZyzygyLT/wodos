@@ -299,7 +299,7 @@ export default function ActiveAdventurePage() {
                     {entry.flavor && <p className="text-sm text-gray-400 italic">{entry.flavor}</p>}
                     {entry.skillCheck && (
                       <p className={`text-xs mt-1 ${entry.skillCheck.passed ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {entry.skillCheck.passed ? 'Prueba superada' : 'Prueba fallida'}: {entry.skillCheck.attr.toUpperCase()} {entry.skillCheck.value}/{entry.skillCheck.dc}
+                        {entry.skillCheck.attr === 'pe' ? 'Percepción' : entry.skillCheck.attr === 'ch' ? 'Carisma' : entry.skillCheck.attr.toUpperCase()}: {entry.skillCheck.value} / {entry.skillCheck.dc} · {entry.skillCheck.passed ? 'Superada' : 'Fallida'}
                       </p>
                     )}
                   </div>
