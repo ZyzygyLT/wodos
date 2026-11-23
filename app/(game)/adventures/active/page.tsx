@@ -359,6 +359,11 @@ export default function ActiveAdventurePage() {
               <h2 className="text-xl font-bold text-amber-300 mb-2">
                 {active?.status === 'completed' ? '🎉 ¡Aventura Completada!' : '💀 Derrota'}
               </h2>
+              {active?.status === 'failed' && (
+                <p className="text-sm text-gray-300 mt-2">
+                  Tu salud y tu maná restantes se conservan para tu héroe. La energía gastada al iniciar esta expedición no se recupera.
+                </p>
+              )}
               {active?.status === 'completed' && (
                 <div className="mt-3">
                   <p className="text-xs text-gray-400 mb-2">Recompensa total al reclamar, incluidas las obtenidas durante la aventura</p>
