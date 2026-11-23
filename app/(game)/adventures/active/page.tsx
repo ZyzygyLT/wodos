@@ -338,6 +338,11 @@ export default function ActiveAdventurePage() {
                       className="w-full text-left p-3 bg-gray-800 hover:bg-amber-900/40 border border-gray-600 hover:border-amber-600 rounded-lg transition-colors disabled:opacity-50"
                     >
                       <span className="text-amber-300 font-medium">{c.text}</span>
+                      {c.skillCheck && (
+                        <p className="text-xs text-cyan-300 mt-1">
+                          Prueba de {c.skillCheck.attr === 'pe' ? 'Percepción' : c.skillCheck.attr.toUpperCase()} · Dificultad {c.skillCheck.dc}
+                        </p>
+                      )}
                       {c.flavor && <p className="text-xs text-gray-500 mt-1 italic">{c.flavor}</p>}
                     </button>
                   ))}
