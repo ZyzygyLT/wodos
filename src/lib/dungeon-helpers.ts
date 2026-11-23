@@ -70,7 +70,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
     include: {
       hero: {
         include: {
-          combatProfiles: { orderBy: { createdAt: 'asc' } },
+          combatProfiles: { where: { dungeonLevel: null }, take: 1 },
           skills: { include: { skill: true } },
           items: { include: { item: true } },
         },
@@ -98,7 +98,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
         include: {
           hero: {
             include: {
-              combatProfiles: { orderBy: { createdAt: 'asc' } },
+              combatProfiles: { where: { dungeonLevel: null }, take: 1 },
               skills: { include: { skill: true } },
               items: { include: { item: true } },
             },
