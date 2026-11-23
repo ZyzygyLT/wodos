@@ -355,6 +355,12 @@ export default function ActiveAdventurePage() {
                     </p>
                     {entry.chosen && <p className="text-sm text-gray-200">{entry.chosen}</p>}
                     {entry.flavor && <p className="text-sm text-gray-400 italic">{entry.flavor}</p>}
+                    {entry.nextStepName && (
+                      <div className="mt-2 rounded-md border border-cyan-900/60 bg-cyan-950/20 px-3 py-2">
+                        <p className="text-xs font-semibold text-cyan-300">➡️ El camino continúa: {entry.nextStepName}</p>
+                        {entry.nextStepDescription && <p className="mt-1 text-xs text-gray-400">{entry.nextStepDescription}</p>}
+                      </div>
+                    )}
                     {entry.skillCheck && (
                       <p className={`text-xs mt-1 ${entry.skillCheck.passed ? 'text-emerald-400' : 'text-red-400'}`}>
                         {entry.skillCheck.attr === 'pe' ? 'Percepción' : entry.skillCheck.attr === 'ch' ? 'Carisma' : entry.skillCheck.attr.toUpperCase()}: {entry.skillCheck.value} / {entry.skillCheck.dc} · {entry.skillCheck.passed ? 'Superada' : 'Fallida'}

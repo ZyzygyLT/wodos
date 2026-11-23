@@ -68,6 +68,8 @@ export interface ChoiceStepResult {
   chosenIndex: number
   chosen: string
   nextStep: number
+  nextStepName?: string | null
+  nextStepDescription?: string | null
   flavor?: string
   skillCheck?: { attr: string; dc: number; value: number; passed: boolean }
 }

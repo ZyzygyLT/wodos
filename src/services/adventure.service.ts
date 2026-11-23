@@ -155,6 +155,15 @@ export async function getActiveAdventure(heroId: string) {
 
   const steps = ha.adventure.steps as unknown as AdventureStep[]
   const result = (ha.result as any) ?? { steps: [], rewards: null }
+  const historySteps = Array.isArray(result.steps) ? result.steps.map((entry: any) => {
+    if (entry.type !== 'choice' || !Number.isInteger(entry.nextStep)) return entry
+    const destination = steps[entry.nextStep]
+    return {
+      ...entry,
+      nextStepName: entry.nextStepName ?? destination?.name ?? null,
+      nextStepDescription: entry.nextStepDescription ?? destination?.description ?? null,
+    }
+  }) : []
   const currentStep = steps[ha.currentStep]
 
   // Resolve reward IDs to player-facing names without changing the persisted reward record.
@@ -210,7 +219,7 @@ export async function getActiveAdventure(heroId: string) {
     totalSteps: ha.totalSteps,
     status: ha.status,
     startedAt: ha.startedAt,
-    result,
+    result: { ...result, steps: historySteps },
     rewardCatalog: {
       items: Object.fromEntries(rewardItems.map(item => [item.id, { name: item.name, icon: item.icon }])),
       materials: Object.fromEntries(rewardMaterials.map(material => [material.id, { name: material.name, icon: material.icon }])),
@@ -419,6 +428,8 @@ export async function makeChoice(
       chosenIndex: choiceIndex,
       chosen: chosen.text,
       nextStep: resolution.nextStep,
+      nextStepName: steps[resolution.nextStep]?.name ?? null,
+      nextStepDescription: steps[resolution.nextStep]?.description ?? null,
       flavor: chosen.flavor ?? undefined,
       skillCheck: resolution.skillCheck,
     }
