@@ -22,12 +22,28 @@ vi.mock("@/lib/dungeon-helpers", () => ({
   })),
 }))
 
-import { canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned, withAdventureChoicePreviews } from "@/lib/adventures/adventure-helpers"
+import { adventureRequiresCombat, canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned, withAdventureChoicePreviews } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 import { buildHeroData } from "@/lib/dungeon-helpers"
 
 const findMany = vi.mocked(db.heroAdventure.findMany)
 const findHero = vi.mocked(db.hero.findUnique)
+
+describe("adventure start readiness", () => {
+  it("requires positive health when the route contains combat", () => {
+    expect(adventureRequiresCombat([
+      { type: "narrative", name: "Entrada", description: "Una puerta." },
+      { type: "combat", name: "Emboscada", description: "Enemigos.", enemies: [] },
+    ])).toBe(true)
+  })
+
+  it("does not require health for a narrative-only route", () => {
+    expect(adventureRequiresCombat([
+      { type: "narrative", name: "Entrada", description: "Una puerta." },
+      { type: "choice", name: "Cruce", description: "Elige.", choices: [] },
+    ])).toBe(false)
+  })
+})
 
 describe("adventure start lifecycle", () => {
   it.each([

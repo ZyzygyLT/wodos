@@ -47,6 +47,11 @@ import type {
   CombatStepResult, StepRewards,
 } from './types'
 
+/** True when an adventure contains an encounter that requires a living hero. */
+export function adventureRequiresCombat(steps: AdventureStep[]): boolean {
+  return steps.some(step => step.type === 'combat')
+}
+
 export function calcEnergyRecharge(lastRechargeAt: Date | null): number {
   if (!lastRechargeAt) return 0
   const elapsedMinutes = (Date.now() - lastRechargeAt.getTime()) / 60000

@@ -76,6 +76,28 @@ export default function AdventuresPage() {
           )}
         </div>
 
+        {data?.heroResources && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-700 bg-gray-800/70 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="font-semibold text-red-300">❤️ Salud del héroe</span>
+                <span className="tabular-nums text-gray-300">{data.heroResources.hpCurrent}/{data.heroResources.hpMax}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-700">
+                <div
+                  className="h-full rounded-full bg-red-500 transition-all"
+                  style={{ width: `${data.heroResources.hpMax > 0 ? Math.max(0, Math.min(100, data.heroResources.hpCurrent / data.heroResources.hpMax * 100)) : 0}%` }}
+                />
+              </div>
+            </div>
+            {data.heroResources.hpCurrent <= 0 && (
+              <a href="/inventory" className="rounded-md border border-amber-700/60 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-950/40">
+                Recuperar salud en inventario
+              </a>
+            )}
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-2 rounded-lg mb-4">
             {error}
@@ -147,16 +169,23 @@ export default function AdventuresPage() {
                   <span className="text-amber-400">Te faltan {adv.energyCost - data.energy} energía</span>
                 )}
               </div>
+              {adv.startBlockReason && !data?.hasActiveAdventure && (
+                <p className="mb-3 rounded-md border border-red-900/60 bg-red-950/30 px-3 py-2 text-xs text-red-300">
+                  {adv.startBlockReason}
+                  {" "}
+                  <a href="/inventory" className="font-semibold underline underline-offset-2">Ir al inventario</a>
+                </p>
+              )}
               <button
                 onClick={() => startAdventure(adv.id)}
-                disabled={starting !== null || !adv.canAfford || data?.hasActiveAdventure}
+                disabled={starting !== null || !adv.canAfford || !adv.canStart || data?.hasActiveAdventure}
                 className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  adv.canAfford
+                  adv.canAfford && adv.canStart
                     ? "bg-emerald-700 hover:bg-emerald-600 text-white"
                     : "bg-gray-700 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                {starting === adv.id ? "Iniciando..." : data?.hasActiveAdventure ? (data.blockingAdventureStatus === 'completed' ? "Reclama tus recompensas primero" : data.blockingAdventureStatus === 'failed' ? "Recupera tu botín primero" : "Ya tienes una aventura activa") : adv.canAfford ? "Iniciar aventura" : "Energía insuficiente"}
+                {starting === adv.id ? "Iniciando..." : data?.hasActiveAdventure ? (data.blockingAdventureStatus === 'completed' ? "Reclama tus recompensas primero" : data.blockingAdventureStatus === 'failed' ? "Recupera tu botín primero" : "Ya tienes una aventura activa") : !adv.canStart ? "Salud insuficiente" : adv.canAfford ? "Iniciar aventura" : "Energía insuficiente"}
               </button>
             </div>
           ))}

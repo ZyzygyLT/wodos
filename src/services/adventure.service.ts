@@ -5,7 +5,7 @@ import { buildHeroData, mergeHeroAttrs } from '@/lib/dungeon-helpers'
 import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/adventures/combat-adapter'
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
-  calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
+  adventureRequiresCombat, calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
   ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned, combineAdventureRewards,
   canClaimAdventureRewards, withAdventureChoicePreviews,
 } from '@/lib/adventures/adventure-helpers'
@@ -71,6 +71,11 @@ export async function listAdventures(heroId: string) {
         id: a.id, name: a.name, slug: a.slug, icon: a.icon, description: a.description,
         lore: a.lore, levelReq: a.levelReq, maxLevel: a.maxLevel, duration: a.duration, energyCost: a.energyCost,
         faction: a.faction, canAfford: hero.adventureEnergy >= a.energyCost,
+        requiresCombat: adventureRequiresCombat(a.steps as unknown as AdventureStep[]),
+        canStart: !adventureRequiresCombat(a.steps as unknown as AdventureStep[]) || hero.hpCurrent > 0,
+        startBlockReason: adventureRequiresCombat(a.steps as unknown as AdventureStep[]) && hero.hpCurrent <= 0
+          ? 'Tu héroe no tiene salud. Recupera HP antes de iniciar una aventura con combates.'
+          : null,
         completionRewards: rewardTable ? {
           goldMin: rewardTable.goldMin,
           goldMax: rewardTable.goldMax,
@@ -81,6 +86,7 @@ export async function listAdventures(heroId: string) {
     }),
     energy: hero.adventureEnergy,
     energyMax: hero.adventureEnergyMax,
+    heroResources: { hpCurrent: hero.hpCurrent, hpMax: hero.hpMax, mpCurrent: hero.mpCurrent, mpMax: hero.mpMax },
     hasActiveAdventure: !!activeAdventure,
     blockingAdventureStatus: activeAdventure?.status ?? null,
   }
@@ -95,7 +101,7 @@ export async function startAdventure(heroId: string, adventureId: number) {
 
     const hero = await tx.hero.findUnique({
       where: { id: heroId },
-      select: { id: true, level: true, adventureEnergy: true },
+      select: { id: true, level: true, adventureEnergy: true, hpCurrent: true },
     })
     const adventure = await tx.adventure.findUnique({ where: { id: adventureId } })
     const existingCandidates = await tx.heroAdventure.findMany({
@@ -123,6 +129,9 @@ export async function startAdventure(heroId: string, adventureId: number) {
 
     const steps = adventure.steps as unknown as AdventureStep[]
     if (steps.length === 0) throw new Error("La aventura no tiene pasos configurados")
+    if (adventureRequiresCombat(steps) && hero.hpCurrent <= 0) {
+      throw new Error("Tu héroe no tiene salud. Recupera HP antes de iniciar una aventura con combates.")
+    }
 
     const energyUpdate = await tx.hero.updateMany({
       where: { id: heroId, adventureEnergy: { gte: adventure.energyCost } },
