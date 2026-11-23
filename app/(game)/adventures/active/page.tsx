@@ -218,7 +218,8 @@ export default function ActiveAdventurePage() {
   const hasRecoverableRewards = isDefeated && rewardSteps.length > 0
   const globalRewards: StepRewards = active?.result?.rewards ?? {}
   const sumReward = (key: 'gold' | 'ep' | 'fame') => Number(globalRewards[key] ?? 0) +
-    rewardSteps.reduce((total, entry) => total + Number(entry.rewards[key] ?? 0), 0)  const totalItems = [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.items ?? [])]
+    rewardSteps.reduce((total, entry) => total + Number(entry.rewards[key] ?? 0), 0)
+  const totalItems = [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.items ?? [])]
     .reduce((totals, item) => {
       const existing = totals.find((entry) => entry.itemId === item.itemId)
       if (existing) existing.qty += Number(item.qty ?? 0)
@@ -437,7 +438,8 @@ export default function ActiveAdventurePage() {
               <p className="text-gray-300 leading-relaxed text-sm">{currentStep.description}</p>
 
               {currentStep.type === 'combat' && currentStep.enemies?.length > 0 && (
-                <div className="mt-4 rounded-lg border border-red-900/60 bg-red-950/20 p-4">                  <div className="mb-3 flex items-center justify-between">
+                <div className="mt-4 rounded-lg border border-red-900/60 bg-red-950/20 p-4">
+                  <div className="mb-3 flex items-center justify-between">
                     <p className="text-xs font-bold uppercase tracking-wider text-red-300">⚔️ Enemigos del encuentro</p>
                     <span className="text-xs text-gray-400">{currentStep.enemies.length} {currentStep.enemies.length === 1 ? 'enemigo' : 'enemigos'}</span>
                   </div>

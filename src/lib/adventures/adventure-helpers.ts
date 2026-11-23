@@ -31,7 +31,6 @@ export function isAdventureBlockingNewStart(status: string, result?: unknown): b
   return status === 'failed' && canClaimAdventureRewards(status, result)
 }
 
-/** Defeat preserves only rewards explicitly earned in completed reward steps. */
 /** True only when a reward record contains something the player can actually receive. */
 export function hasAdventureRewardPayload(rewards: StepRewards | null | undefined): boolean {
   if (!rewards) return false
@@ -49,6 +48,7 @@ export function hasAdventureRewardPayload(rewards: StepRewards | null | undefine
   return hasItems || hasMaterials
 }
 
+/** Defeat preserves only rewards explicitly earned in completed reward steps. */
 export function canClaimAdventureRewards(status: string, result: unknown): boolean {
   if (status === 'completed') return true
   if (status !== 'failed' || result === null || typeof result !== 'object' || Array.isArray(result)) return false
@@ -217,6 +217,3 @@ export function combineAdventureRewards(
     if (rewards.items?.length) combined.items = [...(combined.items ?? []), ...rewards.items]
     if (rewards.materials?.length) combined.materials = [...(combined.materials ?? []), ...rewards.materials]
   }
-
-  return combined
-}
