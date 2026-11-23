@@ -172,7 +172,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     const hero = await tx.hero.findUnique({
       where: { id: heroId },
       include: {
-        combatProfiles: { orderBy: { createdAt: 'asc' } },
+        combatProfiles: { where: { dungeonLevel: null }, take: 1 },
         skills: { include: { skill: true } },
         items: { include: { item: true } },
       },
