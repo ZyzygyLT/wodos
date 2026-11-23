@@ -46,6 +46,8 @@ export interface AdventureRewardTable {
   materials?: Array<{ materialId: number; chance: number; qty: number }>
 }
 
+import type { RunResult } from '@/lib/combat-engine/dungeon-runner'
+
 export interface CombatStepResult {
   type: 'combat'
   victory: boolean
@@ -56,6 +58,7 @@ export interface CombatStepResult {
   heroHpRemaining: number
   heroMpRemaining: number
   log: string[]
+  replay?: Pick<RunResult, 'victory' | 'totalRounds' | 'epGained' | 'goldGained' | 'levelReports'>
 }
 
 export interface NarrativeStepResult {

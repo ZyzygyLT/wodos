@@ -5,7 +5,7 @@ import type { LevelReport, RunResult } from "@/lib/combat-engine/dungeon-runner"
 import { RoundView } from "./RoundView"
 
 interface CombatPlaybackProps {
-  result: RunResult
+  result: Pick<RunResult, 'victory' | 'totalRounds' | 'epGained' | 'goldGained' | 'levelReports'>
   dungeonName: string
   onFinish: () => void
 }

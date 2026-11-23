@@ -221,6 +221,9 @@ describe('adventure combat adapter', () => {
     const { mapAdventureCombatResult } = await import('@/lib/adventures/combat-adapter')
     const result = mapAdventureCombatResult({
       victory: false,
+      totalRounds: 1,
+      epGained: 0,
+      goldGained: 0,
       heroesFinalState: [{ id: 'hero-1', hp: 0, mp: 4 }],
       levelReports: [{
         rounds: [{
@@ -240,6 +243,7 @@ describe('adventure combat adapter', () => {
       heroHpRemaining: 0,
       heroMpRemaining: 4,
       log: ['The hero falls'],
+      replay: { victory: false, totalRounds: 1, epGained: 0, goldGained: 0 },
     })
   })
 })

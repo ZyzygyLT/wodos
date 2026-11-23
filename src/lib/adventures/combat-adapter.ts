@@ -64,5 +64,12 @@ export function mapAdventureCombatResult(
     heroHpRemaining: finalHero.hp,
     heroMpRemaining: finalHero.mp,
     log: result.log.slice(-40).map(entry => entry.message),
+    replay: {
+      victory: result.victory,
+      totalRounds: result.totalRounds,
+      epGained: 0,
+      goldGained: 0,
+      levelReports: result.levelReports,
+    },
   }
 }
