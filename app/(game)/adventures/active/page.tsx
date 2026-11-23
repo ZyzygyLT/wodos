@@ -69,6 +69,7 @@ export default function ActiveAdventurePage() {
           status: result.victory ? 'completed' : 'failed',
           currentStepData: null,
           result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: result.rewards },
+          heroResources: result.heroResources ?? prev.heroResources,
         }))
         setStepType(null)
       } else {
@@ -77,6 +78,7 @@ export default function ActiveAdventurePage() {
           currentStep: result.currentStep,
           currentStepData: result.nextStep ?? null,
           result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: null },
+          heroResources: result.heroResources ?? prev.heroResources,
         }))
         setStepType(result.nextStep?.type ?? null)
       }

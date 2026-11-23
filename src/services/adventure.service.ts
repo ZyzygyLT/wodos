@@ -193,6 +193,12 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     })
     if (!hero) throw new Error("Héroe no encontrado")
 
+    let heroResources = {
+      hpCurrent: hero.hpCurrent,
+      hpMax: hero.hpMax,
+      mpCurrent: hero.mpCurrent,
+      mpMax: hero.mpMax,
+    }
     const steps = ha.adventure.steps as unknown as AdventureStep[]
     const currentStep = steps[ha.currentStep]
     if (!currentStep) throw new Error("Paso de aventura no encontrado")
@@ -229,6 +235,12 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
             mpCurrent: finalHeroState.mp,
           },
         })
+        heroResources = {
+          hpCurrent: finalHeroState.hp,
+          hpMax: hero.hpMax,
+          mpCurrent: finalHeroState.mp,
+          mpMax: hero.mpMax,
+        }
 
         const consumedItemIds = [...new Set((combatRun.consumedConsumables ?? [])
           .filter(item => item.heroId === heroId)
@@ -248,7 +260,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
             data: { status: "failed", completedAt: new Date(), result: resultData },
           })
           if (failed.count !== 1) throw new Error("AVENTURA_STEP_STALE")
-          return { completed: true, victory: false, stepResult, rewards: null, totalSteps: ha.totalSteps }
+          return { completed: true, victory: false, stepResult, rewards: null, totalSteps: ha.totalSteps, heroResources }
         }
         break
       }
@@ -279,7 +291,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
       })
       if (completed.count !== 1) throw new Error("AVENTURA_STEP_STALE")
 
-      return { completed: true, victory: true, stepResult, rewards, totalSteps: ha.totalSteps }
+      return { completed: true, victory: true, stepResult, rewards, totalSteps: ha.totalSteps, heroResources }
     }
 
     const advanced = await tx.heroAdventure.updateMany({
@@ -294,6 +306,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
       currentStep: nextStepIndex,
       totalSteps: ha.totalSteps,
       nextStep: steps[nextStepIndex],
+      heroResources,
     }
   })
 }
