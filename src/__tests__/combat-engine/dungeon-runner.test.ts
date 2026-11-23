@@ -536,11 +536,11 @@ describe('runDungeon', () => {
     })
     await runDungeon([hero], makeDungeon(), {
       combatEventHandlers: [
-        { eventType: 'healing_applied', handle: event => { healedUnitId = event.targetId } },
+        { eventType: 'healing_applied', handle: event => { if (event.type === 'healing_applied') healedUnitId = event.targetId } },
         {
           eventType: 'unit_state_changed',
           handle: event => {
-            if (event.changes.hp !== undefined) {
+            if (event.type === 'unit_state_changed' && event.changes.hp !== undefined) {
               healingStateChanges.push({ unitId: event.unitId, condition: event.changes.condition })
             }
           },
