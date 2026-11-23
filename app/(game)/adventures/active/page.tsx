@@ -487,9 +487,24 @@ export default function ActiveAdventurePage() {
                       })()}
                       {(c.nextStepName || c.passStepName || c.failStepName) && (
                         <div className="mt-2 space-y-1 border-t border-gray-700/70 pt-2 text-xs text-cyan-300">
-                          {c.nextStepName && <p>➡️ Ruta: {c.nextStepName}</p>}
-                          {c.passStepName && <p>✓ Si superas la prueba: {c.passStepName}</p>}
-                          {c.failStepName && <p>✕ Si fallas la prueba: {c.failStepName}</p>}
+                          {c.nextStepName && (
+                            <div>
+                              <p>➡️ Ruta: {c.nextStepName}</p>
+                              {c.nextStepDescription && <p className="pl-5 text-gray-400">{c.nextStepDescription}</p>}
+                            </div>
+                          )}
+                          {c.passStepName && (
+                            <div>
+                              <p>✓ Si superas la prueba: {c.passStepName}</p>
+                              {c.passStepDescription && <p className="pl-5 text-gray-400">{c.passStepDescription}</p>}
+                            </div>
+                          )}
+                          {c.failStepName && (
+                            <div>
+                              <p>✕ Si fallas la prueba: {c.failStepName}</p>
+                              {c.failStepDescription && <p className="pl-5 text-gray-400">{c.failStepDescription}</p>}
+                            </div>
+                          )}
                         </div>
                       )}
                       {c.rewards && (

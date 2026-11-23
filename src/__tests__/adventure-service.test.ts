@@ -240,8 +240,16 @@ describe("getActiveAdventure", () => {
     await expect(getActiveAdventure("hero-1")).resolves.toMatchObject({
       currentStepData: {
         choices: [
-          { nextStepName: "El sendero oscuro" },
-          { passStepName: "La emboscada", failStepName: "El sendero oscuro" },
+          {
+            nextStepName: "El sendero oscuro",
+            nextStepDescription: "Un sendero.",
+          },
+          {
+            passStepName: "La emboscada",
+            passStepDescription: "Enemigos.",
+            failStepName: "El sendero oscuro",
+            failStepDescription: "Un sendero.",
+          },
         ],
       },
     })

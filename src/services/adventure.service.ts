@@ -182,11 +182,20 @@ export async function getActiveAdventure(heroId: string) {
           nextStepName: choice.skillCheck
             ? undefined
             : steps[choice.nextStep]?.name ?? null,
+          nextStepDescription: choice.skillCheck
+            ? undefined
+            : steps[choice.nextStep]?.description ?? null,
           passStepName: choice.skillCheck
             ? steps[choice.skillCheck.passStep]?.name ?? null
             : undefined,
+          passStepDescription: choice.skillCheck
+            ? steps[choice.skillCheck.passStep]?.description ?? null
+            : undefined,
           failStepName: choice.skillCheck
             ? steps[choice.skillCheck.failStep]?.name ?? null
+            : undefined,
+          failStepDescription: choice.skillCheck
+            ? steps[choice.skillCheck.failStep]?.description ?? null
             : undefined,
         })),
       }
