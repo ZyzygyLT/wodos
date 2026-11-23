@@ -278,6 +278,7 @@ export default function ActiveAdventurePage() {
                 {entry.type === 'choice' && (
                   <div>
                     <p className="text-sm font-semibold text-emerald-400 mb-1">🤔 Decisión tomada</p>
+                    {entry.chosen && <p className="text-sm text-gray-200">{entry.chosen}</p>}
                     {entry.flavor && <p className="text-sm text-gray-400 italic">{entry.flavor}</p>}
                     {entry.skillCheck && (
                       <p className={`text-xs mt-1 ${entry.skillCheck.passed ? 'text-emerald-400' : 'text-red-400'}`}>

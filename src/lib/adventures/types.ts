@@ -66,6 +66,7 @@ export interface NarrativeStepResult {
 export interface ChoiceStepResult {
   type: 'choice'
   chosenIndex: number
+  chosen: string
   nextStep: number
   flavor?: string
   skillCheck?: { attr: string; dc: number; value: number; passed: boolean }

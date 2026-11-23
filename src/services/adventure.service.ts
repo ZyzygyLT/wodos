@@ -348,6 +348,7 @@ export async function makeChoice(
     const stepResult = {
       type: "choice" as const,
       chosenIndex: choiceIndex,
+      chosen: chosen.text,
       nextStep: resolution.nextStep,
       flavor: chosen.flavor ?? undefined,
       skillCheck: resolution.skillCheck,
