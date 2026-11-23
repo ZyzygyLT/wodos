@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
 }))
 
 import db from "@/lib/db"
-import { combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
+import { canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 
 const findFirst = vi.mocked(db.heroAdventure.findFirst)
@@ -26,6 +26,30 @@ describe("adventure start lifecycle", () => {
     ["claimed", false],
   ])("treats %s runs as blocking=%s", (status, expected) => {
     expect(isAdventureBlockingNewStart(status)).toBe(expected)
+  })
+})
+
+describe("canClaimAdventureRewards", () => {
+  it("allows a completed adventure to claim its final and step rewards", () => {
+    expect(canClaimAdventureRewards("completed", { rewards: { gold: 10 } })).toBe(true)
+  })
+
+  it("allows only earned step rewards after defeat", () => {
+    expect(canClaimAdventureRewards("failed", {
+      outcome: "defeated",
+      steps: [{ type: "reward", rewards: { gold: 30 } }],
+    })).toBe(true)
+    expect(canClaimAdventureRewards("failed", {
+      outcome: "defeated",
+      steps: [{ type: "narrative" }],
+    })).toBe(false)
+  })
+
+  it("never allows abandoned adventures to claim rewards", () => {
+    expect(canClaimAdventureRewards("failed", {
+      outcome: "abandoned",
+      steps: [{ type: "reward", rewards: { gold: 30 } }],
+    })).toBe(false)
   })
 })
 

@@ -8,6 +8,7 @@ import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, Adve
 import {
   calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
   ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned, combineAdventureRewards,
+  canClaimAdventureRewards,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -289,6 +290,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
         }
         if (!combatRun.victory) {
           resultData.steps.push(stepResult)
+          resultData.outcome = 'defeated'
           const failed = await tx.heroAdventure.updateMany({
             where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
             data: { status: "failed", completedAt: new Date(), result: resultData },
@@ -418,11 +420,15 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
     })
     if (!ha || ha.heroId !== heroId) throw new Error('Aventura no encontrada')
     if (ha.status === 'claimed') throw new Error('Recompensas ya reclamadas')
-    if (ha.status !== 'completed') throw new Error('Solo se pueden reclamar recompensas de aventuras completadas')
 
     const result = ha.result as any
-    // Step rewards are valid on their own; do not gate them on a global reward roll.
-    const rewards = combineAdventureRewards(result?.rewards, result?.steps ?? [])
+    const isDefeatClaim = ha.status === 'failed' && canClaimAdventureRewards(ha.status, result)
+    if (ha.status !== 'completed' && !isDefeatClaim) {
+      throw new Error('Solo se pueden reclamar recompensas de aventuras completadas o botín obtenido antes de una derrota')
+    }
+
+    // Defeat grants only explicitly earned step rewards, never the adventure completion roll.
+    const rewards = combineAdventureRewards(isDefeatClaim ? undefined : result?.rewards, result?.steps ?? [])
     const totalGold = rewards.gold ?? 0
     const totalEp = rewards.ep ?? 0
     const totalFame = rewards.fame ?? 0
@@ -453,7 +459,7 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
       })
     }
 
-    if (ha.adventure.factionId && ha.adventure.factionRep > 0) {
+    if (!isDefeatClaim && ha.adventure.factionId && ha.adventure.factionRep > 0) {
       await tx.heroFactionRep.upsert({
         where: { heroId_factionId: { heroId, factionId: ha.adventure.factionId } },
         create: { heroId, factionId: ha.adventure.factionId, rep: ha.adventure.factionRep },
@@ -467,7 +473,7 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
     })
     if (claimed.count !== 1) throw new Error('AVENTURA_CLAIM_STALE')
 
-    return { claimed: true, rewards }
+    return { claimed: true, rewards, partial: isDefeatClaim }
   })
 
   // Adventure EP must trigger the same level progression as dungeon rewards.

@@ -7,6 +7,18 @@ export const ADVENTURE_STATUSES_BLOCKING_NEW_START = ['active', 'completed'] as 
 export function isAdventureBlockingNewStart(status: string): boolean {
   return (ADVENTURE_STATUSES_BLOCKING_NEW_START as readonly string[]).includes(status)
 }
+
+/** Defeat preserves only rewards explicitly earned in completed reward steps. */
+export function canClaimAdventureRewards(status: string, result: unknown): boolean {
+  if (status === 'completed') return true
+  if (status !== 'failed' || result === null || typeof result !== 'object' || Array.isArray(result)) return false
+  const data = result as { outcome?: unknown; steps?: unknown }
+  return data.outcome === 'defeated' && Array.isArray(data.steps) &&
+    data.steps.some(step => step !== null && typeof step === 'object' &&
+      !Array.isArray(step) && (step as { type?: unknown }).type === 'reward' &&
+      (step as { rewards?: unknown }).rewards !== null &&
+      typeof (step as { rewards?: unknown }).rewards === 'object')
+}
 import type {
   AdventureStep, AdventureStepEnemy, AdventureRewardTable, AdventureChoice,
   CombatStepResult, StepRewards,

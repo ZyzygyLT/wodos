@@ -171,11 +171,13 @@ export default function ActiveAdventurePage() {
   }
 
   const isAbandoned = active?.status === "failed" && active?.result?.outcome === "abandoned"
+  const isDefeated = active?.status === "failed" && active?.result?.outcome === "defeated"
   const isOver = active?.status === "completed" || active?.status === "failed"
   const currentStep = active?.currentStepData
   const isChoice = stepType === 'choice'
   const rewardSteps = ((active?.result?.steps ?? []) as StepResult[])
     .filter((entry): entry is Extract<StepResult, { type: 'reward' }> => entry.type === 'reward')
+  const hasRecoverableRewards = isDefeated && rewardSteps.length > 0
   const globalRewards: StepRewards = active?.result?.rewards ?? {}
   const sumReward = (key: 'gold' | 'ep' | 'fame') => Number(globalRewards[key] ?? 0) +
     rewardSteps.reduce((total, entry) => total + Number(entry.rewards[key] ?? 0), 0)
@@ -377,9 +379,13 @@ export default function ActiveAdventurePage() {
                   Tu salud y tu maná restantes se conservan para tu héroe. La energía gastada al iniciar esta expedición no se recupera.
                 </p>
               )}
-              {active?.status === 'completed' && (
+              {(active?.status === 'completed' || hasRecoverableRewards) && (
                 <div className="mt-3">
-                  <p className="text-xs text-gray-400 mb-2">Recompensa total al reclamar, incluidas las obtenidas durante la aventura</p>
+                  <p className="text-xs text-gray-400 mb-2">
+                    {hasRecoverableRewards
+                      ? "Botín obtenido antes de la derrota. Puedes reclamarlo; no incluye la recompensa final de la aventura."
+                      : "Recompensa total al reclamar, incluidas las obtenidas durante la aventura"}
+                  </p>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <span>💰 Oro: <span className="text-amber-400">{totalRewards.gold}</span></span>
                     <span>⭐ EP: <span className="text-purple-400">{totalRewards.ep}</span></span>
@@ -430,16 +436,16 @@ export default function ActiveAdventurePage() {
                 {executing ? "Cargando..." : "Continuar →"}
               </button>
             )}
-            {active?.status === "completed" && (
+            {(active?.status === "completed" || hasRecoverableRewards) && (
               <button
                 onClick={claimRewards}
                 disabled={claiming}
                 className="flex-1 py-3 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 rounded-lg font-semibold"
               >
-                {claiming ? "Reclamando..." : "🎁 Reclamar recompensas"}
+                {claiming ? "Reclamando..." : hasRecoverableRewards ? "🎒 Reclamar botín recuperado" : "🎁 Reclamar recompensas"}
               </button>
             )}
-            {active?.status === "failed" && (
+            {active?.status === "failed" && !hasRecoverableRewards && (
               <button
                 onClick={() => router.push("/adventures")}
                 className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold"
