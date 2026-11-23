@@ -5,6 +5,12 @@ import type { StepResult, StepRewards, AdventureStepEnemy } from "@/lib/adventur
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
+type AdventureClaimResult = {
+  claimed: true
+  partial: boolean
+  rewards: StepRewards
+}
+
 export default function ActiveAdventurePage() {
 
   const router = useRouter()
@@ -13,7 +19,7 @@ export default function ActiveAdventurePage() {
   const [executing, setExecuting] = useState(false)
   const [choosing, setChoosing] = useState(false)
   const [claiming, setClaiming] = useState(false)
-  const [claimResult, setClaimResult] = useState<any>(null)
+  const [claimResult, setClaimResult] = useState<AdventureClaimResult | null>(null)
   const [abandoning, setAbandoning] = useState(false)
   const [confirmAbandon, setConfirmAbandon] = useState(false)
   const [error, setError] = useState<string | null>(null)
