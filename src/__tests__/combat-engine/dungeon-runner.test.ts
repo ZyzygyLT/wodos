@@ -116,8 +116,6 @@ describe('runDungeon', () => {
     expect(actions.find(action => action.actorId === 'hero-1')).toMatchObject({
       skillId: 1,
       skillName: 'First basic attack',
-      tacticRulePriority: 1,
-      tacticCondition: { type: 'always' },
     })
     expect(actions.find(action => action.actorId === 'hero-2')).toMatchObject({
       skillId: 2,
@@ -171,6 +169,8 @@ describe('runDungeon', () => {
     expect(secondRoundAttack?.targetName).toBe('Rear strongest')
     expect(secondRoundAttack?.skillFallback).toBe('cooldown')
     expect(secondRoundAttack?.selectedSkillName).toBe('Heavy strike')
+    expect(secondRoundAttack?.tacticRulePriority).toBe(1)
+    expect(secondRoundAttack?.tacticCondition).toEqual({ type: 'always' })
   })
 
   it('reports when an already-active party buff replaces the selected skill', async () => {
