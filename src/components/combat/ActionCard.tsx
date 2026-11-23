@@ -143,7 +143,11 @@ function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boole
             ? `Sin maná: ataque básico gratuito (seleccionada: ${a.selectedSkillName})`
             : a.skillFallback === 'basic'
               ? `Sin maná: sustituida por ataque básico (seleccionada: ${a.selectedSkillName})`
-              : `Sin maná ni ataque básico disponible: se fuerza "${a.selectedSkillName}"`}
+              : a.skillFallback === 'forced'
+                ? `Sin maná ni ataque básico disponible: se fuerza "${a.selectedSkillName}"`
+                : a.skillFallback === 'cooldown'
+                  ? `Enfriamiento: "${a.selectedSkillName}" no estaba disponible; se usó un ataque básico`
+                  : `Buff ya activo: se evitó repetir "${a.selectedSkillName}" y se usó un ataque básico`}
         </p>
       )}
       <div className="text-xs text-gray-300 ml-1 space-y-0.5">
