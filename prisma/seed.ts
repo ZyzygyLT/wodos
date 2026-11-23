@@ -869,7 +869,7 @@ async function seedAdventures() {
           description: 'Dos senderos se abren frente a ti. El de la izquierda es angosto y está cubierto de musgo brillante. El de la derecha es más ancho, pero huellas recientes de grandes garras marcan el barro.',
           choices: [
             { text: 'Tomar el sendero angosto y cubierto de musgo', nextStep: 2, flavor: 'El musgo brilla con una luz tenue, como si señalara el camino. Sientes una presencia antigua observándote.' },
-            { text: 'Seguir las huellas de garras por el camino ancho', nextStep: 3, flavor: 'Las huellas son frescas. El olor a bestia se mezcla con el de la tierra húmeda.' },
+            { text: 'Seguir las huellas de garras por el camino ancho', nextStep: 6, flavor: 'Las huellas son frescas. El olor a bestia se mezcla con el de la tierra húmeda.' },
           ],
         },
         {
