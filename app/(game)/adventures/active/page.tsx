@@ -443,11 +443,15 @@ export default function ActiveAdventurePage() {
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-gray-200">{enemy.name}</p>
                             <p className="text-xs text-gray-500">Nivel {enemy.level}</p>
+                            {enemy.position && <p className="text-xs text-gray-500">Posición: {enemy.position}</p>}
                           </div>
                         </div>
-                        <div className="shrink-0 text-right text-xs tabular-nums">
+                        <div className="shrink-0 space-y-1 text-right text-xs tabular-nums">
                           <p className="text-red-300">❤️ {enemy.hp} HP</p>
-                          <p className="text-gray-400">⚔️ {enemy.atk} · 🛡️ {enemy.def}</p>
+                          <p className="text-blue-300">🔷 {enemy.mp} MP</p>
+                          <p className="text-gray-300">⚔️ ATQ {enemy.atk} · 🛡️ DEF {enemy.def}</p>
+                          <p className="text-gray-400">🎯 DES {enemy.dx} · ⚡ AGI {enemy.ag}</p>
+                          {enemy.damageType && <p className="text-amber-300">Daño: {enemy.damageType}</p>}
                         </div>
                       </div>
                     ))}
