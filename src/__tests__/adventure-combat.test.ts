@@ -233,6 +233,9 @@ describe('adventure combat adapter', () => {
       log: [{ message: 'The hero falls' }],
     } as never, 2, { hp: 30, mp: 8 })
 
+    expect(result.replay?.levelReports).toHaveLength(1)
+    expect(result.replay?.levelReports[0].rounds).toHaveLength(1)
+
     expect(result).toMatchObject({
       type: 'combat',
       victory: false,
