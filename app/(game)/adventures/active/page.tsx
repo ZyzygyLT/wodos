@@ -311,10 +311,10 @@ export default function ActiveAdventurePage() {
                     {entry.rewards?.ep && <p className="text-sm text-gray-300">⭐ +{entry.rewards.ep} EP</p>}
                     {entry.rewards?.fame ? <p className="text-sm text-gray-300">🏆 +{entry.rewards.fame} fama</p> : null}
                     {entry.rewards?.items?.map((it: any, j: number) => (
-                      <p key={j} className="text-sm text-gray-300">📦 Objeto #{it.itemId} x{it.qty}</p>
+                      <p key={j} className="text-sm text-gray-300">{active?.rewardCatalog?.items?.[it.itemId]?.icon ?? '📦'} {active?.rewardCatalog?.items?.[it.itemId]?.name ?? `Objeto #${it.itemId}`} x{it.qty}</p>
                     ))}
                     {entry.rewards?.materials?.map((mat: { materialId: number; qty: number }, j: number) => (
-                      <p key={j} className="text-sm text-gray-300">🧱 Material #{mat.materialId} x{mat.qty}</p>
+                      <p key={j} className="text-sm text-gray-300">{active?.rewardCatalog?.materials?.[mat.materialId]?.icon ?? '🧱'} {active?.rewardCatalog?.materials?.[mat.materialId]?.name ?? `Material #${mat.materialId}`} x{mat.qty}</p>
                     ))}
                   </div>
                 )}

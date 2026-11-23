@@ -139,6 +139,28 @@ export async function getActiveAdventure(heroId: string) {
   const steps = ha.adventure.steps as unknown as AdventureStep[]
   const result = (ha.result as any) ?? { steps: [], rewards: null }
   const currentStep = steps[ha.currentStep]
+
+  // Resolve reward IDs to player-facing names without changing the persisted reward record.
+  const rewardSources = [
+    result.rewards,
+    ...(Array.isArray(result.steps)
+      ? result.steps.filter((entry: any) => entry?.type === 'reward').map((entry: any) => entry.rewards)
+      : []),
+  ].filter(Boolean)
+  const itemIds = [...new Set<number>(rewardSources.flatMap((rewards: any) =>
+    Array.isArray(rewards.items)
+      ? rewards.items.map((item: any) => item.itemId).filter((value: unknown): value is number => Number.isInteger(value))
+      : []
+  ))]
+  const materialIds = [...new Set<number>(rewardSources.flatMap((rewards: any) =>
+    Array.isArray(rewards.materials)
+      ? rewards.materials.map((material: any) => material.materialId).filter((value: unknown): value is number => Number.isInteger(value))
+      : []
+  ))]
+  const [rewardItems, rewardMaterials] = await Promise.all([
+    itemIds.length ? db.item.findMany({ where: { id: { in: itemIds } }, select: { id: true, name: true, icon: true } }) : [],
+    materialIds.length ? db.material.findMany({ where: { id: { in: materialIds } }, select: { id: true, name: true, icon: true } }) : [],
+  ])
   const hero = await db.hero.findUnique({
     where: { id: heroId },
     select: { hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true, attrs: true },
@@ -156,6 +178,10 @@ export async function getActiveAdventure(heroId: string) {
     status: ha.status,
     startedAt: ha.startedAt,
     result,
+    rewardCatalog: {
+      items: Object.fromEntries(rewardItems.map(item => [item.id, { name: item.name, icon: item.icon }])),
+      materials: Object.fromEntries(rewardMaterials.map(material => [material.id, { name: material.name, icon: material.icon }])),
+    },
     currentStepData: currentStep ?? null,
     heroAttributes: hero?.attrs as Record<string, number> | undefined,
     heroResources: hero ? {
