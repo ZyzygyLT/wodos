@@ -513,6 +513,45 @@ describe('runDungeon', () => {
     expect(result.log.some(l => l.message.includes('Escudo de maná'))).toBe(true)
   })
 
+  it('records the updated condition when combat healing changes HP', async () => {
+    setupRand(...Array(100).fill(0.5))
+    let healedUnitId: string | undefined
+    const healingStateChanges: Array<{ unitId: string; condition?: string }> = []
+    const hero = makeHero({
+      hpMax: 100,
+      hpCurrent: 1,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 2, multiplier: 1, manaCost: 0, effect: 'heal', rank: 1, healPct: 50,
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
+      ],
+    })
+    await runDungeon([hero], makeDungeon(), {
+      combatEventHandlers: [
+        { eventType: 'healing_applied', handle: event => { healedUnitId = event.targetId } },
+        {
+          eventType: 'unit_state_changed',
+          handle: event => {
+            if (event.changes.hp !== undefined) {
+              healingStateChanges.push({ unitId: event.unitId, condition: event.changes.condition })
+            }
+          },
+        },
+      ],
+    })
+
+    expect(healedUnitId).toBe(hero.id)
+    expect(healingStateChanges.find(change => change.unitId === hero.id)?.condition).toBeTruthy()
+  })
+
   it('handles healing skills in combat', async () => {
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     const hero = makeHero({
