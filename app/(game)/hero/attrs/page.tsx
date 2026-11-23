@@ -136,14 +136,14 @@ export default function HeroAttrsPage() {
               <div className="flex gap-1.5">
                 <button
                   onClick={() => refundPoint(key)}
-                  disabled={spending === key || val <= 0}
+                  disabled={spending !== null || val <= 0}
                   className="px-3 py-1.5 rounded-lg bg-red-800/30 hover:bg-red-700/40 text-red-400 text-sm font-bold transition disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   {spending === key ? "..." : "-1"}
                 </button>
                 <button
                   onClick={() => spendPoint(key)}
-                  disabled={spending === key}
+                  disabled={spending !== null}
                   className="px-3 py-1.5 rounded-lg bg-amber-800/40 hover:bg-amber-700/50 text-amber-300 text-sm font-bold transition disabled:opacity-40"
                 >
                   {spending === key ? "..." : "+1"}
