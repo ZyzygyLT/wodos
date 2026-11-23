@@ -4,6 +4,10 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react"
 import type { RunResult } from "@/lib/combat-engine/dungeon-runner"
 import { CombatPlayback } from "@/components/combat/CombatPlayback"
 
+vi.mock("@/components/combat/RoundView", () => ({
+  RoundView: () => <div>Ronda de prueba</div>,
+}))
+
 beforeEach(() => cleanup())
 
 describe("CombatPlayback", () => {
@@ -31,4 +35,31 @@ describe("CombatPlayback", () => {
     fireEvent.click(screen.getByText(/Ver reporte completo/))
     expect(onFinish).toHaveBeenCalledOnce()
   })
+  it("restarts automatic playback when the player chooses repeat", () => {
+    const result = {
+      victory: true,
+      totalRounds: 1,
+      epGained: 0,
+      goldGained: 0,
+      levelReports: [{
+        levelNumber: 1,
+        rounds: [{ roundNumber: 1 }],
+      }],
+    } as unknown as RunResult
+
+    render(
+      <CombatPlayback
+        result={result}
+        dungeonName="Cueva de prueba"
+        onFinish={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByText("⏸ Pausa"))
+    fireEvent.click(screen.getByText("🔄 Repetir"))
+
+    expect(screen.getByText("⏸ Pausa")).toBeTruthy()
+    expect(screen.queryByText("🔄 Repetir")).toBeNull()
+  })
+
 })

@@ -120,7 +120,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
       {/* Controls */}
       <div className="flex items-center justify-center gap-3 pt-4 border-t border-gray-800">
         <button
-          onClick={() => goTo(0)}
+          onClick={() => { goTo(0); setPlaying(true) }}
           className="px-3 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 transition disabled:opacity-30"
           disabled={currentIndex === 0}
         >
