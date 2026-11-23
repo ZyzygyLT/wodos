@@ -16,6 +16,23 @@ type SelectedAdventure = {
   completionRewards: { goldMin: number; goldMax: number; ep: number; fame: number } | null
 }
 
+type TacticalProfileSummary = {
+  name: string
+  position: string
+  prelimRules: unknown[]
+  roundRules: unknown[]
+  defenseSkills?: Record<string, number | null>
+}
+
+const POSITION_NAMES: Record<string, string> = {
+  front: "Frontal",
+  center: "Centro",
+  rear: "Trasera",
+  left_flank: "Flanco izquierdo",
+  right_flank: "Flanco derecho",
+  flexible: "Flexible",
+}
+
 export default function AdventuresPage() {
   const router = useRouter()
   const [data, setData] = useState<any>(null)
@@ -23,6 +40,7 @@ export default function AdventuresPage() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState<number | null>(null)
   const [selectedAdventure, setSelectedAdventure] = useState<SelectedAdventure | null>(null)
+  const [tacticalProfile, setTacticalProfile] = useState<TacticalProfileSummary | null | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -44,6 +62,18 @@ export default function AdventuresPage() {
       .then((result) => { if (result) setHistory(result.history ?? []) })
       .catch((error) => {
         if (error.name !== "AbortError") logger.error("adventures", "Failed to fetch adventures", error)
+      })
+
+    fetch("/api/tactics", { signal: controller.signal })
+      .then(async (res) => res.ok ? res.json() : null)
+      .then((result) => {
+        const generalProfile = Array.isArray(result?.profiles)
+          ? result.profiles.find((profile: TacticalProfileSummary & { dungeonLevel: number | null }) => profile.dungeonLevel === null)
+          : null
+        setTacticalProfile(generalProfile ?? null)
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") logger.error("adventures", "Failed to fetch tactical profile", error)
       })
 
     return () => controller.abort()
@@ -274,6 +304,38 @@ export default function AdventuresPage() {
                   <p className="mt-2 text-xs text-gray-500">
                     Los objetos y materiales, si los hay, dependen de las probabilidades de recompensa.
                   </p>
+                </div>
+              )}
+
+              {selectedAdventure.requiresCombat && (
+                <div className="mt-4 rounded-lg border border-cyan-900/60 bg-cyan-950/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
+                      Táctica aplicada en este combate
+                    </p>
+                    <a href="/tactics" className="text-xs font-semibold text-cyan-200 underline underline-offset-2">
+                      Editar tácticas
+                    </a>
+                  </div>
+                  {tacticalProfile === undefined ? (
+                    <p className="mt-2 text-xs text-gray-400">No se pudo consultar todavía el perfil táctico.</p>
+                  ) : tacticalProfile ? (
+                    <>
+                      <p className="mt-2 text-sm font-semibold text-gray-100">
+                        {tacticalProfile.name} · {POSITION_NAMES[tacticalProfile.position] ?? tacticalProfile.position}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300">
+                        <span>Preparación: {Array.isArray(tacticalProfile.prelimRules) ? tacticalProfile.prelimRules.length : 0}</span>
+                        <span>Reglas de ronda: {Array.isArray(tacticalProfile.roundRules) ? tacticalProfile.roundRules.length : 0}</span>
+                        <span>Defensas: {Object.values(tacticalProfile.defenseSkills ?? {}).filter(value => typeof value === "number").length}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-xs leading-relaxed text-gray-300">
+                      No hay un perfil General guardado. Se utilizará la configuración predeterminada del motor:
+                      posición frontal y reglas básicas de combate. Los perfiles por nivel se reservan para mazmorras.
+                    </p>
+                  )}
                 </div>
               )}
 
