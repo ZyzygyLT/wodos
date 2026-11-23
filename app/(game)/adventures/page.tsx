@@ -4,13 +4,25 @@ import logger from "@/lib/logger"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
+type SelectedAdventure = {
+  id: number
+  name: string
+  icon: string
+  duration: number
+  energyCost: number
+  canAfford: boolean
+  canStart: boolean
+  requiresCombat: boolean
+  completionRewards: { goldMin: number; goldMax: number; ep: number; fame: number } | null
+}
+
 export default function AdventuresPage() {
   const router = useRouter()
   const [data, setData] = useState<any>(null)
   const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState<number | null>(null)
-  const [selectedAdventure, setSelectedAdventure] = useState<any>(null)
+  const [selectedAdventure, setSelectedAdventure] = useState<SelectedAdventure | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
