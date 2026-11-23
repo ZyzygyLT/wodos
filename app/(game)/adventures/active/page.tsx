@@ -199,6 +199,53 @@ export default function ActiveAdventurePage() {
             <span className="text-xs text-gray-400">Paso {active?.currentStep ?? 0}/{active?.totalSteps}</span>
           </div>
 
+          {active?.heroResources && (
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-gray-900/70 border border-red-900/60 rounded-lg p-3">
+                <div className="flex justify-between text-xs mb-2">
+                  <span className="text-red-300 font-semibold">❤️ Salud</span>
+                  <span className="text-gray-300 tabular-nums">
+                    {active.heroResources.hpCurrent}/{active.heroResources.hpMax}
+                  </span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label="Salud actual"
+                  aria-valuemin={0}
+                  aria-valuemax={active.heroResources.hpMax}
+                  aria-valuenow={active.heroResources.hpCurrent}
+                  className="h-2 bg-gray-700 rounded-full overflow-hidden"
+                >
+                  <div
+                    className="h-full bg-red-500 transition-all"
+                    style={{ width: `${active.heroResources.hpMax > 0 ? Math.min(100, Math.max(0, active.heroResources.hpCurrent / active.heroResources.hpMax * 100)) : 0}%` }}
+                  />
+                </div>
+              </div>
+              <div className="bg-gray-900/70 border border-blue-900/60 rounded-lg p-3">
+                <div className="flex justify-between text-xs mb-2">
+                  <span className="text-blue-300 font-semibold">🔷 Maná</span>
+                  <span className="text-gray-300 tabular-nums">
+                    {active.heroResources.mpCurrent}/{active.heroResources.mpMax}
+                  </span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label="Maná actual"
+                  aria-valuemin={0}
+                  aria-valuemax={active.heroResources.mpMax}
+                  aria-valuenow={active.heroResources.mpCurrent}
+                  className="h-2 bg-gray-700 rounded-full overflow-hidden"
+                >
+                  <div
+                    className="h-full bg-blue-500 transition-all"
+                    style={{ width: `${active.heroResources.mpMax > 0 ? Math.min(100, Math.max(0, active.heroResources.mpCurrent / active.heroResources.mpMax * 100)) : 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-2 rounded-lg mb-4">
               {error}

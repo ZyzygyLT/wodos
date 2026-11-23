@@ -1,6 +1,0 @@
-const { Client } = require('pg')
-const c = new Client({ connectionString: process.env.DATABASE_URL })
-c.connect()
-  .then(() => c.query(`INSERT INTO _prisma_migrations (migration_name, started_at, applied_steps_count) VALUES ('20260713135349_init', NOW(), 1) ON CONFLICT (migration_name) DO NOTHING`))
-  .then(r => { console.log('OK rows:', r.rowCount); return c.end() })
-  .catch(e => { console.error('Error:', e.message); c.end() })

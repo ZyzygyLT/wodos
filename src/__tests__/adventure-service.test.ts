@@ -5,6 +5,9 @@ vi.mock("@/lib/db", () => ({
     heroAdventure: {
       findFirst: vi.fn(),
     },
+    hero: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
@@ -12,10 +15,12 @@ import db from "@/lib/db"
 import { getActiveAdventure } from "@/services/adventure.service"
 
 const findFirst = vi.mocked(db.heroAdventure.findFirst)
+const findHero = vi.mocked(db.hero.findUnique)
 
 describe("getActiveAdventure", () => {
   beforeEach(() => {
     findFirst.mockReset()
+    findHero.mockReset()
   })
 
   it("does not resurrect an older failed run after the latest run was claimed", async () => {
@@ -47,11 +52,18 @@ describe("getActiveAdventure", () => {
       },
     }
     findFirst.mockResolvedValue(failedRun as never)
+    findHero.mockResolvedValue({
+      hpCurrent: 42,
+      hpMax: 60,
+      mpCurrent: 8,
+      mpMax: 20,
+    } as never)
 
     await expect(getActiveAdventure("hero-1")).resolves.toMatchObject({
       id: "run-2",
       status: "failed",
       adventureName: "The Ruins",
+      heroResources: { hpCurrent: 42, hpMax: 60, mpCurrent: 8, mpMax: 20 },
     })
   })
 })
