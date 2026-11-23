@@ -65,7 +65,7 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
 
   if (ei) {
     return (
-      <div className="bg-gray-900 rounded-lg border border-yellow-700/60 p-2 flex items-center gap-2 hover:border-yellow-600 transition"
+      <div role="group" aria-label={`${info.label}: ${ei.item.name}`} className="bg-gray-900 rounded-lg border border-yellow-700/60 p-2 flex items-center gap-2 hover:border-yellow-600 transition"
         onMouseEnter={() => onHover?.(ei)} onMouseLeave={onLeave}
         onFocus={() => onHover?.(ei)} onBlur={onLeave}>
         <span className="text-lg">{ei.item.icon}</span>
@@ -75,16 +75,16 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
           {(ei.upgradeLevel ?? 0) > 0 && <p className="text-[10px] text-orange-400">⬆ +{ei.upgradeLevel}</p>}
         </div>
         <div className="flex flex-col gap-1 shrink-0">
-          <button onClick={() => onUnequip(ei.id)}
+          <button type="button" aria-label={`Retirar ${ei.item.name}`} onClick={() => onUnequip(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-800 hover:bg-yellow-700 transition"
             disabled={toggling === ei.id}>{toggling === ei.id ? "..." : "✕"}
           </button>
-          <button onClick={() => onEnchant(ei.id)}
+          <button type="button" aria-label={`Mejorar ${ei.item.name}`} onClick={() => onEnchant(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-orange-800 hover:bg-orange-700 transition">
             +{ei.upgradeLevel ?? 0}
           </button>
           {ei.item.runeSlots > 0 && (
-            <button onClick={() => onSocket(ei.id)}
+            <button type="button" aria-label={`Engarzar runa en ${ei.item.name}`} onClick={() => onSocket(ei.id)}
               className="text-[10px] px-1.5 py-0.5 rounded bg-purple-800 hover:bg-purple-700 transition">
               💎
             </button>
