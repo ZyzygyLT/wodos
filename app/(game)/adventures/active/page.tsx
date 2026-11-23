@@ -253,7 +253,14 @@ export default function ActiveAdventurePage() {
             <div>
               <h1 className="text-2xl font-bold text-amber-300">{active?.adventureName}</h1>
               {active?.adventureLore && (
-                <p className="text-xs text-gray-500 italic mt-1">{active.adventureLore.slice(0, 120)}...</p>
+                <details className="mt-2 max-w-2xl rounded-lg border border-gray-700/70 bg-gray-900/50 px-3 py-2">
+                  <summary className="cursor-pointer text-xs font-semibold text-cyan-300 hover:text-cyan-200">
+                    📖 Consultar el trasfondo de la aventura
+                  </summary>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-300">
+                    {active.adventureLore}
+                  </p>
+                </details>
               )}
             </div>
           </div>
