@@ -110,17 +110,20 @@ export default function AdventuresPage() {
                   )}
                 </div>
                 <span className="text-xs bg-gray-700 px-2 py-1 rounded text-gray-300">
-                  Nvl {adv.levelReq}+
+                  Nivel {adv.levelReq}–{adv.maxLevel}
                 </span>
               </div>
               <p className="text-sm text-gray-400 mb-3">{adv.description}</p>
               <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
                 <span>⏱️ {adv.duration} min</span>
                 <span>⚡ {adv.energyCost} energía</span>
+                {!adv.canAfford && !data?.hasActiveAdventure && (
+                  <span className="text-amber-400">Te faltan {adv.energyCost - data.energy} energía</span>
+                )}
               </div>
               <button
                 onClick={() => startAdventure(adv.id)}
-                disabled={starting === adv.id || !adv.canAfford || data?.hasActiveAdventure}
+                disabled={starting !== null || !adv.canAfford || data?.hasActiveAdventure}
                 className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
                   adv.canAfford
                     ? "bg-emerald-700 hover:bg-emerald-600 text-white"
