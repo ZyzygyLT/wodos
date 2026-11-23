@@ -114,6 +114,16 @@ export default function AdventuresPage() {
                 </span>
               </div>
               <p className="text-sm text-gray-400 mb-3">{adv.description}</p>
+              {adv.lore && (
+                <details className="mb-4 rounded-lg border border-gray-700/70 bg-gray-900/40 px-3 py-2">
+                  <summary className="cursor-pointer text-sm font-semibold text-cyan-300 hover:text-cyan-200">
+                    📖 Conocer el trasfondo
+                  </summary>
+                  <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-gray-300">
+                    {adv.lore}
+                  </p>
+                </details>
+              )}
               {adv.completionRewards && (
                 <div className="rounded-lg border border-emerald-900/50 bg-gray-900/60 px-3 py-2 mb-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300 mb-1">
