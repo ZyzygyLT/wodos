@@ -212,7 +212,8 @@ export default function ActiveAdventurePage() {
   const currentStep = active?.currentStepData
   const isChoice = stepType === 'choice'
   const rewardSteps = ((active?.result?.steps ?? []) as StepResult[])
-    .filter((entry): entry is Extract<StepResult, { type: 'reward' }> => entry.type === 'reward')
+    .filter((entry): entry is (Extract<StepResult, { type: 'reward' }> | Extract<StepResult, { type: 'choice' }>) & { rewards: StepRewards } =>
+      (entry.type === 'reward' || entry.type === 'choice') && Boolean(entry.rewards))
   const hasRecoverableRewards = isDefeated && rewardSteps.length > 0
   const globalRewards: StepRewards = active?.result?.rewards ?? {}
   const sumReward = (key: 'gold' | 'ep' | 'fame') => Number(globalRewards[key] ?? 0) +
