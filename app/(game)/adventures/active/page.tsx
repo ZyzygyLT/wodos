@@ -1,7 +1,7 @@
 "use client"
 
 import logger from "@/lib/logger"
-import type { StepResult, StepRewards } from "@/lib/adventures/types"
+import type { StepResult, StepRewards, AdventureStepEnemy } from "@/lib/adventures/types"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -362,7 +362,7 @@ export default function ActiveAdventurePage() {
                     <span className="text-xs text-gray-400">{currentStep.enemies.length} {currentStep.enemies.length === 1 ? 'enemigo' : 'enemigos'}</span>
                   </div>
                   <div className="space-y-2">
-                    {currentStep.enemies.map((enemy: any, i: number) => (
+                    {currentStep.enemies.map((enemy: AdventureStepEnemy, i: number) => (
                       <div key={i} className="flex items-center justify-between gap-3 rounded-md bg-gray-900/70 px-3 py-2">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="text-xl" aria-hidden="true">{enemy.icon || '👹'}</span>
