@@ -433,6 +433,23 @@ export default function ActiveAdventurePage() {
                 <span className="text-purple-300">⭐ +{claimResult.rewards?.ep ?? 0} EP</span>
                 <span className="text-blue-300">🏆 +{claimResult.rewards?.fame ?? 0} fama</span>
               </div>
+              {((claimResult.rewards?.items?.length ?? 0) > 0 || (claimResult.rewards?.materials?.length ?? 0) > 0) && (
+                <div className="mt-3 border-t border-emerald-800/70 pt-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Añadido al inventario</p>
+                  <div className="space-y-1">
+                    {claimResult.rewards?.items?.map((item) => (
+                      <p key={item.itemId} className="text-sm text-gray-200">
+                        {active?.rewardCatalog?.items?.[item.itemId]?.icon ?? "📦"} {active?.rewardCatalog?.items?.[item.itemId]?.name ?? `Objeto #${item.itemId}`} ×{item.qty}
+                      </p>
+                    ))}
+                    {claimResult.rewards?.materials?.map((material) => (
+                      <p key={material.materialId} className="text-sm text-gray-200">
+                        {active?.rewardCatalog?.materials?.[material.materialId]?.icon ?? "🧱"} {active?.rewardCatalog?.materials?.[material.materialId]?.name ?? `Material #${material.materialId}`} ×{material.qty}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
