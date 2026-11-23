@@ -217,3 +217,6 @@ export function combineAdventureRewards(
     if (rewards.items?.length) combined.items = [...(combined.items ?? []), ...rewards.items]
     if (rewards.materials?.length) combined.materials = [...(combined.materials ?? []), ...rewards.materials]
   }
+
+  return combined
+}
