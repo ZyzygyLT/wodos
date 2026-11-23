@@ -881,7 +881,7 @@ async function seedAdventures() {
           type: 'choice', name: 'El Meditante Misterioso',
           description: 'La figura no se mueve. El musgo brilla más intensamente a su alrededor. Puedes distinguir un báculo de madera retorcida apoyado a su lado.',
           choices: [
-            { text: 'Saludar a la figura', nextStep: 4, flavor: 'Tu voz rompe el silencio. La figura se incorpora lentamente...' },
+            { text: 'Saludar a la figura', nextStep: 4, flavor: 'Tu voz rompe el silencio. La figura se incorpora lentamente...', skillCheck: { attr: 'ch', dc: 7, passStep: 5, failStep: 4 } },
             { text: 'Tomar el báculo sigilosamente', nextStep: 4, flavor: 'Te acercas con cuidado, pero al tocar el báculo, una descarga de energía te sacude y despierta al druida.' },
           ],
         },
