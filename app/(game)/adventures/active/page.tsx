@@ -143,14 +143,15 @@ export default function ActiveAdventurePage() {
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
       const result: AdventureClaimResult = await res.json()
       setClaimResult(result)
-      if (result.levelUp?.leveledUp) {
-        setActive((prev: any) => ({
+      const levelUp = result.levelUp
+      if (levelUp?.leveledUp) {
+        setActive((prev) => ({
           ...prev,
           heroResources: {
-            hpCurrent: result.levelUp.newHpMax,
-            hpMax: result.levelUp.newHpMax,
-            mpCurrent: result.levelUp.newMpMax,
-            mpMax: result.levelUp.newMpMax,
+            hpCurrent: levelUp.newHpMax,
+            hpMax: levelUp.newHpMax,
+            mpCurrent: levelUp.newMpMax,
+            mpMax: levelUp.newMpMax,
           },
         }))
       }
