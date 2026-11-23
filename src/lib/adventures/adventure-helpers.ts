@@ -1,4 +1,5 @@
 import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
+import { ENERGY_RECHARGE_INTERVAL_MINUTES } from './types'
 
 export const ADVENTURE_STATUSES_BLOCKING_NEW_START = ['active', 'completed'] as const
 
@@ -13,8 +14,20 @@ import type {
 export function calcEnergyRecharge(lastRechargeAt: Date | null): number {
   if (!lastRechargeAt) return 0
   const elapsedMinutes = (Date.now() - lastRechargeAt.getTime()) / 60000
-  const earned = Math.floor(elapsedMinutes / 5)
+  const earned = Math.floor(elapsedMinutes / ENERGY_RECHARGE_INTERVAL_MINUTES)
   return Math.max(0, earned)
+}
+
+/** Preserve partial recharge time unless the energy cap has been reached. */
+export function getNextEnergyRechargeAt(
+  lastRechargeAt: Date | null,
+  earned: number,
+  energyAfterRecharge: number,
+  energyMax: number,
+  now: Date = new Date(),
+): Date {
+  if (!lastRechargeAt || energyAfterRecharge >= energyMax) return now
+  return new Date(lastRechargeAt.getTime() + earned * ENERGY_RECHARGE_INTERVAL_MINUTES * 60_000)
 }
 
 export function resolveAdventureChoice(

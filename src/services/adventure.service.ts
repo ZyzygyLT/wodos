@@ -4,7 +4,7 @@ import { buildHeroData } from '@/lib/dungeon-helpers'
 import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/adventures/combat-adapter'
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
-  calcEnergyRecharge, resolveAdventureChoice, rollAdventureRewards,
+  calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
   ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart,
 } from '@/lib/adventures/adventure-helpers'
 import {
@@ -30,7 +30,9 @@ async function getHeroWithEnergy(heroId: string) {
     if (energyRechargeAmount <= 0) return hero
 
     const newEnergy = Math.min(hero.adventureEnergyMax, hero.adventureEnergy + energyRechargeAmount)
-    const rechargedAt = new Date()
+    const rechargedAt = getNextEnergyRechargeAt(
+      hero.lastEnergyRechargeAt, energyRechargeAmount, newEnergy, hero.adventureEnergyMax,
+    )
     await tx.hero.update({
       where: { id: heroId },
       data: { adventureEnergy: newEnergy, lastEnergyRechargeAt: rechargedAt },

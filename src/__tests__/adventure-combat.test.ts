@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveAdventureChoice, resolveCombatStep, isAdventureBlockingNewStart } from '@/lib/adventures/adventure-helpers'
+import { resolveAdventureChoice, resolveCombatStep, isAdventureBlockingNewStart, getNextEnergyRechargeAt } from '@/lib/adventures/adventure-helpers'
 import { getAdventureStepGraphErrors } from '@/lib/adventures/step-graph'
 
 describe('adventure start blocking', () => {
@@ -206,5 +206,23 @@ describe('adventure combat adapter', () => {
       heroMpRemaining: 4,
       log: ['The hero falls'],
     })
+  })
+})
+
+
+describe('adventure energy recharge timing', () => {
+  const now = new Date('2026-11-22T12:09:00.000Z')
+
+  it('preserves the unspent remainder of the five-minute recharge interval', () => {
+    const lastRechargeAt = new Date('2026-11-22T12:00:00.000Z')
+
+    expect(getNextEnergyRechargeAt(lastRechargeAt, 1, 4, 10, now))
+      .toEqual(new Date('2026-11-22T12:05:00.000Z'))
+  })
+
+  it('resets the recharge clock when the energy cap is reached', () => {
+    const lastRechargeAt = new Date('2026-11-22T12:00:00.000Z')
+
+    expect(getNextEnergyRechargeAt(lastRechargeAt, 2, 10, 10, now)).toEqual(now)
   })
 })
