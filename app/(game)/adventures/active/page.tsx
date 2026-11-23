@@ -355,6 +355,33 @@ export default function ActiveAdventurePage() {
               <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-1">{currentStep.name}</h3>
               <p className="text-gray-300 leading-relaxed text-sm">{currentStep.description}</p>
 
+              {currentStep.type === 'combat' && currentStep.enemies?.length > 0 && (
+                <div className="mt-4 rounded-lg border border-red-900/60 bg-red-950/20 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-red-300">⚔️ Enemigos del encuentro</p>
+                    <span className="text-xs text-gray-400">{currentStep.enemies.length} {currentStep.enemies.length === 1 ? 'enemigo' : 'enemigos'}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {currentStep.enemies.map((enemy: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between gap-3 rounded-md bg-gray-900/70 px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="text-xl" aria-hidden="true">{enemy.icon || '👹'}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-200">{enemy.name}</p>
+                            <p className="text-xs text-gray-500">Nivel {enemy.level}</p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right text-xs tabular-nums">
+                          <p className="text-red-300">❤️ {enemy.hp} HP</p>
+                          <p className="text-gray-400">⚔️ {enemy.atk} · 🛡️ {enemy.def}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-gray-400">El combate puede consumir salud y maná. Los valores actuales de tu héroe se conservarán al terminar.</p>
+                </div>
+              )}
+
               {isChoice && currentStep.choices && (
                 <div className="mt-4 space-y-2">
                   {currentStep.choices.map((c: any, i: number) => (
@@ -472,7 +499,7 @@ export default function ActiveAdventurePage() {
                 disabled={executing}
                 className="flex-1 py-3 bg-amber-700 hover:bg-amber-600 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-semibold"
               >
-                {executing ? "Cargando..." : "Continuar →"}
+                {executing ? "Resolviendo..." : currentStep?.type === 'combat' ? "⚔️ Combatir" : "Continuar →"}
               </button>
             )}
             {(active?.status === "completed" || hasRecoverableRewards) && (
