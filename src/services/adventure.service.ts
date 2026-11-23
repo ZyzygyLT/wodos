@@ -187,8 +187,15 @@ export async function getActiveAdventure(heroId: string) {
   ])
   const hero = await db.hero.findUnique({
     where: { id: heroId },
-    select: { hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true, attrs: true },
+    include: {
+      combatProfiles: { where: { dungeonLevel: null }, take: 1 },
+      skills: { include: { skill: true } },
+      items: { include: { item: true } },
+    },
   })
+  const heroAttributes = hero
+    ? mergeHeroAttrs(await buildHeroData(hero, hero.combatProfiles[0] ?? null))
+    : undefined
 
   return {
     id: ha.id,
@@ -207,7 +214,7 @@ export async function getActiveAdventure(heroId: string) {
       materials: Object.fromEntries(rewardMaterials.map(material => [material.id, { name: material.name, icon: material.icon }])),
     },
     currentStepData: currentStep ?? null,
-    heroAttributes: hero?.attrs as Record<string, number> | undefined,
+    heroAttributes,
     heroResources: hero ? {
       hpCurrent: hero.hpCurrent,
       hpMax: hero.hpMax,
