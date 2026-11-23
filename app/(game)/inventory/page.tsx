@@ -78,7 +78,7 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
           <button onClick={() => onUnequip(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-800 hover:bg-yellow-700 transition"
             disabled={toggling === ei.id}>{toggling === ei.id ? "..." : "✕"}
-          </div>
+          </button>
           <button onClick={() => onEnchant(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-orange-800 hover:bg-orange-700 transition">
             +{ei.upgradeLevel ?? 0}
@@ -90,7 +90,7 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
             </button>
           )}
         </div>
-      </button>
+      </div>
     )
   }
 
