@@ -141,7 +141,7 @@ export async function getActiveAdventure(heroId: string) {
   const currentStep = steps[ha.currentStep]
   const hero = await db.hero.findUnique({
     where: { id: heroId },
-    select: { hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true },
+    select: { hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true, attrs: true },
   })
 
   return {
@@ -157,6 +157,7 @@ export async function getActiveAdventure(heroId: string) {
     startedAt: ha.startedAt,
     result,
     currentStepData: currentStep ?? null,
+    heroAttributes: hero?.attrs as Record<string, number> | undefined,
     heroResources: hero ? {
       hpCurrent: hero.hpCurrent,
       hpMax: hero.hpMax,

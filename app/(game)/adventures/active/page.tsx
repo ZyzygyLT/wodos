@@ -340,7 +340,7 @@ export default function ActiveAdventurePage() {
                       <span className="text-amber-300 font-medium">{c.text}</span>
                       {c.skillCheck && (
                         <p className="text-xs text-cyan-300 mt-1">
-                          Prueba de {c.skillCheck.attr === 'pe' ? 'Percepción' : c.skillCheck.attr.toUpperCase()} · Dificultad {c.skillCheck.dc}
+                          Prueba de {c.skillCheck.attr === 'pe' ? 'Percepción' : c.skillCheck.attr === 'ch' ? 'Carisma' : c.skillCheck.attr.toUpperCase()} · Tu valor {active?.heroAttributes?.[c.skillCheck.attr] ?? '—'} · Dificultad {c.skillCheck.dc}
                         </p>
                       )}
                       {c.flavor && <p className="text-xs text-gray-500 mt-1 italic">{c.flavor}</p>}
