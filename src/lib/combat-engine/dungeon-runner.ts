@@ -12,7 +12,7 @@ import {
 
 import {
   evalTactics, buildTurnQueue,
-  CombatState, CombatUnit, RoundRule, TacticAction, TacticCondition, StatusEffect,
+  CombatState, CombatUnit, RoundRule, TacticAction, TacticCondition, TacticRuleEvaluation, StatusEffect,
   BuffEntry, PassiveEffect,
 } from './tactics-evaluator'
 
@@ -222,6 +222,8 @@ export interface DetailedAction {
   /** The configured rule that selected this action, before any execution fallback. */
   tacticRulePriority?: number
   tacticCondition?: TacticCondition
+  /** Exact rule checks performed by the evaluator before choosing this action. */
+  tacticRuleEvaluationTrace?: TacticRuleEvaluation[]
   targetId?: string
   targetName?: string
   attackValue?: number
@@ -2317,6 +2319,9 @@ function runHeroTurn(
         }
         if (finalAction.matchedCondition) {
           result.tacticCondition = finalAction.matchedCondition
+        }
+        if (finalAction.ruleEvaluationTrace?.length) {
+          result.tacticRuleEvaluationTrace = finalAction.ruleEvaluationTrace
         }
         if (finalAction.fallbackReason && finalAction.selectedSkillId !== undefined) {
           result.skillFallback = finalAction.fallbackReason

@@ -140,7 +140,8 @@ describe('runDungeon', () => {
         position: 'front',
         prelimRules: [],
         roundRules: [
-          { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'rear', targetType: 'strongest' } },
+          { priority: 1, condition: { type: 'hp_self_lt', value: 20 }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
+          { priority: 2, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'rear', targetType: 'strongest' } },
         ],
         defenseSkills: {},
       },
@@ -169,8 +170,21 @@ describe('runDungeon', () => {
     expect(secondRoundAttack?.targetName).toBe('Rear strongest')
     expect(secondRoundAttack?.skillFallback).toBe('cooldown')
     expect(secondRoundAttack?.selectedSkillName).toBe('Heavy strike')
-    expect(secondRoundAttack?.tacticRulePriority).toBe(1)
+    expect(secondRoundAttack?.tacticRulePriority).toBe(2)
     expect(secondRoundAttack?.tacticCondition).toEqual({ type: 'always' })
+    expect(secondRoundAttack?.tacticRuleEvaluationTrace).toEqual([
+      {
+        priority: 1,
+        condition: { type: 'hp_self_lt', value: 20 },
+        matched: false,
+        reason: 'HP propio 100.0% no es inferior a 20%',
+      },
+      {
+        priority: 2,
+        condition: { type: 'always' },
+        matched: true,
+      },
+    ])
   })
 
   it('reports when an already-active party buff replaces the selected skill', async () => {

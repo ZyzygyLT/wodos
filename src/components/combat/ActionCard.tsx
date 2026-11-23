@@ -158,6 +158,29 @@ function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boole
           Regla táctica #{a.tacticRulePriority} · si {tacticConditionLabel(a.tacticCondition)}
         </p>
       )}
+      {!isEnemy && a.tacticRulePriority === undefined && (a.tacticRuleEvaluationTrace?.length ?? 0) > 0 && (
+        <p className="text-[10px] text-amber-300 ml-1">
+          Ninguna regla coincidió; se usó la acción predeterminada
+        </p>
+      )}
+      {!isEnemy && (a.tacticRuleEvaluationTrace?.length ?? 0) > 1 && (
+        <details className="ml-1 text-[10px] text-gray-400">
+          <summary className="cursor-pointer select-none hover:text-gray-200">
+            Evaluación táctica · {a.tacticRuleEvaluationTrace.length} reglas comprobadas
+          </summary>
+          <div className="mt-1 space-y-1 border-l border-gray-700 pl-2">
+            {a.tacticRuleEvaluationTrace.map((entry, index) => (
+              <p key={`${entry.priority}-${index}`}>
+                <span className={entry.matched ? "text-cyan-300" : "text-gray-500"}>
+                  #{entry.priority} · {entry.matched ? "coincide" : "no coincide"}
+                </span>
+                {" · "}{tacticConditionLabel(entry.condition)}
+                {entry.reason && <span className="text-gray-500"> — {entry.reason}</span>}
+              </p>
+            ))}
+          </div>
+        </details>
+      )}
       {a.skillFallback && (
         <p className="text-[10px] text-amber-300 ml-1">
           {a.skillFallback === 'free_basic'

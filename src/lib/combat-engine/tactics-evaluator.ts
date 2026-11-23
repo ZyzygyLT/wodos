@@ -28,6 +28,13 @@ export interface TacticCondition {
   value?: number
 }
 
+export interface TacticRuleEvaluation {
+  priority: number
+  condition: TacticCondition
+  matched: boolean
+  reason?: string
+}
+
 export interface TacticAction {
   skillId: number
   itemId?: number
@@ -39,6 +46,8 @@ export interface TacticAction {
   /** Priority and trigger condition of the first rule matched by the evaluator. */
   matchedRulePriority?: number
   matchedCondition?: TacticCondition
+  /** Rules actually evaluated, in priority order, through the first match. */
+  ruleEvaluationTrace?: TacticRuleEvaluation[]
 }
 
 export interface RoundRule {
@@ -138,72 +147,125 @@ export const evalTactics = (
   fallbackSkillId: number = 1
 ): TacticAction => {
   const sorted = [...rules].sort((a, b) => a.priority - b.priority)
+  const ruleEvaluationTrace: TacticRuleEvaluation[] = []
 
   for (const rule of sorted) {
-    if (evalCondition(rule.condition, state)) {
+    const evaluation = evaluateConditionWithReason(rule.condition, state)
+    ruleEvaluationTrace.push({
+      priority: rule.priority,
+      condition: { ...rule.condition },
+      matched: evaluation.matched,
+      ...(evaluation.reason ? { reason: evaluation.reason } : {}),
+    })
+    if (evaluation.matched) {
       return {
         ...rule.action,
         matchedRulePriority: rule.priority,
         matchedCondition: { ...rule.condition },
+        ruleEvaluationTrace,
       }
     }
   }
 
-  return { skillId: fallbackSkillId, targetPos: 'auto', targetType: 'weakest' }
+  return {
+    skillId: fallbackSkillId,
+    targetPos: 'auto',
+    targetType: 'weakest',
+    ruleEvaluationTrace,
+  }
 }
 
 export const evalCondition = (
   cond: TacticCondition,
   state: CombatState
-): boolean => {
+): boolean => evaluateConditionWithReason(cond, state).matched
+
+function evaluateConditionWithReason(
+  cond: TacticCondition,
+  state: CombatState
+): { matched: boolean; reason?: string } {
   const { hero, enemies, allies, round } = state
   const heroHpPct = getResourcePercent(hero.hp, hero.maxHp)
   const heroMpPct = getResourcePercent(hero.mp, hero.maxMp)
   const aliveEnemies = enemies.filter(e => Number.isFinite(e.hp) && e.hp > 0)
-
   const threshold = (fallback: number) =>
     typeof cond.value === 'number' && Number.isFinite(cond.value) ? cond.value : fallback
+  const percent = (value: number) => `${value.toFixed(1)}%`
 
   switch (cond.type) {
     case 'always':
-      return true
+      return { matched: true }
 
-    case 'hp_self_lt':
-      return heroHpPct !== null && heroHpPct < threshold(30)
+    case 'hp_self_lt': {
+      const limit = threshold(30)
+      if (heroHpPct === null) return { matched: false, reason: 'HP máximo propio no válido' }
+      return heroHpPct < limit
+        ? { matched: true }
+        : { matched: false, reason: `HP propio ${percent(heroHpPct)} no es inferior a ${limit}%` }
+    }
 
-    case 'hp_self_gt':
-      return heroHpPct !== null && heroHpPct > threshold(70)
+    case 'hp_self_gt': {
+      const limit = threshold(70)
+      if (heroHpPct === null) return { matched: false, reason: 'HP máximo propio no válido' }
+      return heroHpPct > limit
+        ? { matched: true }
+        : { matched: false, reason: `HP propio ${percent(heroHpPct)} no supera ${limit}%` }
+    }
 
     case 'hp_enemy_lt': {
       const weakest = getWeakest(aliveEnemies)
-      if (!weakest) return false
+      if (!weakest) return { matched: false, reason: 'No hay enemigos vivos para comprobar su HP' }
       const hpPct = getResourcePercent(weakest.hp, weakest.maxHp)
-      return hpPct !== null && hpPct < threshold(25)
+      if (hpPct === null) return { matched: false, reason: `HP máximo de ${weakest.name} no válido` }
+      const limit = threshold(25)
+      return hpPct < limit
+        ? { matched: true }
+        : { matched: false, reason: `El enemigo más débil (${weakest.name}) tiene ${percent(hpPct)} de HP; no está por debajo de ${limit}%` }
     }
 
     case 'hp_ally_lt': {
       const limit = threshold(50)
-      if (heroHpPct !== null && heroHpPct < limit) return true
-      return allies.some(ally => {
-        const hpPct = getResourcePercent(ally.hp, ally.maxHp)
-        return hpPct !== null && hpPct < limit
-      })
+      const candidates = [hero, ...allies]
+      const percentages = candidates
+        .map(unit => ({ name: unit.name, hp: getResourcePercent(unit.hp, unit.maxHp) }))
+        .filter((entry): entry is { name: string; hp: number } => entry.hp !== null)
+      if (percentages.some(entry => entry.hp < limit)) return { matched: true }
+      if (percentages.length === 0) return { matched: false, reason: 'No hay valores de HP válidos en el grupo' }
+      const lowest = percentages.reduce((min, entry) => entry.hp < min.hp ? entry : min)
+      return {
+        matched: false,
+        reason: `El miembro más herido (${lowest.name}) tiene ${percent(lowest.hp)} de HP; el umbral es ${limit}%`,
+      }
     }
 
-    case 'round_gt':
-      return Number.isFinite(round) && round > threshold(3)
+    case 'round_gt': {
+      const limit = threshold(3)
+      if (!Number.isFinite(round)) return { matched: false, reason: 'Número de ronda no válido' }
+      return round > limit
+        ? { matched: true }
+        : { matched: false, reason: `Ronda actual ${round}; debe ser superior a ${limit}` }
+    }
 
-    case 'mana_lt':
-      return heroMpPct !== null && heroMpPct < threshold(20)
+    case 'mana_lt': {
+      const limit = threshold(20)
+      if (heroMpPct === null) return { matched: false, reason: 'Maná máximo propio no válido' }
+      return heroMpPct < limit
+        ? { matched: true }
+        : { matched: false, reason: `Maná propio ${percent(heroMpPct)} no está por debajo de ${limit}%` }
+    }
 
     case 'ally_down':
       return allies.some(a => Number.isFinite(a.hp) && a.hp <= 0)
+        ? { matched: true }
+        : { matched: false, reason: 'Ningún aliado está derrotado' }
 
     case 'damaged_this_round':
-      return state.damagedThisRound === true
+      return state.damagedThisRound
+        ? { matched: true }
+        : { matched: false, reason: 'No recibió daño durante esta ronda' }
 
     default:
-      return false
+      return { matched: false, reason: 'Tipo de condición desconocido' }
   }
 }
 

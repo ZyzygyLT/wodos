@@ -136,6 +136,43 @@ describe('evalTactics', () => {
     expect(result.skillId).toBe(9)
     expect(result.matchedRulePriority).toBe(1)
     expect(result.matchedCondition).toEqual({ type: 'hp_self_lt', value: 80 })
+    expect(result.ruleEvaluationTrace).toEqual([
+      {
+        priority: 1,
+        condition: { type: 'hp_self_lt', value: 80 },
+        matched: true,
+      },
+    ])
+  })
+
+  it('records why earlier rules did not match and stops at the first match', () => {
+    const rules: RoundRule[] = [
+      { priority: 3, condition: { type: 'always' }, action: { skillId: 3, targetPos: 'auto', targetType: 'weakest' } },
+      { priority: 1, condition: { type: 'hp_self_lt', value: 30 }, action: { skillId: 1, targetPos: 'auto', targetType: 'self' } },
+      { priority: 2, condition: { type: 'mana_lt', value: 10 }, action: { skillId: 2, targetPos: 'auto', targetType: 'self' } },
+    ]
+    const result = evalTactics(rules, makeState())
+
+    expect(result.skillId).toBe(3)
+    expect(result.ruleEvaluationTrace).toEqual([
+      {
+        priority: 1,
+        condition: { type: 'hp_self_lt', value: 30 },
+        matched: false,
+        reason: 'HP propio 100.0% no es inferior a 30%',
+      },
+      {
+        priority: 2,
+        condition: { type: 'mana_lt', value: 10 },
+        matched: false,
+        reason: 'Maná propio 100.0% no está por debajo de 10%',
+      },
+      {
+        priority: 3,
+        condition: { type: 'always' },
+        matched: true,
+      },
+    ])
   })
 })
 
