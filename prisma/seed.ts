@@ -1388,6 +1388,107 @@ async function seedAdventures() {
       factionId: null, factionRep: 0,
       minGoldReward: 40, maxGoldReward: 70, epReward: 25, fameReward: 3, isActive: true,
     },
+
+    {
+      name: 'El Sello de Ceniza',
+      slug: 'sello-de-ceniza',
+      icon: '🕯️',
+      description: 'La pluma negra de los Cuervos conduce a una red clandestina que opera bajo las calles de Valdheim.',
+      lore: 'La copia de los documentos recuperados de la caravana contiene una dirección, tres nombres tachados y la impresión de un sello cubierto de ceniza. El escribano que podría descifrarlo desapareció la misma noche en que recibiste la carta. Los Guardianes de Valdheim sospechan que los Cuervos no eran más que mensajeros de una organización mucho mayor. Su símbolo aparece en archivos prohibidos desde los últimos días del Rey Brujo. Debes encontrar al escribano, descubrir qué protege el sello y decidir cuánto estás dispuesto a arriesgar para conocer la verdad.',
+      levelReq: 6, maxLevel: 12, duration: 25, energyCost: 14,
+      steps: [
+        {
+          type: 'narrative', name: 'La Carta sin Remitente',
+          description: 'Al caer la noche, alguien desliza un sobre bajo la puerta de tu alojamiento. Dentro encuentras una copia de la marca que viste en la caja de Orven y una nota escrita con pulso tembloroso: «El sello no debe abrirse. Busca al escribano en el barrio de los curtidores. Ven solo». La tinta todavía huele a humo.',
+        },
+        {
+          type: 'choice', name: 'Rastros en el Barrio de los Curtidores',
+          description: 'El barrio está casi desierto. Una puerta acaba de cerrarse al fondo de un callejón, mientras unas pisadas embarradas se alejan hacia los almacenes.',
+          choices: [
+            { text: 'Perseguir las pisadas antes de que se enfríen', nextStep: 2, flavor: 'Aceleras el paso. Dos figuras encapuchadas se separan para cerrarte el camino.' },
+            { text: 'Registrar la puerta y buscar una entrada discreta', nextStep: 4, flavor: 'La cerradura está forzada desde dentro. Alguien ha salido con prisa.' },
+          ],
+        },
+        {
+          type: 'combat', name: 'Emboscada en el Callejón',
+          description: 'Los desconocidos dejan caer sus capas. Uno lleva el brazalete de una pluma negra; el otro, una máscara cubierta de polvo gris. No quieren que sigas buscando al escribano.',
+          enemies: [
+            { name: 'Cobrador de los Cuervos', icon: '🗡️', hp: 42, mp: 0, atk: 13, def: 5, dx: 9, ag: 8, level: 6 },
+            { name: 'Tirador de Ceniza', icon: '🏹', hp: 34, mp: 5, atk: 14, def: 3, dx: 12, ag: 9, level: 6 },
+          ],
+        },
+        {
+          type: 'narrative', name: 'El Testigo del Callejón',
+          description: 'Entre las pertenencias de los atacantes encuentras una llave de hierro y un recibo de los almacenes del puerto. La máscara gris no lleva insignias, pero en su interior hay una frase grabada: «La memoria es combustible».',
+        },
+        {
+          type: 'choice', name: 'El Escondite del Escribano',
+          description: 'La llave abre una trampilla detrás de los curtidores. Bajo el suelo hay una habitación llena de papeles quemados. El escribano está vivo, aunque apenas puede mantenerse en pie. Un mecanismo protege el compartimento donde guarda sus notas.',
+          choices: [
+            { text: 'Estudiar las marcas y descifrar el mecanismo', nextStep: 5, flavor: 'Reconoces patrones repetidos en el sello. Si encuentras la secuencia, evitarás activar la alarma.', skillCheck: { attr: 'pe', dc: 9, passStep: 5, failStep: 6 } },
+            { text: 'Romper el mecanismo antes de que lleguen más perseguidores', nextStep: 6, flavor: 'No hay tiempo para acertijos. Preparas el arma y fuerzas el compartimento.' },
+          ],
+        },
+        {
+          type: 'reward', name: 'El Código Oculto',
+          description: 'Descifras la secuencia y abres el compartimento sin hacer ruido. El escribano te entrega una bolsa que había reservado para quien lograra encontrarlo.',
+          rewards: { gold: 25, ep: 8 },
+        },
+        {
+          type: 'combat', name: 'Los Guardianes del Archivo',
+          description: 'El mecanismo emite un chasquido y las lámparas se apagan. Tres figuras con máscaras de ceniza irrumpen en la habitación para recuperar los documentos.',
+          enemies: [
+            { name: 'Iniciado de Ceniza', icon: '🕯️', hp: 38, mp: 12, atk: 12, def: 4, dx: 8, ag: 7, level: 6, damageType: 'fire' },
+            { name: 'Custodio de Ceniza', icon: '🛡️', hp: 62, mp: 10, atk: 15, def: 8, dx: 7, ag: 5, level: 7 },
+            { name: 'Iniciado de Ceniza', icon: '🕯️', hp: 38, mp: 12, atk: 12, def: 4, dx: 8, ag: 7, level: 6, damageType: 'fire' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'Los Nombres Borrados',
+          description: 'El escribano te muestra los documentos. El sello pertenece al Círculo de la Ceniza, una sociedad que compra reliquias, destruye testimonios y borra nombres de los registros oficiales. Entre las páginas aparece una lista de entregas: la última está fechada para esta misma noche, en los antiguos baños bajo la plaza.',
+        },
+        {
+          type: 'choice', name: 'La Entrada a los Baños',
+          description: 'La entrada principal está vigilada. Desde el callejón puedes bajar por una rejilla estrecha, o puedes cruzar la plaza y exigir que los guardias se aparten.',
+          choices: [
+            { text: 'Entrar por la rejilla de servicio', nextStep: 9, flavor: 'Te deslizas por el conducto. El olor a ceniza y agua estancada se vuelve insoportable.' },
+            { text: 'Cruzar la plaza y abrirte paso', nextStep: 10, flavor: 'Los vigilantes reconocen el sello que llevas y desenvainan sus armas.' },
+          ],
+        },
+        {
+          type: 'combat', name: 'Vigilantes del Subsuelo',
+          description: 'La rejilla desemboca en una cámara de mantenimiento. Dos vigilantes descubren tu presencia y bloquean el único pasillo hacia los baños antiguos.',
+          enemies: [
+            { name: 'Vigilante del Círculo', icon: '⚔️', hp: 52, mp: 0, atk: 16, def: 6, dx: 9, ag: 8, level: 7 },
+            { name: 'Acólito de la Brasa', icon: '🔥', hp: 44, mp: 18, atk: 15, def: 4, dx: 10, ag: 7, level: 7, damageType: 'fire' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'La Cámara de las Brasas',
+          description: 'Las dos rutas conducen a una sala circular. En el centro, un brasero arde sin consumir leña. Un hombre con máscara blanca sostiene el sello original y lee en voz alta los nombres que han sido borrados de los archivos de Valdheim. Al verte, cierra el libro.',
+        },
+        {
+          type: 'combat', name: 'El Heraldo sin Rostro',
+          description: 'El Heraldo arroja el libro al brasero y ordena que nadie salga con vida. La ceniza se levanta del suelo y toma forma alrededor de sus brazos. Debes detenerlo antes de que destruya la última prueba.',
+          enemies: [
+            { name: 'Heraldo sin Rostro', icon: '🎭', hp: 96, mp: 28, atk: 20, def: 8, dx: 11, ag: 9, level: 9, damageType: 'fire' },
+            { name: 'Centinela de Ceniza', icon: '🛡️', hp: 58, mp: 0, atk: 16, def: 9, dx: 7, ag: 5, level: 8 },
+          ],
+        },
+        {
+          type: 'reward', name: 'Pruebas entre las Cenizas',
+          description: 'Recuperas el sello y rescatas varias páginas que no llegaron a quemarse. El escribano podrá identificar los nombres y los Guardianes tendrán por fin una pista sólida para investigar al Círculo.',
+          rewards: { gold: 45, ep: 18, fame: 3 },
+        },
+        {
+          type: 'narrative', name: 'Una Red Mucho Más Antigua',
+          description: 'Cuando el brasero se apaga, descubres que el sello tiene una inscripción en su reverso: «La primera puerta ya está abierta». El Círculo de la Ceniza no nació con los Cuervos ni con la caída del Rey Brujo. Alguien lleva generaciones preparando algo bajo Valdheim. Entregas las pruebas a los Guardianes, pero conservas una página: en ella aparece el nombre de una ciudad que no figura en ningún mapa.',
+        },
+      ],
+      rewards: { goldMin: 55, goldMax: 90, ep: 40, fame: 5 },
+      factionId: fm['guardianes-valdheim'] ?? null, factionRep: 8,
+      minGoldReward: 55, maxGoldReward: 90, epReward: 40, fameReward: 5, isActive: true,
+    },
   ]
 
   for (const a of adventures) {
