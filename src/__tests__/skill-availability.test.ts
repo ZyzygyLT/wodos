@@ -5,6 +5,8 @@ import {
   getSkillCooldownRemaining,
   isSkillOnCooldown,
   normalizeSkillCooldown,
+  isBasicSkill,
+  getDefaultCombatSkillId,
   resolveSkillMana,
   setSkillCooldown,
 } from '@/engine/core/skills/skill-availability'
@@ -79,6 +81,33 @@ describe('skill availability and resource rules', () => {
       remainingMp: 3,
       fallback: 'basic',
     })
+  })
+
+  it('recognizes a zero-mana active attack as the practical basic attack in legacy seed data', () => {
+    const freeAttack = { skillId: 6, type: 'active' as const, effect: 'attack', manaCost: 0 }
+    expect(isBasicSkill(freeAttack)).toBe(true)
+    expect(resolveSkillMana({
+      selectedSkill: costly,
+      availableSkills: [costly, freeAttack],
+      currentMp: 2,
+    })).toEqual({
+      skill: freeAttack,
+      mpCost: 0,
+      remainingMp: 2,
+      fallback: 'free_basic',
+    })
+  })
+
+  it('selects a per-hero default attack ahead of passive skills', () => {
+    expect(getDefaultCombatSkillId([
+      { skillId: 9, type: 'passive', effect: 'defense', manaCost: 0 },
+      { skillId: 7, type: 'active', effect: 'attack', manaCost: 0 },
+      { skillId: 8, type: 'active', effect: 'attack', manaCost: 10 },
+    ])).toBe(7)
+    expect(getDefaultCombatSkillId([
+      { skillId: 9, type: 'passive', effect: 'defense', manaCost: 0 },
+      { skillId: 8, type: 'active', effect: 'attack', manaCost: 10 },
+    ])).toBe(8)
   })
 
   it('does not mistake an active attack skill for a basic attack', () => {

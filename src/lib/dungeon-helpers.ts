@@ -8,6 +8,7 @@ import {
   type PersistedHeroItem,
 } from '@/engine/adapters'
 import { HeroData, DungeonData, EnemySkillRef } from '@/lib/combat-engine/dungeon-runner'
+import { getDefaultCombatSkillId } from '@/engine/core/skills/skill-availability'
 
 export function mergeHeroAttrs(heroData: Pick<HeroData, 'attrs' | 'equipStats'>): Record<string, number> {
   const merged: Record<string, number> = {}
@@ -178,6 +179,12 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
   const mpMax = hero.mpMax
   const attrs = { ...(hero.attrs as Record<string, number>) }
   const manaShield = hero.skills.some((hs: any) => hs.skill.effect === 'mana_shield')
+  const defaultSkillId = getDefaultCombatSkillId(hero.skills.map((hs: any) => ({
+    skillId: hs.skill.id,
+    type: hs.skill.type,
+    effect: hs.skill.effect,
+    manaCost: hs.skill.manaCost,
+  })))
 
   const runeItemIds = Array.from(new Set<number>(
     (hero.items ?? []).filter((hi: any) => hi.equipped).flatMap((hi: any) => (hi.runesIn as any[] ?? []).map((r: any) => r.itemId))
@@ -216,8 +223,8 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
       position: profile?.position ?? 'front',
       prelimRules: (profile?.prelimRules ?? []) as any[],
       roundRules: (profile?.roundRules ?? [
-        { priority: 1, condition: { type: 'hp_self_lt', value: 30 }, action: { skillId: hero.skills[0]?.skill.id ?? 1, targetPos: 'auto', targetType: 'weakest' } },
-        { priority: 2, condition: { type: 'always' }, action: { skillId: hero.skills[0]?.skill.id ?? 1, targetPos: 'front', targetType: 'weakest' } },
+        { priority: 1, condition: { type: 'hp_self_lt', value: 30 }, action: { skillId: defaultSkillId, targetPos: 'auto', targetType: 'weakest' } },
+        { priority: 2, condition: { type: 'always' }, action: { skillId: defaultSkillId, targetPos: 'front', targetType: 'weakest' } },
       ]),
       defenseSkills: (profile?.defenseSkills ?? {}) as Record<string, number | null>,
     },

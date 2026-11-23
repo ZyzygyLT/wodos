@@ -12,10 +12,26 @@ export interface SkillManaResolution<T extends SkillManaCandidate> {
   readonly fallback: 'free_basic' | 'basic' | 'forced' | null
 }
 
-/** Explicit database skill type is authoritative; effect-only legacy records keep their old behavior. */
+/** A free active attack is Wodos' practical basic attack, even when legacy seed data labels it "active". */
 export function isBasicSkill(skill: SkillManaCandidate): boolean {
-  if (skill.type !== undefined) return skill.type === 'basic'
+  if (skill.type === 'basic') return true
+  if (skill.type === 'passive') return false
+  if (skill.type === 'active') return skill.effect === 'attack' && (skill.manaCost ?? 0) <= 0
   return skill.effect === 'attack' || !skill.effect
+}
+
+/** Picks a safe per-hero fallback: basic attack, another attack, then an active skill. */
+export function getDefaultCombatSkillId(skills: readonly SkillManaCandidate[]): number {
+  const basic = skills.find(isBasicSkill)
+  if (basic) return basic.skillId
+
+  const attack = skills.find(skill =>
+    skill.effect === 'attack' || skill.effect === 'aoe_attack' || skill.effect === 'armor_penetration'
+  )
+  if (attack) return attack.skillId
+
+  const active = skills.find(skill => skill.type === 'active')
+  return active?.skillId ?? skills[0]?.skillId ?? 1
 }
 
 /** Preserves Wodos' current rank-based MP scaling. */

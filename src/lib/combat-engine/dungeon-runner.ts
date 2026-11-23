@@ -42,7 +42,7 @@ import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
-import { advanceSkillCooldowns, isBasicSkill, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
+import { advanceSkillCooldowns, getDefaultCombatSkillId, isBasicSkill, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
 import { calculatePartyBuffBonus, resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { dispatchSkillExecutionPlan } from '../../engine/core/skills/skill-plan-dispatch'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
@@ -2282,7 +2282,7 @@ function runHeroTurn(
   actorUnit: CombatUnit & { attrs: Record<string, number> },
   actor: any, heroes: HeroData[], heroUnits: CombatUnit[], enemyUnits: CombatUnit[],
   state: CombatState, log: LogEntry[], round: number, levelNum: number,
-  fallbackSkillId: number, ai: number, totalActors: number,
+  ai: number, totalActors: number,
   roundActions: DetailedAction[],
   random: RandomSource,
   combatCtx: CombatCtx,
@@ -2293,7 +2293,7 @@ function runHeroTurn(
 
   const perHeroState = buildPerHeroState(actorUnit, heroUnits, enemyUnits, state)
   return executeHeroTurnPipeline({
-    selectAction: () => evalTactics(hero.combatProfile.roundRules, perHeroState, fallbackSkillId),
+    selectAction: () => evalTactics(hero.combatProfile.roundRules, perHeroState, getDefaultCombatSkillId(hero.skills)),
     recordSelection: action => addLog(
       log, 'tactic_eval', round, levelNum, 'combat',
       `⚡ Táctica: ${actorUnit.name} → skill_${action.skillId} → ${action.targetType}`,
@@ -2392,11 +2392,6 @@ export async function runDungeon(
   const heroUnits: Array<CombatUnit & { attrs: Record<string, number> }> = heroes.map(h =>
     toUnit(h, h.hpMax, h.mpMax, random)
   )
-
-  // Skill básica del primer héroe para fallback táctico
-  const mainHero = heroes[0]
-  const basicSkill = mainHero?.skills.find(s => isBasicSkill(s))
-  const fallbackSkillId = basicSkill?.skillId ?? (mainHero?.skills[0]?.skillId ?? 1)
 
   // Acumular groupAtkBonus de todos los héroes
   const totalGroupAtkBonus = heroes.reduce((sum, h) => sum + (h.groupAtkBonus ?? 0), 0)
@@ -2556,7 +2551,7 @@ export async function runDungeon(
             executeHero: (unit, heroActor, index, total) => runHeroTurn(
               unit as CombatUnit & { attrs: Record<string, number> },
               heroActor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number,
-              fallbackSkillId, index, total, roundActions, random, roundCtx
+              index, total, roundActions, random, roundCtx
             ),
             executeEnemy: (unit, _enemyActor, index, total) => runEnemyTurn(
               unit, lvl, heroUnits, state, log, round, lvl.number, index, total, random, roundCtx

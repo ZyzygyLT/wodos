@@ -80,6 +80,49 @@ function makeHero2(overrides: Partial<HeroData> = {}): HeroData {
 }
 
 describe('runDungeon', () => {
+  it('uses each hero\'s own free attack when a group has no configured round rules', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const firstHero = makeHero({
+      id: 'hero-1',
+      name: 'First Hero',
+      hpMax: 100,
+      combatProfile: { position: 'front', prelimRules: [], roundRules: [], defenseSkills: {} },
+      skills: [{
+        skillId: 1, name: 'First basic attack', type: 'active', effect: 'attack',
+        multiplier: 1, manaCost: 0, rank: 1,
+        formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 },
+      }],
+    })
+    const secondHero = makeHero2({
+      name: 'Second Hero',
+      hpMax: 100,
+      combatProfile: { position: 'rear', prelimRules: [], roundRules: [], defenseSkills: {} },
+      skills: [{
+        skillId: 2, name: 'Second basic attack', type: 'active', effect: 'attack',
+        multiplier: 1, manaCost: 0, rank: 1,
+        formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 2 },
+      }],
+    })
+    const result = await runDungeon([firstHero, secondHero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1 }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+    }))
+
+    const actions = result.levelReports[0]?.rounds[0]?.actions ?? []
+    expect(actions.find(action => action.actorId === 'hero-1')).toMatchObject({
+      skillId: 1,
+      skillName: 'First basic attack',
+    })
+    expect(actions.find(action => action.actorId === 'hero-2')).toMatchObject({
+      skillId: 2,
+      skillName: 'Second basic attack',
+    })
+  })
+
   it('returns victory after clearing all levels', async () => {
     // High random = all hits connect, no misses
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
