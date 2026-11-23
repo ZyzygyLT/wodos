@@ -1,6 +1,5 @@
 import db from '@/lib/db'
-import { checkLevelUp, type LevelUpResult } from '@/lib/level-up'
-import logger from '@/lib/logger'
+import { applyLevelUpInTransaction, publishLevelUpEffects } from '@/lib/level-up'
 import { runDungeon } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, mergeHeroAttrs } from '@/lib/dungeon-helpers'
 import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/adventures/combat-adapter'
@@ -458,8 +457,6 @@ export async function makeChoice(
 }
 
 export async function claimRewards(heroId: string, heroAdventureId: string) {
-  let awardedEp = 0
-  let levelUp: LevelUpResult | null = null
   const claim = await db.$transaction(async tx => {
     // Serialize reward claims for this adventure before reading its current state.
     await tx.$queryRaw`SELECT id FROM hero_adventures WHERE id = ${heroAdventureId} FOR UPDATE`
@@ -481,8 +478,6 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
     const totalGold = rewards.gold ?? 0
     const totalEp = rewards.ep ?? 0
     const totalFame = rewards.fame ?? 0
-    awardedEp = totalEp
-
     await tx.hero.update({
       where: { id: heroId },
       data: {
@@ -516,23 +511,23 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
       })
     }
 
+    // Apply progression before marking the adventure claimed. Any failure rolls
+    // back EP, inventory, currency and claim status together.
+    const levelUp = totalEp > 0
+      ? await applyLevelUpInTransaction(tx, heroId)
+      : null
+
     const claimed = await tx.heroAdventure.updateMany({
       where: { id: heroAdventureId, heroId, status: ha.status },
       data: { status: 'claimed' },
     })
     if (claimed.count !== 1) throw new Error('AVENTURA_CLAIM_STALE')
 
-    return { claimed: true, rewards, partial: isDefeatClaim }
+    return { claimed: true, rewards, partial: isDefeatClaim, levelUp }
   })
 
-  // Adventure EP must trigger the same level progression as dungeon rewards.
-  if (awardedEp > 0) {
-    levelUp = await checkLevelUp(heroId).catch(error => {
-      logger.error('adventure-service', 'Error en level up tras reclamar recompensas', error)
-      return null
-    })
-  }
-  return { ...claim, levelUp }
+  if (claim.levelUp) publishLevelUpEffects(heroId, claim.levelUp)
+  return claim
 }
 
 export async function abandonAdventure(heroId: string, heroAdventureId: string) {
