@@ -1288,6 +1288,106 @@ async function seedAdventures() {
       factionId: fm['herreria-del-norte'] ?? null, factionRep: 20,
       minGoldReward: 120, maxGoldReward: 250, epReward: 70, fameReward: 10, isActive: true,
     },
+    {
+      name: 'La Caravana de los Cuervos',
+      slug: 'caravana-cuervos',
+      icon: '🐎',
+      description: 'Una caravana desaparecida bloquea la ruta comercial entre Valdheim y los pueblos del este.',
+      lore: 'Durante tres noches, las fogatas de la ruta oriental han permanecido apagadas. Los mercaderes hablan de ruedas rotas, caballos sueltos y una señal pintada con plumas negras. La caravana de Maese Orven transportaba medicinas y provisiones para los asentamientos del río. La guardia no puede abandonar las murallas, así que el gremio ofrece una recompensa a quien encuentre a los viajeros. Algunos aseguran que los Cuervos solo roban mercancías; otros dicen que su capitán busca algo que Orven lleva oculto desde hace años.',
+      levelReq: 2, maxLevel: 8, duration: 20, energyCost: 12,
+      steps: [
+        {
+          type: 'narrative', name: 'La Ruta en Silencio',
+          description: 'La calzada oriental está desierta. Una carreta volcada bloquea el camino y varias cajas aparecen abiertas en la cuneta. No hay cuerpos, pero sí huellas recientes: unas se dirigen hacia el bosque y otras continúan por la calzada. En una rueda alguien ha dibujado una pluma negra.',
+        },
+        {
+          type: 'choice', name: 'Seguir el Rastro',
+          description: 'Puedes buscar primero a los supervivientes o perseguir las huellas de los asaltantes antes de que desaparezcan.',
+          choices: [
+            { text: 'Examinar la carreta y buscar supervivientes', nextStep: 2, flavor: 'Te agachas junto a las cajas. Alguien ha dejado marcas de uñas en la madera desde dentro.' },
+            { text: 'Seguir las huellas hacia el bosque', nextStep: 5, flavor: 'Las pisadas se internan entre los árboles. Aún puedes escuchar ramas quebrándose a lo lejos.' },
+          ],
+        },
+        {
+          type: 'choice', name: 'El Testimonio del Cochero',
+          description: 'Encuentras al cochero herido bajo la carreta. Está asustado y apenas puede hablar. Si consigues tranquilizarlo, quizá recuerde dónde llevaron a los demás.',
+          choices: [
+            { text: 'Hablar con calma y ganarte su confianza', nextStep: 4, flavor: 'El hombre tiembla, pero parece dispuesto a contarte lo que vio.', skillCheck: { attr: 'ch', dc: 7, passStep: 3, failStep: 4 } },
+          ],
+        },
+        {
+          type: 'reward', name: 'La Gratitud del Cochero',
+          description: 'El cochero recuerda un sendero junto al río y te entrega las monedas que escondió para que no cayeran en manos de los asaltantes.',
+          rewards: { gold: 20, ep: 5 },
+        },
+        {
+          type: 'choice', name: 'El Sendero del Río',
+          description: 'El cochero señala un paso entre los juncos. Puedes cruzar directamente hacia el campamento o registrar una vieja caseta de peaje antes de continuar.',
+          choices: [
+            { text: 'Avanzar sin detenerte', nextStep: 7, flavor: 'No quieres perder la ventaja. El humo de una fogata aparece entre los árboles.' },
+            { text: 'Registrar la caseta de peaje', nextStep: 6, flavor: 'La puerta está entreabierta. Alguien ha ocultado provisiones en su interior.' },
+          ],
+        },
+        {
+          type: 'combat', name: 'Los Rastros de los Cuervos',
+          description: 'Tres salteadores salen de entre los árboles. Llevan capas oscuras y brazaletes con una pluma pintada. Uno silba para avisar al resto mientras los otros desenvainan sus armas.',
+          enemies: [
+            { name: 'Saqueador Cuervo', icon: '🗡️', hp: 28, mp: 0, atk: 8, def: 3, dx: 7, ag: 7, level: 2 },
+            { name: 'Saqueador Cuervo', icon: '🗡️', hp: 28, mp: 0, atk: 8, def: 3, dx: 7, ag: 7, level: 2 },
+            { name: 'Vigía Cuervo', icon: '🏹', hp: 24, mp: 0, atk: 9, def: 2, dx: 10, ag: 9, level: 2 },
+          ],
+        },
+        {
+          type: 'reward', name: 'El Alijo de los Salteadores',
+          description: 'Entre las mochilas abandonadas encuentras parte de las provisiones robadas y una bolsa con monedas. Los mercaderes podrán recuperar lo que queda.',
+          rewards: { gold: 35, ep: 8 },
+        },
+        {
+          type: 'choice', name: 'El Campamento de las Plumas Negras',
+          description: 'El campamento está al otro lado del río. Desde aquí distingues al capitán y a dos guardias junto a una carreta cerrada. Puedes abrirte paso o rodear el puesto por una zanja.',
+          choices: [
+            { text: 'Entrar por el puente y enfrentarte a los guardias', nextStep: 8, flavor: 'Los guardias te ven venir y levantan sus armas.' },
+            { text: 'Rodear el puesto por la zanja', nextStep: 9, flavor: 'Te cubres con los juncos y alcanzas la parte trasera del campamento.' },
+          ],
+        },
+        {
+          type: 'combat', name: 'La Guardia del Campamento',
+          description: 'Dos miembros de los Cuervos protegen el puente. No parecen dispuestos a dejarte pasar sin luchar.',
+          enemies: [
+            { name: 'Guardia Cuervo', icon: '🛡️', hp: 32, mp: 0, atk: 10, def: 5, dx: 7, ag: 5, level: 3 },
+            { name: 'Ballestero Cuervo', icon: '🏹', hp: 26, mp: 0, atk: 11, def: 3, dx: 11, ag: 7, level: 3 },
+          ],
+        },
+        {
+          type: 'narrative', name: 'La Retaguardia del Campamento',
+          description: 'La zanja te deja detrás de las tiendas. Ves a los supervivientes atados junto a la carreta cerrada. El capitán lleva una llave al cuello y discute con sus hombres sobre una caja que no figura en el manifiesto comercial.',
+        },
+        {
+          type: 'combat', name: 'El Capitán de los Cuervos',
+          description: 'El capitán descubre tu presencia y se interpone entre tú y los prisioneros. «No sabes lo que transportaba Orven. Esa caja no debe llegar a Valdheim». Desenvaina una espada corta y ordena a sus hombres que no dejen testigos.',
+          enemies: [
+            { name: 'Capitán de los Cuervos', icon: '🐦‍⬛', hp: 58, mp: 10, atk: 13, def: 6, dx: 10, ag: 8, level: 4 },
+            { name: 'Matón Cuervo', icon: '⚔️', hp: 30, mp: 0, atk: 10, def: 4, dx: 7, ag: 6, level: 3 },
+          ],
+        },
+        {
+          type: 'narrative', name: 'La Caja Sellada',
+          description: 'Con el capitán derrotado, liberas a los viajeros. Orven abre la caja: contiene cartas y un sello antiguo, no mercancía. Te explica que alguien pagó a los Cuervos para recuperar esos documentos. Decide confiarte una copia, mientras la caravana prepara el regreso.',
+        },
+        {
+          type: 'reward', name: 'El Regreso de la Caravana',
+          description: 'Los mercaderes reúnen una recompensa entre todos. Has recuperado las provisiones y evitado que los viajeros desaparezcan en el bosque.',
+          rewards: { gold: 30, ep: 12, fame: 1 },
+        },
+        {
+          type: 'narrative', name: 'Una Pluma en el Camino',
+          description: 'Al despedirte, encuentras una pluma negra clavada en el marco de la caja. No pertenece a ningún ave de la región. En el reverso del sello aparece una marca que reconoces de los viejos relatos sobre el Rey Brujo. La desaparición de la caravana quizá solo sea el principio.',
+        },
+      ],
+      rewards: { goldMin: 40, goldMax: 70, ep: 25, fame: 3 },
+      factionId: null, factionRep: 0,
+      minGoldReward: 40, maxGoldReward: 70, epReward: 25, fameReward: 3, isActive: true,
+    },
   ]
 
   for (const a of adventures) {
