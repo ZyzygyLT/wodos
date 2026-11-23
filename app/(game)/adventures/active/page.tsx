@@ -466,11 +466,21 @@ export default function ActiveAdventurePage() {
                       className="w-full text-left p-3 bg-gray-800 hover:bg-amber-900/40 border border-gray-600 hover:border-amber-600 rounded-lg transition-colors disabled:opacity-50"
                     >
                       <span className="text-amber-300 font-medium">{c.text}</span>
-                      {c.skillCheck && (
-                        <p className="text-xs text-cyan-300 mt-1">
-                          Prueba de {c.skillCheck.attr === 'pe' ? 'Percepción' : c.skillCheck.attr === 'ch' ? 'Carisma' : c.skillCheck.attr.toUpperCase()} · Tu valor {active?.heroAttributes?.[c.skillCheck.attr] ?? '—'} · Dificultad {c.skillCheck.dc}
-                        </p>
-                      )}
+                      {c.skillCheck && (() => {
+                        const value = active?.heroAttributes?.[c.skillCheck.attr]
+                        const canPass = typeof value === 'number' && value >= c.skillCheck.dc
+                        const outcomeKnown = typeof value === 'number'
+                        return (
+                          <div className="mt-1 space-y-1">
+                            <p className="text-xs text-cyan-300">
+                              Prueba de {c.skillCheck.attr === 'pe' ? 'Percepción' : c.skillCheck.attr === 'ch' ? 'Carisma' : c.skillCheck.attr.toUpperCase()} · Tu valor {value ?? '—'} · Dificultad {c.skillCheck.dc}
+                            </p>
+                            <p className={`text-xs font-semibold ${!outcomeKnown ? 'text-gray-400' : canPass ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {!outcomeKnown ? 'Resultado no disponible antes de elegir' : canPass ? '✓ Superarás la prueba con tus atributos actuales' : '✕ No alcanzarás la dificultad con tus atributos actuales'}
+                            </p>
+                          </div>
+                        )
+                      })()}
                       {c.rewards && (
                         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-gray-700/70 pt-2 text-xs text-yellow-300">
                           <span className="font-semibold text-yellow-200">Recompensa:</span>
