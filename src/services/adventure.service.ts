@@ -194,7 +194,9 @@ export async function getActiveAdventure(heroId: string) {
     },
   })
   const heroAttributes = hero
-    ? mergeHeroAttrs(await buildHeroData(hero, hero.combatProfiles[0] ?? null))
+    ? Array.isArray(hero.skills) && Array.isArray(hero.items)
+      ? mergeHeroAttrs(await buildHeroData(hero, hero.combatProfiles?.[0] ?? null))
+      : hero.attrs as Record<string, number> | undefined
     : undefined
 
   return {
