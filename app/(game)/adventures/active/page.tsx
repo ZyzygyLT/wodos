@@ -471,6 +471,20 @@ export default function ActiveAdventurePage() {
                           Prueba de {c.skillCheck.attr === 'pe' ? 'Percepción' : c.skillCheck.attr === 'ch' ? 'Carisma' : c.skillCheck.attr.toUpperCase()} · Tu valor {active?.heroAttributes?.[c.skillCheck.attr] ?? '—'} · Dificultad {c.skillCheck.dc}
                         </p>
                       )}
+                      {c.rewards && (
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-gray-700/70 pt-2 text-xs text-yellow-300">
+                          <span className="font-semibold text-yellow-200">Recompensa:</span>
+                          {c.rewards.gold ? <span>💰 +{c.rewards.gold} oro</span> : null}
+                          {c.rewards.ep ? <span>⭐ +{c.rewards.ep} EP</span> : null}
+                          {c.rewards.fame ? <span>🏆 +{c.rewards.fame} fama</span> : null}
+                          {c.rewards.items?.map((item: { itemId: number; qty: number }, itemIndex: number) => (
+                            <span key={itemIndex}>{active?.rewardCatalog?.items?.[item.itemId]?.icon ?? "📦"} {active?.rewardCatalog?.items?.[item.itemId]?.name ?? `Objeto #${item.itemId}`} ×{item.qty}</span>
+                          ))}
+                          {c.rewards.materials?.map((material: { materialId: number; qty: number }, materialIndex: number) => (
+                            <span key={materialIndex}>{active?.rewardCatalog?.materials?.[material.materialId]?.icon ?? "🧱"} {active?.rewardCatalog?.materials?.[material.materialId]?.name ?? `Material #${material.materialId}`} ×{material.qty}</span>
+                          ))}
+                        </div>
+                      )}
                       {c.flavor && <p className="text-xs text-gray-500 mt-1 italic">{c.flavor}</p>}
                     </button>
                   ))}
