@@ -1,6 +1,7 @@
 "use client"
 
 import logger from "@/lib/logger"
+import type { StepResult, StepRewards } from "@/lib/adventures/types"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -172,18 +173,19 @@ export default function ActiveAdventurePage() {
   const isOver = active?.status === "completed" || active?.status === "failed"
   const currentStep = active?.currentStepData
   const isChoice = stepType === 'choice'
-  const rewardSteps = (active?.result?.steps ?? []).filter((entry: any) => entry.type === 'reward')
-  const globalRewards = active?.result?.rewards ?? {}
-  const sumReward = (key: string) => Number(globalRewards[key] ?? 0) +
-    rewardSteps.reduce((total: number, entry: any) => total + Number(entry.rewards?.[key] ?? 0), 0)
+  const rewardSteps = ((active?.result?.steps ?? []) as StepResult[])
+    .filter((entry): entry is Extract<StepResult, { type: 'reward' }> => entry.type === 'reward')
+  const globalRewards: StepRewards = active?.result?.rewards ?? {}
+  const sumReward = (key: 'gold' | 'ep' | 'fame') => Number(globalRewards[key] ?? 0) +
+    rewardSteps.reduce((total, entry) => total + Number(entry.rewards[key] ?? 0), 0)
   const totalRewards = {
     gold: sumReward('gold'),
     ep: sumReward('ep'),
     fame: sumReward('fame'),
-    items: [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry: any) => entry.rewards?.items ?? [])]
-      .reduce((total: number, item: any) => total + Number(item.qty ?? 0), 0),
-    materials: [...(globalRewards.materials ?? []), ...rewardSteps.flatMap((entry: any) => entry.rewards?.materials ?? [])]
-      .reduce((total: number, material: any) => total + Number(material.qty ?? 0), 0),
+    items: [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.items ?? [])]
+      .reduce((total, item) => total + Number(item.qty ?? 0), 0),
+    materials: [...(globalRewards.materials ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.materials ?? [])]
+      .reduce((total, material) => total + Number(material.qty ?? 0), 0),
   }
 
   return (
