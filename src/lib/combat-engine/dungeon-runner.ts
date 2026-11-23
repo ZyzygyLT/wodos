@@ -2116,7 +2116,7 @@ function resolveCooldownOverride(hero: HeroData, action: TacticAction, state: Co
   if (!isSkillOnCooldown(state.skillCooldowns, actorUnit.id, action.skillId)) return action
   const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (isBasicSkill(s)))
   if (!available) return action
-  const override: TacticAction = { skillId: available.skillId, targetPos: 'front', targetType: 'weakest' }
+  const override: TacticAction = { ...action, skillId: available.skillId }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
     `⏳ ${actorUnit.name} — skill_${action.skillId} en cooldown, usando skill_${available.skillId}`,
     { actor: actorUnit.name, skill: `skill_${available.skillId}` })
@@ -2131,7 +2131,7 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   if (isAtk ? heroBuffBonuses.atk <= 0 : heroBuffBonuses.def <= 0) return action
   const ataque = hero.skills.find(s => isBasicSkill(s))
   if (!ataque) return action
-  const override: TacticAction = { skillId: ataque.skillId, targetPos: 'front', targetType: 'weakest' }
+  const override: TacticAction = { ...action, skillId: ataque.skillId }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
     `⏭️ ${actorUnit.name} — ${chosenBuffSkill.name ?? 'buff'} ya activo, usando ${ataque.name ?? 'Ataque básico'}`,
     { actor: actorUnit.name, skill: `skill_${ataque.skillId}` })

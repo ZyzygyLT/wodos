@@ -89,6 +89,43 @@ describe('runDungeon', () => {
     expect(result.totalRounds).toBeGreaterThanOrEqual(1)
   })
 
+  it('preserves configured target selection when a skill is replaced by its cooldown fallback', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'rear', targetType: 'strongest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        { skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+        { skillId: 2, name: 'Heavy strike', type: 'active', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1, cooldownRounds: 2,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [
+          { id: 1, name: 'Front target', icon: '🛡️', hp: 500, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' },
+          { id: 2, name: 'Rear weaker', icon: '🐺', hp: 300, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'rear' },
+          { id: 3, name: 'Rear strongest', icon: '🐉', hp: 700, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'rear' },
+        ],
+        epReward: 0,
+        goldReward: 0,
+      }],
+    }))
+    const secondRoundAttack = result.levelReports[0]?.rounds.find(round => round.roundNumber === 2)
+      ?.actions.find(action => action.actorId === 'hero-1')
+    expect(secondRoundAttack?.skillName).toBe('Basic strike')
+    expect(secondRoundAttack?.targetName).toBe('Rear strongest')
+  })
+
   it('uses the fallback basic skill formula and identity when the selected skill is unaffordable', async () => {
     const hero = makeHero({
       mpCurrent: 0,
