@@ -234,6 +234,7 @@ model Hero {
   fame                     Int                     @default(0)
   attrs                    Json
   freeAttrPoints           Int                     @default(10)
+  attrPointLedger          Json                    @default("{}")
   hpCurrent                Int                     @default(0)
   hpMax                    Int                     @default(0)
   mpCurrent                Int                     @default(0)
