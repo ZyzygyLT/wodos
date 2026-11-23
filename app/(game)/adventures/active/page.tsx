@@ -172,6 +172,19 @@ export default function ActiveAdventurePage() {
   const isOver = active?.status === "completed" || active?.status === "failed"
   const currentStep = active?.currentStepData
   const isChoice = stepType === 'choice'
+  const rewardSteps = (active?.result?.steps ?? []).filter((entry: any) => entry.type === 'reward')
+  const globalRewards = active?.result?.rewards ?? {}
+  const sumReward = (key: string) => Number(globalRewards[key] ?? 0) +
+    rewardSteps.reduce((total: number, entry: any) => total + Number(entry.rewards?.[key] ?? 0), 0)
+  const totalRewards = {
+    gold: sumReward('gold'),
+    ep: sumReward('ep'),
+    fame: sumReward('fame'),
+    items: [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry: any) => entry.rewards?.items ?? [])]
+      .reduce((total: number, item: any) => total + Number(item.qty ?? 0), 0),
+    materials: [...(globalRewards.materials ?? []), ...rewardSteps.flatMap((entry: any) => entry.rewards?.materials ?? [])]
+      .reduce((total: number, material: any) => total + Number(material.qty ?? 0), 0),
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-6">
@@ -339,17 +352,20 @@ export default function ActiveAdventurePage() {
               <h2 className="text-xl font-bold text-amber-300 mb-2">
                 {active?.status === 'completed' ? '🎉 ¡Aventura Completada!' : '💀 Derrota'}
               </h2>
-              {active?.result?.rewards && (
-                <div className="grid grid-cols-2 gap-3 text-sm mt-3">
-                  <span>💰 Oro: <span className="text-amber-400">{active.result.rewards.gold}</span></span>
-                  <span>⭐ EP: <span className="text-purple-400">{active.result.rewards.ep}</span></span>
-                  <span>🏆 Fama: <span className="text-blue-400">{active.result.rewards.fame}</span></span>
-                  {active.result.rewards.items?.length > 0 && (
-                    <span>📦 Objetos: <span className="text-green-400">{active.result.rewards.items.reduce((total: number, item: { qty: number }) => total + item.qty, 0)}</span></span>
-                  )}
-                  {active.result.rewards.materials?.length > 0 && (
-                    <span>🧱 Materiales: <span className="text-green-400">{active.result.rewards.materials.reduce((total: number, material: { qty: number }) => total + material.qty, 0)}</span></span>
-                  )}
+              {active?.status === 'completed' && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-400 mb-2">Recompensa total al reclamar, incluidas las obtenidas durante la aventura</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <span>💰 Oro: <span className="text-amber-400">{totalRewards.gold}</span></span>
+                    <span>⭐ EP: <span className="text-purple-400">{totalRewards.ep}</span></span>
+                    <span>🏆 Fama: <span className="text-blue-400">{totalRewards.fame}</span></span>
+                    {totalRewards.items > 0 && (
+                      <span>📦 Objetos: <span className="text-green-400">{totalRewards.items}</span></span>
+                    )}
+                    {totalRewards.materials > 0 && (
+                      <span>🧱 Materiales: <span className="text-green-400">{totalRewards.materials}</span></span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
