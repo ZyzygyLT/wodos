@@ -1011,14 +1011,10 @@ async function seedAdventures() {
           type: 'choice', name: 'El Acertijo de Hierro',
           description: 'La puerta tiene grabado: "No tengo voz, pero hablo. No tengo piernas, pero camino. No estoy vivo, pero crezco. ¿Qué soy?"',
           choices: [
-            { text: '"El fuego"', nextStep: 12, flavor: 'Las runas en la puerta brillan en rojo. La puerta se abre lentamente...' },
-            { text: '"La sombra"', nextStep: 11, flavor: 'La puerta no se mueve. Pero escuchas un rugido detrás de ti.' },
-            { text: '"El río"', nextStep: 10, flavor: 'Las runas parpadean. La puerta parece dudar...' },
+            { text: '"El fuego"', nextStep: 11, flavor: 'Las runas en la puerta brillan en rojo. La puerta se abre lentamente...' },
+            { text: '"La sombra"', nextStep: 10, flavor: 'La puerta no se mueve. Pero escuchas un rugido detrás de ti.' },
+            { text: '"El río"', nextStep: 9, flavor: 'Las runas parpadean. La puerta parece dudar...' },
           ],
-        },
-        {
-          type: 'narrative', name: 'Respuesta Correcta',
-          description: '"No tengo voz, pero hablo. No tengo piernas, pero camino. No estoy vivo, pero crezco." La respuesta es "el fuego". La puerta de hierro se abre con un chirrido, revelando la cámara central más allá.',
         },
         {
           type: 'combat', name: 'El Guardián de Hierro',
@@ -1042,8 +1038,8 @@ async function seedAdventures() {
           type: 'choice', name: 'El Libro del Obispo',
           description: 'El libro del obispo contiene ritos de sellado y una última página en blanco. Frente al altar, hay dos objetos: un incensario de oro y un cuchillo de obsidiana.',
           choices: [
-            { text: 'Tomar el incensario y realizar el rito de sellado', nextStep: 14, flavor: 'El incienso arde con una luz blanca. Las paredes tiemblan mientras el sello se refuerza.' },
-            { text: 'Tomar el cuchillo de obsidiana', nextStep: 15, flavor: 'El cuchillo vibra en tu mano. Algo despierta en las profundidades bajo la capilla.' },
+            { text: 'Tomar el incensario y realizar el rito de sellado', nextStep: 13, flavor: 'El incienso arde con una luz blanca. Las paredes tiemblan mientras el sello se refuerza.' },
+            { text: 'Tomar el cuchillo de obsidiana', nextStep: 14, flavor: 'El cuchillo vibra en tu mano. Algo despierta en las profundidades bajo la capilla.' },
           ],
         },
         {
@@ -1070,7 +1066,7 @@ async function seedAdventures() {
           type: 'reward', name: 'Trofeo de Guerra',
           description: 'Del vestigio derrotado recoges un fragmento de sombra sólida, un material raro que los herreros del norte pagan bien.',
           rewards: { gold: 60, ep: 20, fame: 8, materials: [{ materialId: 7, qty: 1 }] },
-        },
+        }
       ],
       rewards: { goldMin: 50, goldMax: 120, ep: 45, fame: 6, items: [{ itemId: 4, chance: 20, qty: 1 }], materials: [{ materialId: 2, chance: 50, qty: 3 }, { materialId: 5, chance: 30, qty: 1 }] },
       factionId: null, factionRep: 0,

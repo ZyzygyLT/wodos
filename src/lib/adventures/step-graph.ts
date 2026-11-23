@@ -69,5 +69,18 @@ export function getAdventureStepGraphErrors(steps: readonly AdventureGraphStep[]
   }
 
   for (let index = 0; index < steps.length; index++) visit(index, [])
+
+  const reachable = new Set<number>()
+  const pending = [0]
+  while (pending.length > 0) {
+    const index = pending.pop()!
+    if (reachable.has(index)) continue
+    reachable.add(index)
+    for (const target of edges[index]) pending.push(target)
+  }
+  for (let index = 0; index < steps.length; index++) {
+    if (!reachable.has(index)) errors.push(`El paso ${index} es inalcanzable desde el inicio`)
+  }
+
   return errors
 }

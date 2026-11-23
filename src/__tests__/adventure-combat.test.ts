@@ -154,3 +154,14 @@ describe('adventure step graph validation', () => {
     expect(getAdventureStepGraphErrors(steps).some(error => error.includes('inválido'))).toBe(true)
   })
 })
+
+
+it('rejects steps that cannot be reached from the adventure start', () => {
+  const steps = [
+    { type: 'narrative' },
+    { type: 'choice', choices: [{ nextStep: 3 }] },
+    { type: 'reward' },
+    { type: 'narrative' },
+  ]
+  expect(getAdventureStepGraphErrors(steps).some(error => error.includes('inalcanzable'))).toBe(true)
+})
