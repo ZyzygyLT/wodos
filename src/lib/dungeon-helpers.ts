@@ -179,7 +179,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
   const mpMax = hero.mpMax
   const attrs = { ...(hero.attrs as Record<string, number>) }
   const manaShield = hero.skills.some((hs: any) => hs.skill.effect === 'mana_shield')
-  const defaultSkillId = getDefaultCombatSkillId(hero.skills.map((hs: any) => ({
+  const defaultSkillId = getDefaultCombatSkillId(hero.skills.map(hs => ({
     skillId: hs.skill.id,
     type: hs.skill.type,
     effect: hs.skill.effect,
