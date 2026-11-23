@@ -259,7 +259,7 @@ export default function ActiveAdventurePage() {
             <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-amber-500 transition-all"
-                style={{ width: `${isOver ? 100 : Math.min(100, ((active?.currentStep ?? 0) + 1) / Math.max(1, (active?.totalSteps ?? 1)) * 100)}%` }}
+                style={{ width: `${isOver ? 100 : Math.min(100, (active?.currentStep ?? 0) / Math.max(1, (active?.totalSteps ?? 1)) * 100)}%` }}
               />
             </div>
             <span className="text-xs text-gray-400">
