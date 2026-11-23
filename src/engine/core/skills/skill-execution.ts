@@ -39,6 +39,20 @@ export type SkillExecutionPlan<T> =
   | { readonly kind: 'area_attack'; readonly targets: readonly T[]; readonly armorPenetration: boolean; readonly critical: boolean }
   | { readonly kind: 'single_attack'; readonly target: T | null; readonly armorPenetration: boolean; readonly critical: boolean }
 
+/** Calculates the shared party-buff strength from its multiplier and trained rank. */
+export function calculatePartyBuffBonus(
+  effect: 'party_attack_up' | 'defense_up',
+  multiplier?: number,
+  rank?: number,
+): number {
+  const normalizedRank = Number.isFinite(rank) && (rank ?? 0) > 0 ? rank! : 1
+  const fallbackMultiplier = effect === 'party_attack_up' ? 1.5 : 1
+  const normalizedMultiplier = Number.isFinite(multiplier) && (multiplier ?? 0) > 0
+    ? multiplier!
+    : fallbackMultiplier
+  return Math.round(normalizedMultiplier * 10) + normalizedRank * 2
+}
+
 /**
  * Resolves the action shape and targets for a skill without mutating combat state.
  * Damage, healing, buff application, resource mutation, cooldowns and reporting
@@ -67,13 +81,8 @@ export function resolveSkillExecution<T extends TargetableUnit>(
   }
 
   if (effect === 'party_attack_up' || effect === 'defense_up') {
-    const isAttack = effect === 'party_attack_up'
-    const fallbackMultiplier = isAttack ? 1.5 : 1
-    const multiplier = Number.isFinite(skill.multiplier) && (skill.multiplier ?? 0) > 0
-      ? skill.multiplier!
-      : fallbackMultiplier
-    const bonus = Math.round(multiplier * 10) + rank * 2
-    return { kind: 'party_buff', buff: isAttack ? 'atk' : 'def', bonus }
+    const bonus = calculatePartyBuffBonus(effect, skill.multiplier, rank)
+    return { kind: 'party_buff', buff: effect === 'party_attack_up' ? 'atk' : 'def', bonus }
   }
 
   if (effect === 'aoe_attack') {

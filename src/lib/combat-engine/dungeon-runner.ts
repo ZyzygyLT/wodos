@@ -43,7 +43,7 @@ import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/atta
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
 import { advanceSkillCooldowns, isBasicSkill, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
-import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
+import { calculatePartyBuffBonus, resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { dispatchSkillExecutionPlan } from '../../engine/core/skills/skill-plan-dispatch'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
 import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
@@ -853,13 +853,13 @@ function applyPrelimSkill(
   level: number
 ) {
   if (skill.effect === 'party_attack_up') {
-    const bonus = Math.round((skill.multiplier || 1.5) * 10)
+    const bonus = calculatePartyBuffBonus('party_attack_up', skill.multiplier, skill.rank)
     addBuff(state, 'atk', bonus, skill.name ?? 'ATK grupal', 'hero', BUFF_DURATION)
     addLog(log, 'buff', 0, level, 'prelim', `${heroUnit.name} usa skill_${skill.skillId} → +${bonus}% ATK grupal`, { actor: heroUnit.name, skill: `skill_${skill.skillId}`, value: bonus })
     return
   }
   if (skill.effect === 'defense_up') {
-    const bonus = Math.round((skill.multiplier || 1) * 10)
+    const bonus = calculatePartyBuffBonus('defense_up', skill.multiplier, skill.rank)
     addBuff(state, 'def', bonus, skill.name ?? 'DEF grupal', 'hero', BUFF_DURATION)
     addLog(log, 'buff', 0, level, 'prelim', `${heroUnit.name} usa skill_${skill.skillId} → +${bonus}% DEF grupal`, { actor: heroUnit.name, skill: `skill_${skill.skillId}`, value: bonus })
     return

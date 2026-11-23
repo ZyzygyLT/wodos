@@ -256,7 +256,7 @@ describe('runDungeon', () => {
     expect(withBuff).toBeGreaterThan(withoutBuff)
   })
 
-  it('applies prelim round buffs', async () => {
+  it('applies the trained rank to preliminary group buffs', async () => {
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     const hero = makeHero({
       combatProfile: {
@@ -271,13 +271,13 @@ describe('runDungeon', () => {
       },
       skills: [
         ...makeHero().skills,
-        { skillId: 999, multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as any },
+        { skillId: 999, name: 'War Chant', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 5, formula: null as any },
       ],
     })
     const result = await runDungeon([hero], makeDungeon({ levels: [{ number: 1, enemies: [{ id: 1, name: 'Slime', icon: '🟢', hp: 5, mp: 0, atk: 5, def: 1, dx: 3, ag: 2, level: 1, position: 'front' }], epReward: 100, goldReward: 50 }] }))
     expect(result.victory).toBe(true)
-    // Check prelim buff was logged
-    expect(result.log.some(l => l.type === 'buff' && l.phase === 'prelim')).toBe(true)
+    expect(result.log.some(l => l.type === 'buff' && l.phase === 'prelim' && l.value === 25)).toBe(true)
+    expect(result.levelReports[0]?.rounds[0]?.stateBefore.heroes[0]?.activeBuffs?.find(buff => buff.sourceName === 'War Chant')?.value).toBe(25)
   })
 
   it('supports armor penetration effect', async () => {
