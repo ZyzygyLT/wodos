@@ -22,7 +22,7 @@ vi.mock("@/lib/dungeon-helpers", () => ({
   })),
 }))
 
-import { adventureRequiresCombat, canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned, withAdventureChoicePreviews } from "@/lib/adventures/adventure-helpers"
+import { adventureRequiresCombat, canClaimAdventureRewards, combineAdventureRewards, hasAdventureRewardPayload, isAdventureBlockingNewStart, markAdventureAbandoned, withAdventureChoicePreviews } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 import { buildHeroData } from "@/lib/dungeon-helpers"
 
@@ -89,6 +89,34 @@ describe("canClaimAdventureRewards", () => {
       outcome: "defeated",
       steps: [{ type: "choice", rewards: { gold: 8 } }],
     })).toBe(true)
+  })
+
+  it("does not treat empty rewards or zero-quantity drops as recoverable loot", () => {
+    const emptyLoot = {
+      outcome: "defeated",
+      steps: [
+        { type: "reward", rewards: {} },
+        {
+          type: "choice",
+          rewards: {
+            gold: 0,
+            ep: 0,
+            fame: 0,
+            items: [{ itemId: 7, qty: 0 }],
+            materials: [{ materialId: 3, qty: 0 }],
+          },
+        },
+      ],
+    }
+
+    expect(canClaimAdventureRewards("failed", emptyLoot)).toBe(false)
+    expect(isAdventureBlockingNewStart("failed", emptyLoot)).toBe(false)
+  })
+
+  it("recognizes positive item and material rewards even without currency", () => {
+    expect(hasAdventureRewardPayload({ items: [{ itemId: 7, qty: 1 }] })).toBe(true)
+    expect(hasAdventureRewardPayload({ materials: [{ materialId: 3, qty: 2 }] })).toBe(true)
+    expect(hasAdventureRewardPayload({ gold: 0, ep: 0, fame: 0 })).toBe(false)
   })
 
   it("never allows abandoned adventures to claim rewards", () => {

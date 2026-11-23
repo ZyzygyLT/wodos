@@ -32,15 +32,34 @@ export function isAdventureBlockingNewStart(status: string, result?: unknown): b
 }
 
 /** Defeat preserves only rewards explicitly earned in completed reward steps. */
+/** True only when a reward record contains something the player can actually receive. */
+export function hasAdventureRewardPayload(rewards: StepRewards | null | undefined): boolean {
+  if (!rewards) return false
+
+  const currencies = [rewards.gold, rewards.ep, rewards.fame]
+  if (currencies.some(amount => typeof amount === 'number' && Number.isFinite(amount) && amount > 0)) {
+    return true
+  }
+
+  const hasItems = Array.isArray(rewards.items) &&
+    rewards.items.some(item => item !== null && Number.isFinite(item.qty) && item.qty > 0)
+  const hasMaterials = Array.isArray(rewards.materials) &&
+    rewards.materials.some(material => material !== null && Number.isFinite(material.qty) && material.qty > 0)
+
+  return hasItems || hasMaterials
+}
+
 export function canClaimAdventureRewards(status: string, result: unknown): boolean {
   if (status === 'completed') return true
   if (status !== 'failed' || result === null || typeof result !== 'object' || Array.isArray(result)) return false
   const data = result as { outcome?: unknown; steps?: unknown }
   return data.outcome === 'defeated' && Array.isArray(data.steps) &&
-    data.steps.some(step => step !== null && typeof step === 'object' &&
-      !Array.isArray(step) && (['reward', 'choice'].includes(String((step as { type?: unknown }).type))) &&
-      (step as { rewards?: unknown }).rewards !== null &&
-      typeof (step as { rewards?: unknown }).rewards === 'object')
+    data.steps.some(step => {
+      if (step === null || typeof step !== 'object' || Array.isArray(step)) return false
+      const entry = step as { type?: unknown; rewards?: StepRewards | null }
+      return (entry.type === 'reward' || entry.type === 'choice') &&
+        hasAdventureRewardPayload(entry.rewards)
+    })
 }
 import type {
   AdventureStep, AdventureStepEnemy, AdventureRewardTable, AdventureChoice,
