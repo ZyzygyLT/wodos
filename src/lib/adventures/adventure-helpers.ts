@@ -1,4 +1,5 @@
 import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
+import type { Prisma } from '@/generated/prisma'
 import { ENERGY_RECHARGE_INTERVAL_MINUTES } from './types'
 
 export const ADVENTURE_STATUSES_BLOCKING_NEW_START = ['active', 'completed'] as const
@@ -132,9 +133,9 @@ export function rollAdventureRewards(rewards: AdventureRewardTable): {
 
 
 /** Mark a voluntary exit without discarding the adventure's recorded progress or rewards. */
-export function markAdventureAbandoned(result: unknown): Record<string, unknown> {
+export function markAdventureAbandoned(result: unknown): Prisma.InputJsonObject {
   const preserved = result !== null && typeof result === 'object' && !Array.isArray(result)
     ? result as Record<string, unknown>
     : {}
-  return { ...preserved, outcome: 'abandoned' }
+  return { ...preserved, outcome: 'abandoned' } as Prisma.InputJsonObject
 }
