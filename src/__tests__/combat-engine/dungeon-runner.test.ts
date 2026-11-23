@@ -198,7 +198,7 @@ describe('runDungeon', () => {
 
     expect(action?.skillName).toBe('Greater Rally')
     expect(action?.skillFallback).toBeUndefined()
-    expect(result.levelReports[0]?.rounds[0]?.stateAfter.heroes[0]?.activeBuffs?.some(buff => buff.value === 30)).toBe(true)
+    expect(result.log.some(entry => entry.type === 'buff' && entry.value === 30 && entry.message.includes('Greater Rally'))).toBe(true)
   })
 
   it('uses the fallback basic skill formula and identity when the selected skill is unaffordable', async () => {
