@@ -960,11 +960,11 @@ async function seedAdventures() {
         },
         {
           type: 'choice', name: 'Tres Caminos',
-          description: 'El pasillo de la izquierda tiene marcas de garras en las paredes. El del centro está iluminado por antorchas que nunca se apagan. El de la derecha tiene un suelo cubierto de ceniza.',
+          description: 'El pasillo de la izquierda está cubierto de marcas de garras y conduce a una guarida. El del centro, iluminado por antorchas azules, parece una ruta despejada. El de la derecha, cubierto de ceniza, permite rodear la guarida.',
           choices: [
             { text: 'El pasillo con marcas de garras', nextStep: 2, flavor: 'Las marcas son recientes. Grandes, como de algo que camina en dos patas pero tiene garras de bestia.' },
-            { text: 'El pasillo iluminado con antorchas', nextStep: 3, flavor: 'Las antorchas parpadean con una llama azulada. El calor que desprenden es extrañamente frío.' },
-            { text: 'El pasillo de ceniza', nextStep: 4, flavor: 'Cada paso levanta nubes de ceniza. Algo ardió aquí. Algo grande.' },
+            { text: 'El pasillo iluminado con antorchas', nextStep: 5, flavor: 'Sigues las antorchas azules y dejas atrás la guarida de los gnolls.' },
+            { text: 'El pasillo de ceniza', nextStep: 5, flavor: 'La ceniza cubre huellas antiguas. Avanzas con cautela y rodeas la guarida.' },
           ],
         },
         {
@@ -986,8 +986,8 @@ async function seedAdventures() {
           rewards: { gold: 45, ep: 8, items: [{ itemId: 3, qty: 1 }] },
         },
         {
-          type: 'choice', name: 'El Camino del Mapa',
-          description: 'El mapa de las catacumbas marca dos rutas hacia la cámara central. Un camino corto pero peligroso, y otro largo pero supuestamente seguro.',
+          type: 'choice', name: 'La Bifurcación de la Cámara Central',
+          description: 'Los túneles convergen en una bifurcación. Dos rutas conducen a la cámara central: un atajo peligroso que atraviesa la Sala de la Hambruna y un rodeo que bordea una fosa subterránea.',
           choices: [
             { text: 'Tomar el atajo peligroso', nextStep: 6, flavor: 'El atajo cruza por una cámara que el mapa marca como "Sala de la Hambruna".' },
             { text: 'Ir por el camino largo', nextStep: 7, flavor: 'El camino largo rodea una fosa subterránea. Seguro, pero te tomará más tiempo.' },
@@ -1004,7 +1004,7 @@ async function seedAdventures() {
         },
         {
           type: 'narrative', name: 'La Fosa Subterránea',
-          description: 'El camino largo bordea una fosa natural donde el agua gotea desde el techo. El sonido reverbera en la oscuridad. Cruzas por un puente de piedra estrecho que cruje bajo tus pies. Del otro lado, una puerta de hierro con un acertijo grabado te espera.',
+          description: 'Tanto el atajo de la Sala de la Hambruna como el rodeo desembocan ante una fosa natural. Cruzas por un puente de piedra estrecho que cruje bajo tus pies. Del otro lado, una puerta de hierro con un acertijo grabado te espera.',
         },
         {
           type: 'choice', name: 'El Acertijo de Hierro',
