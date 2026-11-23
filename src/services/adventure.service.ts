@@ -1,4 +1,5 @@
 import db from '@/lib/db'
+import { checkLevelUp } from '@/lib/level-up'
 import { runDungeon } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData } from '@/lib/dungeon-helpers'
 import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/adventures/combat-adapter'
@@ -348,7 +349,7 @@ export async function makeChoice(
 }
 
 export async function claimRewards(heroId: string, heroAdventureId: string) {
-  return await db.$transaction(async tx => {
+  const claim = await db.$transaction(async tx => {
     // Serialize reward claims for this adventure before reading its current state.
     await tx.$queryRaw`SELECT id FROM hero_adventures WHERE id = ${heroAdventureId} FOR UPDATE`
     const ha = await tx.heroAdventure.findUnique({
@@ -421,6 +422,10 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
 
     return { claimed: true, rewards: result?.rewards }
   })
+
+  // Adventure EP must trigger the same level progression as dungeon rewards.
+  await checkLevelUp(heroId).catch(() => undefined)
+  return claim
 }
 
 export async function abandonAdventure(heroId: string, heroAdventureId: string) {
