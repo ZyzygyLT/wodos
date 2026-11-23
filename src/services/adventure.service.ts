@@ -227,7 +227,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
             throw new Error("El inventario cambió durante el combate")
           }
         }
-        if (!combat.victory) {
+        if (!combatRun.victory) {
           resultData.steps.push(stepResult)
           const failed = await tx.heroAdventure.updateMany({
             where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
