@@ -1,35 +1,102 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { skillUpgradeCost } from "@/lib/skill-cost"
 import { useToast } from "@/hooks/useToast"
 import logger from "@/lib/logger"
 
+type HeroResources = {
+  gold: number
+  epTotal: number
+  epSpent: number
+}
+
+type SkillFormula = {
+  attrCoeffs?: Record<string, number>
+  skillRankCoeff?: number
+  diceCount: number
+  diceSides: number
+  flatBonus: number
+}
+
+type SkillEntry = {
+  id: number
+  name: string
+  icon: string
+  type: string
+  timing: string
+  tier: number
+  maxRank: number
+  description: string
+  effect: string
+  goldCost: number
+  manaCost: number
+  epCost: number
+  multiplier: number
+  formula: SkillFormula | null
+  defenseCategory: string | null
+  requiresSkills: number[]
+  unlocked: boolean
+  rank: number
+}
+
 export default function SkillsPage() {
   const router = useRouter()
-  const [hero, setHero] = useState<any>(null)
-  const [skills, setSkills] = useState<any[]>([])
+  const [hero, setHero] = useState<HeroResources | null>(null)
+  const [skills, setSkills] = useState<SkillEntry[]>([])
   const { toast: message, show: setMessage, dismiss } = useToast()
   const [loading, setLoading] = useState<number | null>(null)
   const [actionType, setActionType] = useState<"buy" | "upgrade" | null>(null)
   const [tab, setTab] = useState<"learned" | "available">("learned")
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    let active = true
+    Promise.all([fetch("/api/hero"), fetch("/api/hero/skills")])
+      .then(async ([heroRes, skillsRes]) => {
+        if (heroRes.status === 401) {
+          router.push("/login")
+          return null
+        }
+        if (heroRes.status === 404) {
+          router.push("/onboarding")
+          return null
+        }
+        if (!heroRes.ok || !skillsRes.ok) throw new Error("No se pudieron cargar los datos")
+        const [heroData, skillsData] = await Promise.all([
+          heroRes.json() as Promise<HeroResources>,
+          skillsRes.json() as Promise<SkillEntry[]>,
+        ])
+        return { heroData, skillsData }
+      })
+      .then(data => {
+        if (active && data) {
+          setHero(data.heroData)
+          setSkills(data.skillsData)
+        }
+      })
+      .catch(error => logger.error("skills", "Error fetching data", error))
+
+    return () => { active = false }
+  }, [router])
+
+  const refreshData = async () => {
     try {
       const [heroRes, skillsRes] = await Promise.all([
         fetch("/api/hero"),
         fetch("/api/hero/skills"),
       ])
-      if (heroRes.status === 401) return router.push("/login")
-      if (heroRes.status === 404) return router.push("/onboarding")
-      if (!heroRes.ok || !skillsRes.ok) throw new Error("No se pudieron cargar los datos")
-      setHero(await heroRes.json())
-      setSkills(await skillsRes.json())
-    } catch (e) { logger.error('skills', 'Error fetching data', e) }
-  }, [router])
-
-  useEffect(() => { fetchData() }, [fetchData])
+      if (!heroRes.ok || !skillsRes.ok) throw new Error("No se pudieron actualizar los datos")
+      const [heroData, skillsData] = await Promise.all([
+        heroRes.json() as Promise<HeroResources>,
+        skillsRes.json() as Promise<SkillEntry[]>,
+      ])
+      setHero(heroData)
+      setSkills(skillsData)
+    } catch (error) {
+      logger.error("skills", "Error refreshing data", error)
+    }
+  }
 
   const availableEp = hero ? Math.max(0, hero.epTotal - hero.epSpent) : 0
   const availableGold = hero?.gold ?? 0
@@ -46,7 +113,7 @@ export default function SkillsPage() {
       const data = await res.json()
       if (res.ok) {
         setMessage("✅ Skill aprendida!")
-        await fetchData()
+        await refreshData()
       } else {
         setMessage(`❌ ${data.error}`)
       }
@@ -66,7 +133,7 @@ export default function SkillsPage() {
       const data = await res.json()
       if (res.ok) {
         setMessage(`⬆️ Skill mejorada a rango ${data.newRank}!`)
-        await fetchData()
+        await refreshData()
       } else {
         setMessage(`❌ ${data.error}`)
       }
@@ -74,12 +141,12 @@ export default function SkillsPage() {
     finally { setLoading(null) }
   }
 
-  function canUnlock(skill: any): { ok: boolean; reason?: string } {
+  function canUnlock(skill: SkillEntry): { ok: boolean; reason?: string } {
     if (skill.requiresSkills.length > 0) {
       const unlockedIds = new Set(skills.filter(s => s.unlocked).map(s => s.id))
-      const missing = skill.requiresSkills.filter((id: number) => !unlockedIds.has(id))
+      const missing = skill.requiresSkills.filter(id => !unlockedIds.has(id))
       if (missing.length > 0) {
-        const names = missing.map((id: number) => skills.find(s => s.id === id)?.name ?? `#${id}`)
+        const names = missing.map(id => skills.find(s => s.id === id)?.name ?? `#${id}`)
         return { ok: false, reason: `Requiere: ${names.join(", ")}` }
       }
     }
@@ -88,7 +155,7 @@ export default function SkillsPage() {
     return { ok: true }
   }
 
-  function upgradeAvailability(skill: any): { ok: boolean; reason?: string; goldCost: number; epCost: number } {
+  function upgradeAvailability(skill: SkillEntry): { ok: boolean; reason?: string; goldCost: number; epCost: number } {
     const goldCost = skillUpgradeCost(skill.goldCost, skill.rank)
     const epCost = skillUpgradeCost(skill.epCost, skill.rank)
     if (availableGold < goldCost) return { ok: false, reason: `Faltan ${goldCost - availableGold} de oro`, goldCost, epCost }
