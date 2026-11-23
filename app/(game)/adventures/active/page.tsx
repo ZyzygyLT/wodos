@@ -13,6 +13,8 @@ export default function ActiveAdventurePage() {
   const [executing, setExecuting] = useState(false)
   const [choosing, setChoosing] = useState(false)
   const [claiming, setClaiming] = useState(false)
+  const [abandoning, setAbandoning] = useState(false)
+  const [confirmAbandon, setConfirmAbandon] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<any[]>([])
   const [stepType, setStepType] = useState<string | null>(null)
@@ -137,7 +139,9 @@ export default function ActiveAdventurePage() {
   }
 
   async function abandon() {
-    if (!active) return
+    if (!active || abandoning) return
+    setAbandoning(true)
+    setError(null)
     try {
       const res = await fetch("/api/adventures/abandon", {
         method: "POST",
@@ -147,12 +151,16 @@ export default function ActiveAdventurePage() {
       if (!res.ok) {
         const result = await res.json()
         setError(result.error ?? "No se pudo abandonar la aventura")
+        setConfirmAbandon(false)
         return
       }
       router.push("/adventures")
     } catch (e) {
       logger.error('adventures', 'Failed to abandon adventure', e)
       setError("No se pudo abandonar la aventura. Inténtalo de nuevo.")
+      setConfirmAbandon(false)
+    } finally {
+      setAbandoning(false)
     }
   }
 
@@ -430,6 +438,33 @@ export default function ActiveAdventurePage() {
             </div>
           )}
 
+          {confirmAbandon && !isOver && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="abandon-adventure-title">
+              <div className="w-full max-w-md rounded-xl border border-red-900 bg-gray-900 p-6 shadow-2xl">
+                <h2 id="abandon-adventure-title" className="text-lg font-bold text-red-300">¿Abandonar la aventura?</h2>
+                <p className="mt-3 text-sm leading-relaxed text-gray-300">
+                  Perderás el progreso de esta expedición y no podrás reclamar el botín obtenido hasta ahora. La energía gastada no se recuperará.
+                </p>
+                <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    onClick={() => setConfirmAbandon(false)}
+                    disabled={abandoning}
+                    className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-semibold hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    Seguir jugando
+                  </button>
+                  <button
+                    onClick={abandon}
+                    disabled={abandoning}
+                    className="rounded-lg bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {abandoning ? "Abandonando..." : "Sí, abandonar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3">
             {!isOver && !isChoice && (
               <button
@@ -459,7 +494,7 @@ export default function ActiveAdventurePage() {
             )}
             {!isOver && (
               <button
-                onClick={abandon}
+                onClick={() => setConfirmAbandon(true)}
                 className="py-3 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"
               >
                 Abandonar
