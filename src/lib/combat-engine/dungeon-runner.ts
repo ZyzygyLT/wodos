@@ -379,8 +379,9 @@ function applyHealingWithEvent(unit: CombatUnit, amount: number, sourceId: strin
   const result = applyHpHealing(unit.hp, unit.maxHp, amount)
   unit.hp = result.currentHp
   if (result.applied > 0) {
+    unit.condition = getCondition(result.currentHp, unit.maxHp)
     dispatchCombatEvent(ctx, { type: 'healing_applied', sourceId, targetId: unit.id, healing: result.applied })
-    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, defeated: result.defeated })
+    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, condition: unit.condition, defeated: result.defeated })
   }
   return result.applied
 }
