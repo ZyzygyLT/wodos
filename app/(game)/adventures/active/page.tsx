@@ -179,14 +179,26 @@ export default function ActiveAdventurePage() {
   const globalRewards: StepRewards = active?.result?.rewards ?? {}
   const sumReward = (key: 'gold' | 'ep' | 'fame') => Number(globalRewards[key] ?? 0) +
     rewardSteps.reduce((total, entry) => total + Number(entry.rewards[key] ?? 0), 0)
+  const totalItems = [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.items ?? [])]
+    .reduce((totals, item) => {
+      const existing = totals.find((entry) => entry.itemId === item.itemId)
+      if (existing) existing.qty += Number(item.qty ?? 0)
+      else totals.push({ itemId: item.itemId, qty: Number(item.qty ?? 0) })
+      return totals
+    }, [] as Array<{ itemId: number; qty: number }>)
+  const totalMaterials = [...(globalRewards.materials ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.materials ?? [])]
+    .reduce((totals, material) => {
+      const existing = totals.find((entry) => entry.materialId === material.materialId)
+      if (existing) existing.qty += Number(material.qty ?? 0)
+      else totals.push({ materialId: material.materialId, qty: Number(material.qty ?? 0) })
+      return totals
+    }, [] as Array<{ materialId: number; qty: number }>)
   const totalRewards = {
     gold: sumReward('gold'),
     ep: sumReward('ep'),
     fame: sumReward('fame'),
-    items: [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.items ?? [])]
-      .reduce((total, item) => total + Number(item.qty ?? 0), 0),
-    materials: [...(globalRewards.materials ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.materials ?? [])]
-      .reduce((total, material) => total + Number(material.qty ?? 0), 0),
+    items: totalItems.reduce((total, item) => total + item.qty, 0),
+    materials: totalMaterials.reduce((total, material) => total + material.qty, 0),
   }
 
   return (
@@ -379,6 +391,30 @@ export default function ActiveAdventurePage() {
                       <span>🧱 Materiales: <span className="text-green-400">{totalRewards.materials}</span></span>
                     )}
                   </div>
+                  {(totalItems.length > 0 || totalMaterials.length > 0) && (
+                    <div className="mt-3 border-t border-gray-700 pt-3 text-left space-y-2">
+                      {totalItems.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 mb-1">Objetos obtenidos</p>
+                          {totalItems.map((item) => (
+                            <p key={item.itemId} className="text-sm text-gray-300">
+                              {active?.rewardCatalog?.items?.[item.itemId]?.icon ?? "📦"} {active?.rewardCatalog?.items?.[item.itemId]?.name ?? `Objeto #${item.itemId}`} ×{item.qty}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {totalMaterials.length > 0 && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 mb-1">Materiales obtenidos</p>
+                          {totalMaterials.map((material) => (
+                            <p key={material.materialId} className="text-sm text-gray-300">
+                              {active?.rewardCatalog?.materials?.[material.materialId]?.icon ?? "🧱"} {active?.rewardCatalog?.materials?.[material.materialId]?.name ?? `Material #${material.materialId}`} ×{material.qty}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
