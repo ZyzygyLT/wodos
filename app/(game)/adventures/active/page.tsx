@@ -2,6 +2,7 @@
 
 import logger from "@/lib/logger"
 import type { StepResult, StepRewards, AdventureStepEnemy } from "@/lib/adventures/types"
+import type { LevelUpResult } from "@/lib/level-up"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
@@ -9,6 +10,7 @@ type AdventureClaimResult = {
   claimed: true
   partial: boolean
   rewards: StepRewards
+  levelUp: LevelUpResult | null
 }
 
 export default function ActiveAdventurePage() {
@@ -433,6 +435,15 @@ export default function ActiveAdventurePage() {
                 <span className="text-purple-300">⭐ +{claimResult.rewards?.ep ?? 0} EP</span>
                 <span className="text-blue-300">🏆 +{claimResult.rewards?.fame ?? 0} fama</span>
               </div>
+              {claimResult.levelUp?.leveledUp && (
+                <div className="mt-3 rounded-md border border-amber-700/70 bg-amber-950/40 p-3">
+                  <p className="font-bold text-amber-300">🎉 ¡Has subido al nivel {claimResult.levelUp.newLevel}!</p>
+                  <p className="mt-1 text-sm text-gray-200">
+                    {claimResult.levelUp.levelsGained > 1 ? `Has avanzado ${claimResult.levelUp.levelsGained} niveles` : "Has avanzado un nivel"} y recibido {claimResult.levelUp.pointsAwarded} puntos de atributo.
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">Tu salud y tu maná se han restaurado al máximo.</p>
+                </div>
+              )}
               {((claimResult.rewards?.items?.length ?? 0) > 0 || (claimResult.rewards?.materials?.length ?? 0) > 0) && (
                 <div className="mt-3 border-t border-emerald-800/70 pt-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Añadido al inventario</p>
