@@ -91,7 +91,7 @@ export default function HeroAttrsPage() {
         freeAttrPoints: data.freeRemaining ?? prev.freeAttrPoints,
         epSpent: Math.max(0, prev.epSpent - (data.epRefund ?? 0)),
       }))
-      showToast(`⬅️ -1 ${attr.toUpperCase()} (recuperaste ${data.epRefund ?? 0} EP)`)
+      showToast(`⬅️ -1 ${attr.toUpperCase()} · recuperaste ${data.freeRefund ?? 0} puntos gratis y ${data.epRefund ?? 0} EP`)
     } catch {
       showToast("❌ Error de conexión")
     } finally {
@@ -156,9 +156,10 @@ export default function HeroAttrsPage() {
 
       {/* Info box */}
       <div className="bg-gray-900/50 rounded-xl border border-gray-800 p-4 text-xs text-gray-500 space-y-1">
-        <p>💡 Los puntos de atributo gratis se obtienen al subir de nivel.</p>
-        <p>⚡ Si no tenés puntos gratis, se usarán EP con la curva de costo.</p>
-        <p>⬅️ -1 devuelve EP invertidos (congela si el atributo está en 0 o no hay EP invertidos).</p>
+        <p>💡 Los puntos gratis se gastan antes que los EP y se recuperan como puntos gratis al reasignar.</p>
+        <p>⚡ Cuando se agotan los puntos gratis, cada mejora consume EP según el valor actual del atributo.</p>
+        <p>⬅️ -1 retira primero la inversión más reciente y devuelve exactamente su origen: puntos gratis o EP.</p>
+        <p>🔒 Los puntos anteriores al registro de inversiones no se reembolsan, porque no es posible verificar su procedencia.</p>
       </div>
     </div>
   )
