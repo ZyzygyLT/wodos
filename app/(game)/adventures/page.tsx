@@ -150,7 +150,7 @@ export default function AdventuresPage() {
                     <div>
                       <p className="font-semibold text-gray-200">{h.adventureName}</p>
                       <p className="text-xs text-gray-500">
-                        {h.status === 'claimed' ? '✅ Reclamado' : h.status === 'completed' ? '🎉 Completado' : '💀 Fallado'}
+                        {h.status === 'claimed' ? '✅ Reclamado' : h.status === 'completed' ? '🎉 Completado' : h.outcome === 'abandoned' ? '↩️ Abandonada' : '💀 Fallado'}
                         {h.completedAt && ` · ${new Date(h.completedAt).toLocaleDateString()}`}
                       </p>
                     </div>

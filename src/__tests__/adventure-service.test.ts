@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
 }))
 
 import db from "@/lib/db"
-import { isAdventureBlockingNewStart } from "@/lib/adventures/adventure-helpers"
+import { isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 
 const findFirst = vi.mocked(db.heroAdventure.findFirst)
@@ -26,6 +26,25 @@ describe("adventure start lifecycle", () => {
     ["claimed", false],
   ])("treats %s runs as blocking=%s", (status, expected) => {
     expect(isAdventureBlockingNewStart(status)).toBe(expected)
+  })
+})
+
+describe("markAdventureAbandoned", () => {
+  it("preserves existing progress and rewards while recording a voluntary exit", () => {
+    const result = {
+      steps: [{ type: "narrative", description: "A gate opens" }],
+      rewards: { gold: 12 },
+    }
+
+    expect(markAdventureAbandoned(result)).toEqual({
+      steps: result.steps,
+      rewards: result.rewards,
+      outcome: "abandoned",
+    })
+  })
+
+  it("handles an empty result safely", () => {
+    expect(markAdventureAbandoned(null)).toEqual({ outcome: "abandoned" })
   })
 })
 

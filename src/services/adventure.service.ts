@@ -7,7 +7,7 @@ import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/ad
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
   calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
-  ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart,
+  ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -503,7 +503,7 @@ export async function abandonAdventure(heroId: string, heroAdventureId: string) 
 
     const abandoned = await tx.heroAdventure.updateMany({
       where: { id: heroAdventureId, heroId, status: "active", currentStep: ha.currentStep },
-      data: { status: "failed", completedAt: new Date() },
+      data: { status: "failed", completedAt: new Date(), result: markAdventureAbandoned(ha.result) },
     })
     if (abandoned.count !== 1) throw new Error("AVENTURA_ABANDON_STALE")
 

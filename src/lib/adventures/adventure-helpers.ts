@@ -129,3 +129,12 @@ export function rollAdventureRewards(rewards: AdventureRewardTable): {
 
   return { gold, ep: rewards.ep, fame: rewards.fame, items, materials }
 }
+
+
+/** Mark a voluntary exit without discarding the adventure's recorded progress or rewards. */
+export function markAdventureAbandoned(result: unknown): Record<string, unknown> {
+  const preserved = result !== null && typeof result === 'object' && !Array.isArray(result)
+    ? result as Record<string, unknown>
+    : {}
+  return { ...preserved, outcome: 'abandoned' }
+}

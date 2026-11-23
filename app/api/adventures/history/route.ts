@@ -23,6 +23,9 @@ export async function GET() {
       adventureIcon: h.adventure.icon,
       adventureDescription: h.adventure.description,
       status: h.status,
+      outcome: h.result && typeof h.result === "object" && !Array.isArray(h.result)
+        ? (h.result as { outcome?: string }).outcome ?? null
+        : null,
       startedAt: h.startedAt,
       completedAt: h.completedAt,
       totalSteps: h.totalSteps,

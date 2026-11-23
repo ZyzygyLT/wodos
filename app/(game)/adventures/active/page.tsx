@@ -170,6 +170,7 @@ export default function ActiveAdventurePage() {
     )
   }
 
+  const isAbandoned = active?.status === "failed" && active?.result?.outcome === "abandoned"
   const isOver = active?.status === "completed" || active?.status === "failed"
   const currentStep = active?.currentStepData
   const isChoice = stepType === 'choice'
@@ -354,12 +355,12 @@ export default function ActiveAdventurePage() {
           {/* Victory / Defeat banner */}
           {isOver && (
             <div className={`p-4 rounded-lg mb-4 text-center ${
-              active?.status === 'completed' ? 'bg-emerald-900/40 border border-emerald-700' : 'bg-red-900/40 border border-red-700'
+              active?.status === 'completed' ? 'bg-emerald-900/40 border border-emerald-700' : isAbandoned ? 'bg-amber-900/40 border border-amber-700' : 'bg-red-900/40 border border-red-700'
             }`}>
               <h2 className="text-xl font-bold text-amber-300 mb-2">
-                {active?.status === 'completed' ? '🎉 ¡Aventura Completada!' : '💀 Derrota'}
+                {active?.status === 'completed' ? '🎉 ¡Aventura Completada!' : isAbandoned ? '↩️ Expedición abandonada' : '💀 Derrota'}
               </h2>
-              {active?.status === 'failed' && (
+              {active?.status === 'failed' && !isAbandoned && (
                 <p className="text-sm text-gray-300 mt-2">
                   Tu salud y tu maná restantes se conservan para tu héroe. La energía gastada al iniciar esta expedición no se recupera.
                 </p>
