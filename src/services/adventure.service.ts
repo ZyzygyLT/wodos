@@ -1,7 +1,10 @@
 import db from '@/lib/db'
+import { runDungeon } from '@/lib/combat-engine/dungeon-runner'
+import { buildHeroData } from '@/lib/dungeon-helpers'
+import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/adventures/combat-adapter'
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
-  calcEnergyRecharge, resolveCombatStep, resolveAdventureChoice, rollAdventureRewards,
+  calcEnergyRecharge, resolveAdventureChoice, rollAdventureRewards,
   ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart,
 } from '@/lib/adventures/adventure-helpers'
 import {
@@ -168,7 +171,11 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
 
     const hero = await tx.hero.findUnique({
       where: { id: heroId },
-      select: { hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true, attrs: true, level: true },
+      include: {
+        combatProfiles: { orderBy: { createdAt: 'asc' } },
+        skills: { include: { skill: true } },
+        items: { include: { item: true } },
+      },
     })
     if (!hero) throw new Error("Héroe no encontrado")
 
@@ -190,18 +197,36 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
         throw new Error("Este paso requiere elegir una opción")
       }
       case "combat": {
-        const combat = resolveCombatStep(
-          { hpCurrent: hero.hpCurrent, hpMax: hero.hpMax, mpCurrent: hero.mpCurrent, mpMax: hero.mpMax, attrs: hero.attrs as Record<string, number>, level: hero.level },
-          currentStep.enemies ?? [],
-        )
-        stepResult = combat
+        const enemies = currentStep.enemies ?? []
+        const combatHero = await buildHeroData(hero, hero.combatProfiles[0] ?? null)
+        const combatDungeon = createAdventureCombatDungeon(currentStep.name, enemies)
+        const combatRun = await runDungeon([combatHero], combatDungeon)
+        const finalHeroState = combatRun.heroesFinalState[0]
+        if (!finalHeroState) throw new Error("El combate no devolvió el estado final del héroe")
+
+        stepResult = mapAdventureCombatResult(combatRun, enemies.length, {
+          hp: hero.hpCurrent,
+          mp: hero.mpCurrent,
+        })
         await tx.hero.update({
           where: { id: heroId },
           data: {
-            hpCurrent: { decrement: combat.heroHpLost },
-            mpCurrent: { decrement: combat.heroMpLost },
+            hpCurrent: finalHeroState.hp,
+            mpCurrent: finalHeroState.mp,
           },
         })
+
+        const consumedItemIds = [...new Set((combatRun.consumedConsumables ?? [])
+          .filter(item => item.heroId === heroId)
+          .map(item => item.heroItemId))]
+        if (consumedItemIds.length > 0) {
+          const consumed = await tx.heroItem.deleteMany({
+            where: { id: { in: consumedItemIds }, heroId },
+          })
+          if (consumed.count !== consumedItemIds.length) {
+            throw new Error("El inventario cambió durante el combate")
+          }
+        }
         if (!combat.victory) {
           resultData.steps.push(stepResult)
           const failed = await tx.heroAdventure.updateMany({

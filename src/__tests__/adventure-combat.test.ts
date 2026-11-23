@@ -165,3 +165,46 @@ it('rejects steps that cannot be reached from the adventure start', () => {
   ]
   expect(getAdventureStepGraphErrors(steps).some(error => error.includes('inalcanzable'))).toBe(true)
 })
+
+
+describe('adventure combat adapter', () => {
+  it('preserves adventure enemy stats and disables dungeon party scaling', async () => {
+    const { createAdventureCombatDungeon } = await import('@/lib/adventures/combat-adapter')
+    const dungeon = createAdventureCombatDungeon('The Gate', [
+      { name: 'Gatekeeper', icon: '🛡️', hp: 90, mp: 10, atk: 18, def: 12, dx: 8, ag: 6, level: 7 },
+    ])
+
+    expect(dungeon.recommendedLevel).toBeUndefined()
+    expect(dungeon.difficulty).toBeUndefined()
+    expect(dungeon.levels[0].enemies[0]).toMatchObject({
+      id: 1, name: 'Gatekeeper', hp: 90, atk: 18, def: 12,
+      level: 7, baseLevel: 7, growthFactor: 0, position: 'front',
+    })
+  })
+
+  it('maps the shared combat engine final state into an adventure result', async () => {
+    const { mapAdventureCombatResult } = await import('@/lib/adventures/combat-adapter')
+    const result = mapAdventureCombatResult({
+      victory: false,
+      heroesFinalState: [{ id: 'hero-1', hp: 0, mp: 4 }],
+      levelReports: [{
+        rounds: [{
+          stateAfter: { enemies: [{ hp: 0 }, { hp: 12 }] },
+        }],
+      }],
+      log: [{ message: 'The hero falls' }],
+    } as never, 2, { hp: 30, mp: 8 })
+
+    expect(result).toMatchObject({
+      type: 'combat',
+      victory: false,
+      enemiesDefeated: 1,
+      totalEnemies: 2,
+      heroHpLost: 30,
+      heroMpLost: 4,
+      heroHpRemaining: 0,
+      heroMpRemaining: 4,
+      log: ['The hero falls'],
+    })
+  })
+})
