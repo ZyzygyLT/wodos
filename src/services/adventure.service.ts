@@ -7,7 +7,7 @@ import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, Adve
 import {
   calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
   ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned, combineAdventureRewards,
-  canClaimAdventureRewards,
+  canClaimAdventureRewards, withAdventureChoicePreviews,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -173,33 +173,7 @@ export async function getActiveAdventure(heroId: string) {
     }
   }) : []
   const currentStep = steps[ha.currentStep]
-  // Give the player the names of the routes each decision can lead to.
-  const currentStepData = currentStep?.type === 'choice'
-    ? {
-        ...currentStep,
-        choices: currentStep.choices?.map(choice => ({
-          ...choice,
-          nextStepName: choice.skillCheck
-            ? undefined
-            : steps[choice.nextStep]?.name ?? null,
-          nextStepDescription: choice.skillCheck
-            ? undefined
-            : steps[choice.nextStep]?.description ?? null,
-          passStepName: choice.skillCheck
-            ? steps[choice.skillCheck.passStep]?.name ?? null
-            : undefined,
-          passStepDescription: choice.skillCheck
-            ? steps[choice.skillCheck.passStep]?.description ?? null
-            : undefined,
-          failStepName: choice.skillCheck
-            ? steps[choice.skillCheck.failStep]?.name ?? null
-            : undefined,
-          failStepDescription: choice.skillCheck
-            ? steps[choice.skillCheck.failStep]?.description ?? null
-            : undefined,
-        })),
-      }
-    : currentStep ?? null
+  const currentStepData = withAdventureChoicePreviews(currentStep, steps)
 
   // Resolve reward IDs to player-facing names without changing the persisted reward record.
   type RewardLookup = {
@@ -413,7 +387,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
       stepResult,
       currentStep: nextStepIndex,
       totalSteps: ha.totalSteps,
-      nextStep: steps[nextStepIndex],
+      nextStep: withAdventureChoicePreviews(steps[nextStepIndex], steps),
       heroResources,
     }
   })
@@ -487,7 +461,7 @@ export async function makeChoice(
       flavor: chosen.flavor ?? null,
       skillCheck: resolution.skillCheck ?? null,
       stepResult,
-      nextStep: steps[resolution.nextStep] ?? null,
+      nextStep: withAdventureChoicePreviews(steps[resolution.nextStep], steps),
       totalSteps: ha.totalSteps,
     }
   })

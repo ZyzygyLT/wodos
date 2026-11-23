@@ -2,6 +2,28 @@ import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
 import type { Prisma } from '@/generated/prisma'
 import { ENERGY_RECHARGE_INTERVAL_MINUTES } from './types'
 
+/** Attach destination details to every choice so previews stay available after each transition. */
+export function withAdventureChoicePreviews(
+  step: AdventureStep | undefined,
+  steps: AdventureStep[],
+): AdventureStep | null {
+  if (!step) return null
+  if (step.type !== 'choice') return step
+
+  return {
+    ...step,
+    choices: step.choices?.map(choice => ({
+      ...choice,
+      nextStepName: choice.skillCheck ? undefined : steps[choice.nextStep]?.name ?? null,
+      nextStepDescription: choice.skillCheck ? undefined : steps[choice.nextStep]?.description ?? null,
+      passStepName: choice.skillCheck ? steps[choice.skillCheck.passStep]?.name ?? null : undefined,
+      passStepDescription: choice.skillCheck ? steps[choice.skillCheck.passStep]?.description ?? null : undefined,
+      failStepName: choice.skillCheck ? steps[choice.skillCheck.failStep]?.name ?? null : undefined,
+      failStepDescription: choice.skillCheck ? steps[choice.skillCheck.failStep]?.description ?? null : undefined,
+    })),
+  }
+}
+
 export const ADVENTURE_STATUSES_BLOCKING_NEW_START = ['active', 'completed', 'failed'] as const
 
 export function isAdventureBlockingNewStart(status: string, result?: unknown): boolean {

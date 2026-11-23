@@ -22,7 +22,7 @@ vi.mock("@/lib/dungeon-helpers", () => ({
   })),
 }))
 
-import { canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned } from "@/lib/adventures/adventure-helpers"
+import { canClaimAdventureRewards, combineAdventureRewards, isAdventureBlockingNewStart, markAdventureAbandoned, withAdventureChoicePreviews } from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 import { buildHeroData } from "@/lib/dungeon-helpers"
 
@@ -355,5 +355,37 @@ describe("combineAdventureRewards", () => {
       fame: 1,
       items: [{ itemId: 1, qty: 1 }, { itemId: 2, qty: 2 }],
     })
+  })
+})
+
+
+describe("withAdventureChoicePreviews", () => {
+  it("adds normal and skill-check destinations to a choice reached during an expedition", () => {
+    const steps = [
+      { type: "choice" as const, name: "El cruce", description: "Debes decidir.", choices: [
+        { text: "Seguir el camino", nextStep: 1 },
+        { text: "Convencer al guardia", nextStep: 1, skillCheck: { attr: "ch", dc: 8, passStep: 2, failStep: 1 } },
+      ] },
+      { type: "narrative" as const, name: "El sendero", description: "Un sendero estrecho." },
+      { type: "combat" as const, name: "La emboscada", description: "Enemigos bloquean el paso." },
+    ]
+
+    expect(withAdventureChoicePreviews(steps[0], steps)).toMatchObject({
+      choices: [
+        { nextStepName: "El sendero", nextStepDescription: "Un sendero estrecho." },
+        {
+          passStepName: "La emboscada",
+          passStepDescription: "Enemigos bloquean el paso.",
+          failStepName: "El sendero",
+          failStepDescription: "Un sendero estrecho.",
+        },
+      ],
+    })
+  })
+
+  it("leaves non-choice scenes unchanged and safely handles missing scenes", () => {
+    const narrative = { type: "narrative" as const, name: "El umbral", description: "Una puerta." }
+    expect(withAdventureChoicePreviews(narrative, [narrative])).toBe(narrative)
+    expect(withAdventureChoicePreviews(undefined, [])).toBeNull()
   })
 })
