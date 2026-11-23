@@ -348,7 +348,7 @@ export default function ActiveAdventurePage() {
                         </button>
                         {expandedCombat === i && (
                           <div className="mt-3 overflow-hidden rounded-lg border border-gray-700">
-                            <CombatPlayback result={entry.replay} dungeonName={entry.stepName ?? "Encuentro"} onFinish={() => setExpandedCombat(null)} />
+                            <CombatPlayback result={entry.replay} dungeonName={entry.stepName ?? "Encuentro"} onFinish={() => setExpandedCombat(null)} showRewards={false} />
                           </div>
                         )}
                       </div>

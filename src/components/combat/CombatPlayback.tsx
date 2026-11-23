@@ -8,6 +8,7 @@ interface CombatPlaybackProps {
   result: Pick<RunResult, 'victory' | 'totalRounds' | 'epGained' | 'goldGained' | 'levelReports'>
   dungeonName: string
   onFinish: () => void
+  showRewards?: boolean
 }
 
 interface FlattenedRound {
@@ -16,7 +17,7 @@ interface FlattenedRound {
   level: LevelReport
 }
 
-export function CombatPlayback({ result, dungeonName, onFinish }: Readonly<CombatPlaybackProps>) {
+export function CombatPlayback({ result, dungeonName, onFinish, showRewards = true }: Readonly<CombatPlaybackProps>) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1)
@@ -66,10 +67,12 @@ export function CombatPlayback({ result, dungeonName, onFinish }: Readonly<Comba
           <p className="text-sm text-gray-400">
             No hay rondas detalladas disponibles para reproducir. El resultado de la expedición se ha guardado.
           </p>
-          <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
-            <span>⭐ +{result.epGained} EP</span>
-            <span>💰 +{result.goldGained} oro</span>
-          </div>
+          {showRewards && (
+            <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
+              <span>⭐ +{result.epGained} EP</span>
+              <span>💰 +{result.goldGained} oro</span>
+            </div>
+          )}
           <button
             onClick={onFinish}
             className="px-5 py-2 rounded bg-amber-700 hover:bg-amber-600 text-sm text-white font-bold transition"
@@ -178,8 +181,12 @@ export function CombatPlayback({ result, dungeonName, onFinish }: Readonly<Comba
           </h2>
           <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
             <span>⚔️ {result.totalRounds} rondas</span>
-            <span>⭐ +{result.epGained} EP</span>
-            <span>💰 +{result.goldGained} oro</span>
+            {showRewards && (
+              <>
+                <span>⭐ +{result.epGained} EP</span>
+                <span>💰 +{result.goldGained} oro</span>
+              </>
+            )}
           </div>
           <div className="flex items-center justify-center gap-4">
             <button
