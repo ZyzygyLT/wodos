@@ -1175,8 +1175,8 @@ async function seedAdventures() {
           description: 'El guerrero empuña un hacha de hielo. Su armadura está hecha de escamas de dragón. "Vete, o comparte el destino de los otros."',
           choices: [
             { text: 'Enfrentarlo en combate', nextStep: 16, flavor: 'Desenvainas tu arma. El guerrero sonríe. "Como todos los demás."' },
-            { text: 'Negociar: el martillo para ti, el tesoro para él', nextStep: 15, flavor: 'El guerrero ríe. "¿Y qué me dices de la gloria? La gloria no se negocia."' },
-            { text: 'Ofrecerle un duelo ceremonial por el martillo', nextStep: 17, flavor: 'El guerrero se detiene. "Un duelo... como en los tiempos antiguos. Acepto."' },
+            { text: 'Negociar: el martillo para ti, el tesoro para él', nextStep: 19, flavor: 'El guerrero ríe. "¿Y qué me dices de la gloria? La gloria no se negocia."' },
+            { text: 'Ofrecerle un duelo ceremonial por el martillo', nextStep: 23, flavor: 'El guerrero se detiene. "Un duelo... como en los tiempos antiguos. Acepto."' },
           ],
         },
         {
@@ -1188,8 +1188,37 @@ async function seedAdventures() {
           ],
         },
         {
+          type: 'narrative', name: 'Victoria en la Cumbre',
+          description: 'El guerrero cae de rodillas. "Mer... mérito tienes", jadea. Se levanta trabajosamente y se marcha, dejándote frente al martillo Rompehielos. La montaña te ha reconocido como digno portador.',
+        },
+        {
+          type: 'reward', name: 'El Rompehielos',
+          description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
+          rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
+        },
+        {
+          type: 'narrative', name: 'Negociación Fallida',
+          description: '"No entiendes", dice el guerrero. "No se trata del tesoro ni del martillo. Mientras yo guarde este lugar, Frostvorn vive en mí. No puedo permitir que te lo lleves." Desenvaina su hacha y carga.',
+        },
+        {
+          type: 'combat', name: 'Combate tras la Negociación',
+          description: 'La negociación ha fracasado. El guerrero de escarcha lucha para proteger el legado de Frostvorn.',
+          enemies: [
+            { name: 'Guerrero de Escarcha', icon: '⚔️', hp: 130, mp: 30, atk: 24, def: 14, dx: 10, ag: 8, level: 15, damageType: 'ice' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'Victoria tras la Negociación',
+          description: 'El guerrero baja su arma. "Has demostrado tu fuerza. Quizá puedas llevar el martillo sin borrar nuestro legado." Se aparta del pedestal y te permite tomar el Rompehielos.',
+        },
+        {
+          type: 'reward', name: 'El Rompehielos',
+          description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
+          rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
+        },
+        {
           type: 'narrative', name: 'Duelo de Campeones',
-          description: 'El guerrero acepta el duelo. Os enfrentáis en el círculo de hielo, bajo la mirada vacía del esqueleto del dragón. Intercambiáis golpes, cada uno midiendo al otro. Es una lucha limpia, sin trucos. El mejor gana.',
+          description: 'El guerrero acepta el duelo ceremonial. Os enfrentáis en el círculo de hielo, bajo la mirada del esqueleto del dragón. "Que Frostvorn juzgue al vencedor", declara.',
         },
         {
           type: 'combat', name: 'Combate Singular',
@@ -1199,16 +1228,12 @@ async function seedAdventures() {
           ],
         },
         {
-          type: 'narrative', name: 'Victoria en la Cumbre',
-          description: 'El guerrero cae de rodillas. "Mer... mérito tienes", jadea. "El Rompehielos es tuyo." Se leverta trabajosamente y se marcha por donde vino, dejándote solo frente al martillo legendario. Al empuñarlo, sientes el peso de siglos de historia draconiana. El hielo del templo cruje, pero no se rompe. La montaña te ha aceptado como digno portador del Rompehielos. Los herreros del norte te recibirán como a un héroe.',
-        },
-        {
-          type: 'narrative', name: 'Negociación Fallida',
-          description: '"No entiendes", dice el guerrero, su voz cargada de tristeza. "No se trata del tesoro ni del martillo. Se trata de lo que representa. Mientras yo guarde este lugar, Frostvorn vive en mí. Si te lo llevas... él muere de verdad." Suspira. "No puedo permitirlo." Y carga.',
+          type: 'narrative', name: 'Victoria en el Duelo',
+          description: 'El guerrero cae de rodillas y acepta el veredicto. "Has luchado con honor. El Rompehielos es tuyo." Se aparta del pedestal y te deja tomar el martillo.',
         },
         {
           type: 'reward', name: 'El Rompehielos',
-          description: 'El martillo es tuyo. Pesa más de lo que parece, y al sostenerlo sientes el poder del dragón de hielo recorrer tu brazo. Un herrero del norte podría hacer maravillas con esto.',
+          description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
           rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
         },
       ],
