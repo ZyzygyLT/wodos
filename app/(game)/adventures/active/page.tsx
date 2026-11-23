@@ -310,9 +310,14 @@ export default function ActiveAdventurePage() {
                     {entry.log?.map((l: string, j: number) => (
                       <p key={j} className="text-sm text-gray-300">{l}</p>
                     ))}
-                    <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-2">
                       <span>Enemigos: {entry.enemiesDefeated}/{entry.totalEnemies}</span>
-                      <span>Daño: -{entry.heroHpLost} HP</span>
+                      <span>Salud perdida: -{entry.heroHpLost} HP</span>
+                      <span>Maná gastado: -{entry.heroMpLost} MP</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mt-1">
+                      <span className="text-red-300">❤️ Salud restante: {entry.heroHpRemaining} HP</span>
+                      <span className="text-blue-300">🔷 Maná restante: {entry.heroMpRemaining} MP</span>
                     </div>
                     {!entry.victory && (
                       <p className="text-red-400 text-sm font-bold mt-2">💀 Has sido derrotado</p>
