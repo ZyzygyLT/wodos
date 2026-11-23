@@ -893,8 +893,11 @@ async function seedAdventures() {
           ],
         },
         {
-          type: 'narrative', name: 'La Purificación',
-          description: 'Al derrotar a Eldrin, la energía verde que lo corrompía se disipa. El musgo deja de brillar, pero los árboles ya no susurran. El bosque queda en calma por primera vez en décadas. Eldrin, ya libre, te entrega una semilla brillante antes de desvanecerse. "Plántala en el claro central... el bosque renacerá".',
+          type: 'choice', name: 'El Camino al Corazón',
+          description: 'Eldrin recupera la lucidez y te revela que la corrupción aún late en el corazón del bosque. La semilla que te entrega puede restaurarlo, pero primero debes llegar al altar.',
+          choices: [
+            { text: 'Seguir las indicaciones de Eldrin', nextStep: 10, flavor: 'La semilla palpita en tu mano mientras las raíces se apartan para mostrarte el camino.' },
+          ],
         },
         {
           type: 'combat', name: 'Emboscada en el Camino Ancho',
@@ -917,6 +920,13 @@ async function seedAdventures() {
           rewards: { gold: 30, ep: 10 },
         },
         {
+          type: 'choice', name: 'La Ruta hacia el Altar',
+          description: 'El mapa del explorador señala el corazón del bosque. La llave de bronce abre una antigua compuerta entre las raíces.',
+          choices: [
+            { text: 'Abrir la compuerta y avanzar', nextStep: 10, flavor: 'Tras la compuerta, las raíces convergen alrededor de un altar cubierto de símbolos.' },
+          ],
+        },
+        {
           type: 'narrative', name: 'El Corazón del Bosque',
           description: 'Llegas al centro del bosque. Un árbol gigantesco, más grande que cualquier edificio de Valdheim, se alza ante ti. Su tronco está marcado con runas druídicas antiguas. En su base, un altar de piedra espera. Este es el lugar donde todo comenzó, y donde todo puede terminar.',
         },
@@ -929,7 +939,7 @@ async function seedAdventures() {
         },
         {
           type: 'narrative', name: 'El Bosque Renace',
-          description: 'Con la corrupción derrotada, las runas en el gran árbol comienzan a brillar con una luz dorada. La semilla que te dio Eldrin palpita en tu mano. La entierras en el altar, y al instante un nuevo brote emerge, creciendo hasta entrelazarse con el árbol antiguo. El bosque entero parece suspirar en alivio. Los colores vuelven, los susurros cesan. Has devuelto la vida al Bosque Susurrante. Los Guardianes de Valdheim estarán orgullosos.',
+          description: 'Con la corrupción derrotada, las runas del gran árbol brillan con una luz dorada. Depositas la semilla druídica en el altar y un brote nuevo se entrelaza con las raíces antiguas. El bosque entero parece suspirar en alivio: los colores regresan y los susurros cesan. Has devuelto la vida al Bosque Susurrante. Los Guardianes de Valdheim estarán orgullosos.',
         },
       ],
       rewards: { goldMin: 30, goldMax: 60, ep: 30, fame: 5, items: [{ itemId: 3, chance: 20, qty: 1 }], materials: [{ materialId: 4, chance: 40, qty: 1 }, { materialId: 1, chance: 60, qty: 3 }] },
