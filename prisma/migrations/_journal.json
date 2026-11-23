@@ -1,0 +1,10 @@
+{
+  "version": "20240413000000",
+  "migrations": [
+    {
+      "diagnosePaths": [],
+      "migration": "20260713135349_init",
+      "timestamp": 1752408829000
+    }
+  ]
+}
