@@ -16,7 +16,7 @@ export function canClaimAdventureRewards(status: string, result: unknown): boole
   const data = result as { outcome?: unknown; steps?: unknown }
   return data.outcome === 'defeated' && Array.isArray(data.steps) &&
     data.steps.some(step => step !== null && typeof step === 'object' &&
-      !Array.isArray(step) && (step as { type?: unknown }).type === 'reward' &&
+      !Array.isArray(step) && (['reward', 'choice'].includes(String((step as { type?: unknown }).type))) &&
       (step as { rewards?: unknown }).rewards !== null &&
       typeof (step as { rewards?: unknown }).rewards === 'object')
 }
@@ -162,7 +162,7 @@ export function combineAdventureRewards(
   const combined: StepRewards = { ...globalRewards }
 
   for (const step of steps) {
-    if (step.type !== 'reward' || !step.rewards) continue
+    if ((step.type !== 'reward' && step.type !== 'choice') || !step.rewards) continue
     const rewards = step.rewards
 
     if (typeof rewards.gold === 'number') combined.gold = (combined.gold ?? 0) + rewards.gold

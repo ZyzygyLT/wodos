@@ -388,6 +388,20 @@ export default function ActiveAdventurePage() {
                         {entry.skillCheck.attr === 'pe' ? 'Percepción' : entry.skillCheck.attr === 'ch' ? 'Carisma' : entry.skillCheck.attr.toUpperCase()}: {entry.skillCheck.value} / {entry.skillCheck.dc} · {entry.skillCheck.passed ? 'Superada' : 'Fallida'}
                       </p>
                     )}
+                    {entry.rewards && (
+                      <div className="mt-2 rounded-md border border-yellow-900/50 bg-yellow-950/20 px-3 py-2">
+                        <p className="text-xs font-semibold text-yellow-300 mb-1">Recompensa de tu decisión</p>
+                        {entry.rewards.gold ? <p className="text-sm text-gray-300">💰 +{entry.rewards.gold} oro</p> : null}
+                        {entry.rewards.ep ? <p className="text-sm text-gray-300">⭐ +{entry.rewards.ep} EP</p> : null}
+                        {entry.rewards.fame ? <p className="text-sm text-gray-300">🏆 +{entry.rewards.fame} fama</p> : null}
+                        {entry.rewards.items?.map((it: { itemId: number; qty: number }, j: number) => (
+                          <p key={j} className="text-sm text-gray-300">{active?.rewardCatalog?.items?.[it.itemId]?.icon ?? "📦"} {active?.rewardCatalog?.items?.[it.itemId]?.name ?? `Objeto #${it.itemId}`} x{it.qty}</p>
+                        ))}
+                        {entry.rewards.materials?.map((mat: { materialId: number; qty: number }, j: number) => (
+                          <p key={j} className="text-sm text-gray-300">{active?.rewardCatalog?.materials?.[mat.materialId]?.icon ?? "🧱"} {active?.rewardCatalog?.materials?.[mat.materialId]?.name ?? `Material #${mat.materialId}`} x{mat.qty}</p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {entry.type === 'reward' && (

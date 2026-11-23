@@ -1325,7 +1325,7 @@ async function seedAdventures() {
           description: 'El cochero señala un paso entre los juncos. Puedes cruzar directamente hacia el campamento o registrar una vieja caseta de peaje antes de continuar.',
           choices: [
             { text: 'Avanzar sin detenerte', nextStep: 7, flavor: 'No quieres perder la ventaja. El humo de una fogata aparece entre los árboles.' },
-            { text: 'Registrar la caseta de peaje', nextStep: 6, flavor: 'La puerta está entreabierta. Alguien ha ocultado provisiones en su interior.' },
+            { text: 'Registrar la caseta de peaje', nextStep: 6, flavor: 'La puerta está entreabierta. Encuentras una pequeña bolsa de monedas escondida bajo el mostrador.', rewards: { gold: 10 } },
           ],
         },
         {

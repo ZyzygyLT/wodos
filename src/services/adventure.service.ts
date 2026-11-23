@@ -185,7 +185,7 @@ export async function getActiveAdventure(heroId: string) {
   const rewardSources: RewardLookup[] = [
     ...(catalogResult?.rewards ? [catalogResult.rewards] : []),
     ...(catalogResult?.steps ?? [])
-      .filter((entry) => entry.type === 'reward' && entry.rewards)
+      .filter((entry) => (entry.type === 'reward' || entry.type === 'choice') && entry.rewards)
       .flatMap((entry) => entry.rewards ? [entry.rewards] : []),
   ]
   const itemIds = [...new Set(rewardSources.flatMap((rewards) =>
@@ -444,6 +444,7 @@ export async function makeChoice(
       nextStepDescription: steps[resolution.nextStep]?.description ?? null,
       flavor: chosen.flavor ?? undefined,
       skillCheck: resolution.skillCheck,
+      rewards: chosen.rewards ?? undefined,
     }
     resultData.steps.push(stepResult)
 

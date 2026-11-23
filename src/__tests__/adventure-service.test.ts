@@ -69,6 +69,10 @@ describe("canClaimAdventureRewards", () => {
       outcome: "defeated",
       steps: [{ type: "narrative" }],
     })).toBe(false)
+    expect(canClaimAdventureRewards("failed", {
+      outcome: "defeated",
+      steps: [{ type: "choice", rewards: { gold: 8 } }],
+    })).toBe(true)
   })
 
   it("never allows abandoned adventures to claim rewards", () => {
@@ -273,9 +277,10 @@ describe("combineAdventureRewards", () => {
       { type: "narrative" },
       { type: "reward", rewards: { gold: 15, ep: 4, items: [{ itemId: 7, qty: 2 }] } },
       { type: "reward", rewards: { gold: 5, fame: 3, materials: [{ materialId: 9, qty: 4 }] } },
+      { type: "choice", rewards: { gold: 8, ep: 2 } },
     ])).toEqual({
-      gold: 20,
-      ep: 4,
+      gold: 28,
+      ep: 6,
       fame: 3,
       items: [{ itemId: 7, qty: 2 }],
       materials: [{ materialId: 9, qty: 4 }],
@@ -285,10 +290,14 @@ describe("combineAdventureRewards", () => {
   it("combines global and step rewards without dropping either source", () => {
     expect(combineAdventureRewards(
       { gold: 10, ep: 2, items: [{ itemId: 1, qty: 1 }] },
-      [{ type: "reward", rewards: { gold: 5, ep: 3, items: [{ itemId: 2, qty: 2 }] } }],
+      [
+        { type: "reward", rewards: { gold: 5, ep: 3, items: [{ itemId: 2, qty: 2 }] } },
+        { type: "choice", rewards: { gold: 8, fame: 1 } },
+      ],
     )).toEqual({
-      gold: 15,
+      gold: 23,
       ep: 5,
+      fame: 1,
       items: [{ itemId: 1, qty: 1 }, { itemId: 2, qty: 2 }],
     })
   })
