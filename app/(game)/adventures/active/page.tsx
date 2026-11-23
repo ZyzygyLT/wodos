@@ -319,7 +319,9 @@ export default function ActiveAdventurePage() {
                       <span className="text-red-300">❤️ Salud restante: {entry.heroHpRemaining} HP</span>
                       <span className="text-blue-300">🔷 Maná restante: {entry.heroMpRemaining} MP</span>
                     </div>
-                    {!entry.victory && (
+                    {entry.victory ? (
+                      <p className="text-emerald-400 text-sm font-bold mt-2">✓ ¡Encuentro superado! Has derrotado a todos los enemigos.</p>
+                    ) : (
                       <p className="text-red-400 text-sm font-bold mt-2">💀 Has sido derrotado</p>
                     )}
                   </div>
