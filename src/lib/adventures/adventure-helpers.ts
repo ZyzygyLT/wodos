@@ -161,22 +161,3 @@ export function combineAdventureRewards(
 
   return combined
 }
-
-
-/** Combine adventure-wide rewards with every reward granted by an individual step. */
-export function combineAdventureRewards(
-  globalRewards: StepRewards | null | undefined,
-  steps: Array<{ type?: string; rewards?: StepRewards | null }> = [],
-): StepRewards {
-  const combined: StepRewards = { ...globalRewards }
-  for (const step of steps) {
-    if (step.type !== 'reward' || !step.rewards) continue
-    const rewards = step.rewards
-    if (typeof rewards.gold === 'number') combined.gold = (combined.gold ?? 0) + rewards.gold
-    if (typeof rewards.ep === 'number') combined.ep = (combined.ep ?? 0) + rewards.ep
-    if (typeof rewards.fame === 'number') combined.fame = (combined.fame ?? 0) + rewards.fame
-    if (rewards.items?.length) combined.items = [...(combined.items ?? []), ...rewards.items]
-    if (rewards.materials?.length) combined.materials = [...(combined.materials ?? []), ...rewards.materials]
-  }
-  return combined
-}
