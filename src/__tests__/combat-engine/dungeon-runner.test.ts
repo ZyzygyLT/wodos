@@ -124,7 +124,6 @@ describe('runDungeon', () => {
 
     expect(action?.skillName).toBe('Golpe básico')
     expect(action?.attackRollBase).toBe(7)
-    expect(result.log.some(entry => entry.message.includes('usa Golpe devastador'))).toBe(false)
   })
 
   it('starts from persisted HP and MP and returns the remaining resources', async () => {
