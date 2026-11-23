@@ -2,7 +2,7 @@ import db from '@/lib/db'
 import { checkLevelUp } from '@/lib/level-up'
 import logger from '@/lib/logger'
 import { runDungeon } from '@/lib/combat-engine/dungeon-runner'
-import { buildHeroData } from '@/lib/dungeon-helpers'
+import { buildHeroData, mergeHeroAttrs } from '@/lib/dungeon-helpers'
 import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/adventures/combat-adapter'
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
 import {
@@ -387,11 +387,19 @@ export async function makeChoice(
     }
 
     const chosen = currentStep.choices[choiceIndex]
-    const hero = await tx.hero.findUnique({ where: { id: heroId }, select: { attrs: true } })
+    const hero = await tx.hero.findUnique({
+      where: { id: heroId },
+      include: {
+        combatProfiles: { where: { dungeonLevel: null }, take: 1 },
+        skills: { include: { skill: true } },
+        items: { include: { item: true } },
+      },
+    })
     if (!hero) throw new Error("Héroe no encontrado")
+    const combatHero = await buildHeroData(hero, hero.combatProfiles[0] ?? null)
     const resolution = resolveAdventureChoice(
       chosen,
-      hero.attrs as Record<string, number>,
+      mergeHeroAttrs(combatHero),
       steps.length,
     )
 

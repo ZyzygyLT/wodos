@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { resolveAdventureChoice, resolveCombatStep, isAdventureBlockingNewStart, getNextEnergyRechargeAt } from '@/lib/adventures/adventure-helpers'
 import { getAdventureStepGraphErrors } from '@/lib/adventures/step-graph'
+import { mergeHeroAttrs } from '@/lib/dungeon-helpers'
 
 describe('adventure start blocking', () => {
   it('keeps active and completed adventures blocking new starts until rewards are claimed', () => {
@@ -66,6 +67,23 @@ describe('adventure combat resolution', () => {
 
 describe('adventure choice resolution', () => {
   const attrs = { st: 12, dx: 8, ag: 15, pe: 10 }
+
+  it('uses equipment bonuses when resolving attribute checks', () => {
+    const effectiveAttrs = mergeHeroAttrs({
+      attrs: { ...attrs, pe: 10 },
+      equipStats: { pe: 4 },
+    })
+
+    const result = resolveAdventureChoice({
+      text: 'Detectar una trampa', nextStep: 2,
+      skillCheck: { attr: 'pe', dc: 12, passStep: 3, failStep: 4 },
+    }, effectiveAttrs, 5)
+
+    expect(result).toMatchObject({
+      nextStep: 3,
+      skillCheck: { attr: 'pe', dc: 12, value: 14, passed: true },
+    })
+  })
 
   it('uses the pass branch when the selected attribute meets the difficulty', () => {
     const result = resolveAdventureChoice({
