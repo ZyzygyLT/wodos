@@ -2140,8 +2140,23 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   const chosenBuffSkill = hero.skills.find(s => s.skillId === action.skillId)
   if (!chosenBuffSkill || (chosenBuffSkill.effect !== 'party_attack_up' && chosenBuffSkill.effect !== 'defense_up')) return action
   const isAtk = chosenBuffSkill.effect === 'party_attack_up'
-  const heroBuffBonuses = groupBuffBonusesForSide(state, 'hero')
-  if (isAtk ? heroBuffBonuses.atk <= 0 : heroBuffBonuses.def <= 0) return action
+  const buffType = isAtk ? 'atk' : 'def'
+  const currentBuffs = (state.buffs ?? []).filter(buff =>
+    buff.side === 'hero' && buff.type === buffType &&
+    (buff.remainingRounds === null || buff.remainingRounds > 0)
+  )
+  const currentBuffValue = currentBuffs.reduce((maximum, buff) => Math.max(maximum, buff.value), 0)
+  if (currentBuffValue <= 0) return action
+
+  const selectedBuffValue = calculatePartyBuffBonus(chosenBuffSkill.effect, chosenBuffSkill.multiplier, chosenBuffSkill.rank)
+  // A stronger buff, or an equal/stronger buff that expires sooner, is still useful.
+  // The stacking adapter preserves the strongest value and extends finite duration.
+  const existingCoversDuration = currentBuffs.some(buff =>
+    buff.value >= selectedBuffValue &&
+    (buff.remainingRounds === null || buff.remainingRounds >= BUFF_DURATION)
+  )
+  if (selectedBuffValue > currentBuffValue || !existingCoversDuration) return action
+
   const ataque = hero.skills.find(s => isBasicSkill(s))
   if (!ataque) return action
   const override: TacticAction = { ...action, skillId: ataque.skillId, fallbackReason: 'buff_active', selectedSkillId: action.skillId }

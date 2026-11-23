@@ -164,6 +164,43 @@ describe('runDungeon', () => {
     expect(result.log.some(entry => entry.message.includes('Rallying Cry') && entry.message.includes('ya activo'))).toBe(true)
   })
 
+  it('allows a stronger party buff to replace a weaker active buff', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [{ skillId: 999, effect: 'party_attack_up', multiplier: 1.5 }],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 1000, targetPos: 'front', targetType: 'weakest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        { skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 } },
+        { skillId: 999, name: 'Rallying Cry', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 3,
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
+        { skillId: 1000, name: 'Greater Rally', type: 'active', multiplier: 2, manaCost: 0, effect: 'party_attack_up', rank: 5,
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+    const action = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.actorId === hero.id)
+
+    expect(action?.skillName).toBe('Greater Rally')
+    expect(action?.skillFallback).toBeUndefined()
+    expect(result.levelReports[0]?.rounds[0]?.stateAfter.heroes[0]?.activeBuffs?.some(buff => buff.value === 30)).toBe(true)
+  })
+
   it('uses the fallback basic skill formula and identity when the selected skill is unaffordable', async () => {
     const hero = makeHero({
       mpCurrent: 0,
