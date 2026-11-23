@@ -33,6 +33,9 @@ export interface TacticAction {
   itemId?: number
   targetPos: TargetPosition
   targetType: TargetType
+  /** Internal reason when a tactical override replaces the selected skill. */
+  fallbackReason?: 'cooldown' | 'buff_active'
+  selectedSkillId?: number
 }
 
 export interface RoundRule {

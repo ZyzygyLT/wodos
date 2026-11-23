@@ -217,7 +217,7 @@ export interface DetailedAction {
   skillIcon?: string
   mpCost?: number
   /** Why the selected skill was replaced or forced by low-mana resolution. */
-  skillFallback?: 'free_basic' | 'basic' | 'forced'
+  skillFallback?: 'free_basic' | 'basic' | 'forced' | 'cooldown' | 'buff_active'
   selectedSkillName?: string
   targetId?: string
   targetName?: string
@@ -2129,7 +2129,7 @@ function resolveCooldownOverride(hero: HeroData, action: TacticAction, state: Co
   if (!isSkillOnCooldown(state.skillCooldowns, actorUnit.id, action.skillId)) return action
   const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (isBasicSkill(s)))
   if (!available) return action
-  const override: TacticAction = { ...action, skillId: available.skillId }
+  const override: TacticAction = { ...action, skillId: available.skillId, fallbackReason: 'cooldown', selectedSkillId: action.skillId }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
     `⏳ ${actorUnit.name} — skill_${action.skillId} en cooldown, usando skill_${available.skillId}`,
     { actor: actorUnit.name, skill: `skill_${available.skillId}` })
@@ -2144,7 +2144,7 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   if (isAtk ? heroBuffBonuses.atk <= 0 : heroBuffBonuses.def <= 0) return action
   const ataque = hero.skills.find(s => isBasicSkill(s))
   if (!ataque) return action
-  const override: TacticAction = { ...action, skillId: ataque.skillId }
+  const override: TacticAction = { ...action, skillId: ataque.skillId, fallbackReason: 'buff_active', selectedSkillId: action.skillId }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
     `⏭️ ${actorUnit.name} — ${chosenBuffSkill.name ?? 'buff'} ya activo, usando ${ataque.name ?? 'Ataque básico'}`,
     { actor: actorUnit.name, skill: `skill_${ataque.skillId}` })
@@ -2285,12 +2285,20 @@ function runHeroTurn(
     ),
     applyCooldownOverride: action => resolveCooldownOverride(hero, action, state, actorUnit, log, round, levelNum),
     applyBuffOverride: action => resolveBuffOverride(hero, action, state, actorUnit, log, round, levelNum),
-    execute: finalAction => executeHeroAction(
-      actorUnit, hero,
-      { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors },
-      { ...combatCtx, state: perHeroState },
-      { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits }
-    ),
+    execute: finalAction => {
+      const result = executeHeroAction(
+        actorUnit, hero,
+        { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors },
+        { ...combatCtx, state: perHeroState },
+        { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits }
+      )
+      if (result && finalAction.fallbackReason && finalAction.selectedSkillId !== undefined) {
+        result.skillFallback = finalAction.fallbackReason
+        const selectedSkill = hero.skills.find(skill => skill.skillId === finalAction.selectedSkillId)
+        result.selectedSkillName = selectedSkill?.name ?? `skill_${finalAction.selectedSkillId}`
+      }
+      return result
+    },
     afterSuccessfulExecution: finalAction => applySkillCooldown(
       state, actorUnit, hero, finalAction.skillId, undefined, combatCtx
     ),

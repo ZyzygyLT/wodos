@@ -124,6 +124,8 @@ describe('runDungeon', () => {
       ?.actions.find(action => action.actorId === 'hero-1')
     expect(secondRoundAttack?.skillName).toBe('Basic strike')
     expect(secondRoundAttack?.targetName).toBe('Rear strongest')
+    expect(secondRoundAttack?.skillFallback).toBe('cooldown')
+    expect(secondRoundAttack?.selectedSkillName).toBe('Heavy strike')
   })
 
   it('uses the fallback basic skill formula and identity when the selected skill is unaffordable', async () => {
