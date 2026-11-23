@@ -101,7 +101,7 @@ describe("getActiveAdventure", () => {
 
     await expect(getActiveAdventure("hero-1")).resolves.toBeNull()
     expect(findMany).toHaveBeenCalledWith({
-      where: { heroId: "hero-1", status: { in: [...ADVENTURE_STATUSES_BLOCKING_NEW_START] } },
+      where: { heroId: "hero-1", status: { in: ["active", "completed", "failed"] } },
       orderBy: { startedAt: "desc" },
       include: { adventure: true },
     })
@@ -149,7 +149,7 @@ describe("getActiveAdventure", () => {
       totalSteps: 5,
       status: "failed",
       startedAt: new Date("2026-11-22T12:00:00.000Z"),
-      result: { steps: [], rewards: null },
+      result: { outcome: "defeated", steps: [{ type: "reward", rewards: { gold: 12 } }], rewards: null },
       adventure: {
         name: "The Ruins",
         icon: "🏚️",
