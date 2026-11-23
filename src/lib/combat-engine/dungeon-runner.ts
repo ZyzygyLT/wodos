@@ -2451,6 +2451,17 @@ export async function runDungeon(
       state.damagedThisRound = false
 
       const stateBefore = buildStateSnapshot(heroUnits, enemyUnits, state.buffs, state.groupAtkBonus, state.groupDefBonus, state.factionBonuses)
+      const recordRound = (actions: DetailedAction[]) => {
+        totalRounds++
+        const stateAfter = buildStateSnapshot(heroUnits, enemyUnits, state.buffs, state.groupAtkBonus, state.groupDefBonus, state.factionBonuses)
+        roundReports.push({
+          roundNumber: round,
+          stateBefore,
+          stateAfter,
+          actions,
+          narrative: generateRoundNarrative(round, actions),
+        })
+      }
 
       addLog(log, 'round_start', round, lvl.number, 'combat',
         `── Ronda ${round} ──`)
@@ -2498,9 +2509,13 @@ export async function runDungeon(
         livingHeroCount: heroUnits.filter(hero => hero.hp > 0).length,
         livingEnemyCount: enemyUnits.filter(enemy => enemy.hp > 0).length,
       })
-      if (roundStatus === 'heroes_defeated') break
+      if (roundStatus === 'heroes_defeated') {
+        recordRound([])
+        break
+      }
       if (roundStatus === 'level_victory') {
         levelVictory = true
+        recordRound([])
         break
       }
 
@@ -2512,6 +2527,7 @@ export async function runDungeon(
         })
         if (trapStatus === 'level_victory') {
           levelVictory = true
+          recordRound([])
           break
         }
       }
@@ -2550,8 +2566,6 @@ export async function runDungeon(
         },
       })
 
-      totalRounds++
-
       // Los buffs duran rondas completas: se consumen después de que ambos bandos actuaron.
       decayBuffs(state, roundCtx)
 
@@ -2561,15 +2575,7 @@ export async function runDungeon(
 
       decaySkillCooldowns(state, roundCtx)
 
-      const stateAfter = buildStateSnapshot(heroUnits, enemyUnits, state.buffs, state.groupAtkBonus, state.groupDefBonus, state.factionBonuses)
-
-      roundReports.push({
-        roundNumber: round,
-        stateBefore,
-        stateAfter,
-        actions: roundActions,
-        narrative: generateRoundNarrative(round, roundActions),
-      })
+      recordRound(roundActions)
 
       const completedRoundStatus = resolveCombatRoundStatus({
         livingHeroCount: heroUnits.filter(hero => hero.hp > 0).length,

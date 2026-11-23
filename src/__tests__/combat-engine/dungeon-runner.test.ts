@@ -513,6 +513,40 @@ describe('runDungeon', () => {
     expect(result.log.some(l => l.message.includes('Escudo de maná'))).toBe(true)
   })
 
+  it('records a terminal round when round-start effects defeat the party before turns', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const result = await runDungeon(
+      [makeHero({ hpMax: 10 })],
+      makeDungeon({
+        levels: [{
+          number: 1,
+          enemies: [{
+            id: 1, name: 'Ash Wraith', icon: '🔥', hp: 100, mp: 0, atk: 0, def: 0, dx: 1, ag: 1,
+            level: 1, position: 'rear',
+            passiveEffects: [{
+              trigger: 'on_round_start',
+              effectType: 'damage',
+              targetType: 'all_heroes',
+              value: 999,
+              sourceName: 'Opening blaze',
+            }],
+          }],
+          epReward: 0,
+          goldReward: 0,
+        }],
+        lootTable: [],
+      }),
+    )
+
+    const terminalRound = result.levelReports[0]?.rounds[0]
+    expect(result.victory).toBe(false)
+    expect(result.heroesFinalState[0]?.hp).toBe(0)
+    expect(result.totalRounds).toBe(1)
+    expect(terminalRound?.roundNumber).toBe(1)
+    expect(terminalRound?.stateAfter.heroes[0]?.hp).toBe(0)
+    expect(terminalRound?.actions).toEqual([])
+  })
+
   it('records the updated condition when combat healing changes HP', async () => {
     setupRand(...Array(100).fill(0.5))
     let healedUnitId: string | undefined
