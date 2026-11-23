@@ -13,6 +13,7 @@ export default function ActiveAdventurePage() {
   const [executing, setExecuting] = useState(false)
   const [choosing, setChoosing] = useState(false)
   const [claiming, setClaiming] = useState(false)
+  const [claimResult, setClaimResult] = useState<any>(null)
   const [abandoning, setAbandoning] = useState(false)
   const [confirmAbandon, setConfirmAbandon] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -132,7 +133,8 @@ export default function ActiveAdventurePage() {
         body: JSON.stringify({ heroAdventureId: active.id }),
       })
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
-      router.push("/adventures")
+      const result = await res.json()
+      setClaimResult(result)
     } catch { setError("Error al reclamar") } finally {
       setClaiming(false)
     }
@@ -412,6 +414,22 @@ export default function ActiveAdventurePage() {
             </div>
           )}
 
+          {claimResult && (
+            <div className="mb-4 rounded-lg border border-emerald-700 bg-emerald-900/30 p-4" role="status" aria-live="polite">
+              <h3 className="font-bold text-emerald-300">✓ {claimResult.partial ? "Botín recuperado añadido al inventario" : "Recompensas reclamadas correctamente"}</h3>
+              <p className="mt-1 text-sm text-gray-300">
+                {claimResult.partial
+                  ? "El oro, la experiencia, la fama y los objetos obtenidos antes de la derrota ya se han acreditado."
+                  : "El oro, la experiencia, la fama y los objetos de esta aventura ya se han acreditado a tu héroe."}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <span className="text-amber-300">💰 +{claimResult.rewards?.gold ?? 0} oro</span>
+                <span className="text-purple-300">⭐ +{claimResult.rewards?.ep ?? 0} EP</span>
+                <span className="text-blue-300">🏆 +{claimResult.rewards?.fame ?? 0} fama</span>
+              </div>
+            </div>
+          )}
+
           {/* Victory / Defeat banner */}
           {isOver && (
             <div className={`p-4 rounded-lg mb-4 text-center ${
@@ -509,13 +527,21 @@ export default function ActiveAdventurePage() {
                 {executing ? "Resolviendo..." : currentStep?.type === 'combat' ? "⚔️ Combatir" : "Continuar →"}
               </button>
             )}
-            {(active?.status === "completed" || hasRecoverableRewards) && (
+            {(active?.status === "completed" || hasRecoverableRewards) && !claimResult && (
               <button
                 onClick={claimRewards}
                 disabled={claiming}
                 className="flex-1 py-3 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 rounded-lg font-semibold"
               >
                 {claiming ? "Reclamando..." : hasRecoverableRewards ? "🎒 Reclamar botín recuperado" : "🎁 Reclamar recompensas"}
+              </button>
+            )}
+            {claimResult && (
+              <button
+                onClick={() => router.push("/adventures")}
+                className="flex-1 py-3 bg-emerald-800 hover:bg-emerald-700 rounded-lg font-semibold"
+              >
+                Volver a aventuras
               </button>
             )}
             {active?.status === "failed" && !hasRecoverableRewards && (
