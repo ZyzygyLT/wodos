@@ -5,6 +5,13 @@ const mockFindFirst = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   default: {
+    $transaction: (callback: (tx: { hero: { findFirst: typeof mockFindFirst; update: typeof mockUpdate } }) => unknown) =>
+      callback({
+        hero: {
+          findFirst: mockFindFirst,
+          update: mockUpdate,
+        },
+      }),
     hero: {
       findFirst: mockFindFirst,
       update: mockUpdate,
