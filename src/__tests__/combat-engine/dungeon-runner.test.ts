@@ -128,6 +128,42 @@ describe('runDungeon', () => {
     expect(secondRoundAttack?.selectedSkillName).toBe('Heavy strike')
   })
 
+  it('reports when an already-active party buff replaces the selected skill', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [{ skillId: 999, effect: 'party_attack_up', multiplier: 1.5 }],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 999, targetPos: 'front', targetType: 'weakest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        { skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 } },
+        { skillId: 999, name: 'Rallying Cry', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 3,
+          formula: null as any },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+    const action = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.actorId === hero.id)
+
+    expect(action?.skillName).toBe('Basic strike')
+    expect(action?.skillFallback).toBe('buff_active')
+    expect(action?.selectedSkillName).toBe('Rallying Cry')
+    expect(result.log.some(entry => entry.message.includes('Rallying Cry') && entry.message.includes('ya activo'))).toBe(true)
+  })
+
   it('uses the fallback basic skill formula and identity when the selected skill is unaffordable', async () => {
     const hero = makeHero({
       mpCurrent: 0,
