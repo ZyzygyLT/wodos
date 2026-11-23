@@ -116,6 +116,8 @@ describe('runDungeon', () => {
     expect(actions.find(action => action.actorId === 'hero-1')).toMatchObject({
       skillId: 1,
       skillName: 'First basic attack',
+      tacticRulePriority: 1,
+      tacticCondition: { type: 'always' },
     })
     expect(actions.find(action => action.actorId === 'hero-2')).toMatchObject({
       skillId: 2,

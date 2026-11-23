@@ -12,7 +12,7 @@ import {
 
 import {
   evalTactics, buildTurnQueue,
-  CombatState, CombatUnit, RoundRule, TacticAction, StatusEffect,
+  CombatState, CombatUnit, RoundRule, TacticAction, TacticCondition, StatusEffect,
   BuffEntry, PassiveEffect,
 } from './tactics-evaluator'
 
@@ -219,6 +219,9 @@ export interface DetailedAction {
   /** Why the selected skill was replaced or forced by low-mana resolution. */
   skillFallback?: 'free_basic' | 'basic' | 'forced' | 'cooldown' | 'buff_active'
   selectedSkillName?: string
+  /** The configured rule that selected this action, before any execution fallback. */
+  tacticRulePriority?: number
+  tacticCondition?: TacticCondition
   targetId?: string
   targetName?: string
   attackValue?: number
@@ -2308,10 +2311,18 @@ function runHeroTurn(
         { ...combatCtx, state: perHeroState },
         { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits }
       )
-      if (result && finalAction.fallbackReason && finalAction.selectedSkillId !== undefined) {
-        result.skillFallback = finalAction.fallbackReason
-        const selectedSkill = hero.skills.find(skill => skill.skillId === finalAction.selectedSkillId)
-        result.selectedSkillName = selectedSkill?.name ?? `skill_${finalAction.selectedSkillId}`
+      if (result) {
+        if (finalAction.matchedRulePriority !== undefined) {
+          result.tacticRulePriority = finalAction.matchedRulePriority
+        }
+        if (finalAction.matchedCondition) {
+          result.tacticCondition = finalAction.matchedCondition
+        }
+        if (finalAction.fallbackReason && finalAction.selectedSkillId !== undefined) {
+          result.skillFallback = finalAction.fallbackReason
+          const selectedSkill = hero.skills.find(skill => skill.skillId === finalAction.selectedSkillId)
+          result.selectedSkillName = selectedSkill?.name ?? `skill_${finalAction.selectedSkillId}`
+        }
       }
       return result
     },

@@ -118,6 +118,22 @@ function TargetRow({ t, isEnemy }: Readonly<{ t: NonNullable<DetailedAction['tar
   )
 }
 
+function tacticConditionLabel(condition: NonNullable<DetailedAction['tacticCondition']>): string {
+  const value = condition.value
+  switch (condition.type) {
+    case 'always': return 'siempre'
+    case 'hp_self_lt': return `HP propio < ${value ?? 30}%`
+    case 'hp_self_gt': return `HP propio > ${value ?? 70}%`
+    case 'hp_enemy_lt': return `HP del enemigo más débil < ${value ?? 25}%`
+    case 'hp_ally_lt': return `HP de un aliado < ${value ?? 50}%`
+    case 'round_gt': return `ronda > ${value ?? 3}`
+    case 'mana_lt': return `maná < ${value ?? 20}%`
+    case 'ally_down': return 'un aliado está derrotado'
+    case 'damaged_this_round': return 'recibió daño esta ronda'
+    default: return 'condición configurada'
+  }
+}
+
 /** Build a narrative description for the left column */
 function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boolean }>) {
   const nameCls = isEnemy ? 'text-orange-300' : 'text-green-300'
@@ -137,6 +153,11 @@ function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boole
         <span className="text-lg leading-none">{a.actorIcon ?? '🧙'}</span>
         <span className={`font-bold text-sm ${nameCls}`}>{a.actorName}</span>
       </div>
+      {!isEnemy && a.tacticRulePriority !== undefined && a.tacticCondition && (
+        <p className="text-[10px] text-cyan-300 ml-1">
+          Regla táctica #{a.tacticRulePriority} · si {tacticConditionLabel(a.tacticCondition)}
+        </p>
+      )}
       {a.skillFallback && (
         <p className="text-[10px] text-amber-300 ml-1">
           {a.skillFallback === 'free_basic'

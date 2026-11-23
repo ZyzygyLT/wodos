@@ -133,7 +133,9 @@ describe('evalTactics', () => {
     ]
     const state = makeState({ hero: makeHero({ hp: 60 }) })
     const result = evalTactics(rules, state)
-    expect(result.skillId).toBe(9) 
+    expect(result.skillId).toBe(9)
+    expect(result.matchedRulePriority).toBe(1)
+    expect(result.matchedCondition).toEqual({ type: 'hp_self_lt', value: 80 })
   })
 })
 

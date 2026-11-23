@@ -36,6 +36,9 @@ export interface TacticAction {
   /** Internal reason when a tactical override replaces the selected skill. */
   fallbackReason?: 'cooldown' | 'buff_active'
   selectedSkillId?: number
+  /** Priority and trigger condition of the first rule matched by the evaluator. */
+  matchedRulePriority?: number
+  matchedCondition?: TacticCondition
 }
 
 export interface RoundRule {
@@ -138,7 +141,11 @@ export const evalTactics = (
 
   for (const rule of sorted) {
     if (evalCondition(rule.condition, state)) {
-      return rule.action
+      return {
+        ...rule.action,
+        matchedRulePriority: rule.priority,
+        matchedCondition: { ...rule.condition },
+      }
     }
   }
 
