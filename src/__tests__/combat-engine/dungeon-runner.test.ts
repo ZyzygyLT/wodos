@@ -89,6 +89,44 @@ describe('runDungeon', () => {
     expect(result.totalRounds).toBeGreaterThanOrEqual(1)
   })
 
+  it('uses the fallback basic skill formula and identity when the selected skill is unaffordable', async () => {
+    const hero = makeHero({
+      mpCurrent: 0,
+      skills: [
+        {
+          skillId: 1, name: 'Golpe básico', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 7 },
+        },
+        {
+          skillId: 2, name: 'Golpe devastador', type: 'active', multiplier: 2, manaCost: 50, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+        },
+      ],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+      },
+    })
+    setupRand(0.5, 0.5, 0.5, 0.5, 0.5)
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Slime', icon: '🟢', hp: 999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+    const action = result.levelReports[0]?.rounds.flatMap(round => round.actions)
+      .find(entry => entry.actorId === hero.id)
+
+    expect(action?.skillName).toBe('Golpe básico')
+    expect(action?.attackRollBase).toBe(7)
+    expect(result.log.some(entry => entry.message.includes('usa Golpe devastador'))).toBe(false)
+  })
+
   it('starts from persisted HP and MP and returns the remaining resources', async () => {
     const hero = makeHero({ hpCurrent: 25, mpCurrent: 17 })
     const dungeon = makeDungeon({

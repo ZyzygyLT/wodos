@@ -1251,12 +1251,14 @@ function executeHeroAction(
   if (action.itemId) return executeHeroItemAction(heroUnit, hero, action, ctx, meta.initiative, meta.actionNum, meta.totalActions)
 
   let skill = getSkill(hero, action.skillId)
+  const { skill: resolvedSkill, mpCost } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
+  skill = resolvedSkill
+
+  // Formula, rank and report identity must follow the skill actually executed.
+  // A low-mana fallback can replace the selected skill with a basic attack.
   const skillName = skill.name ?? `skill_${skill.skillId}`
   const rank = skill.rank ?? 1
   const formula = skill.formula
-
-  const { skill: resolvedSkill, mpCost } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
-  skill = resolvedSkill
 
   // Legacy attack formulas consume their dice before random target selection.
   // Keep that order so seeded combat streams remain compatible.
