@@ -141,8 +141,19 @@ export default function ActiveAdventurePage() {
         body: JSON.stringify({ heroAdventureId: active.id }),
       })
       if (!res.ok) { const e = await res.json(); setError(e.error); return }
-      const result = await res.json()
+      const result: AdventureClaimResult = await res.json()
       setClaimResult(result)
+      if (result.levelUp?.leveledUp) {
+        setActive((prev: any) => ({
+          ...prev,
+          heroResources: {
+            hpCurrent: result.levelUp.newHpMax,
+            hpMax: result.levelUp.newHpMax,
+            mpCurrent: result.levelUp.newMpMax,
+            mpMax: result.levelUp.newMpMax,
+          },
+        }))
+      }
     } catch { setError("Error al reclamar") } finally {
       setClaiming(false)
     }
