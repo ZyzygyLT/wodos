@@ -1009,7 +1009,7 @@ async function seedAdventures() {
         },
         {
           type: 'choice', name: 'El Acertijo de Hierro',
-          description: 'La puerta tiene grabado: "No tengo voz, pero hablo. No tengo piernas, pero camino. No estoy vivo, pero crezco. ¿Qué soy?"',
+          description: 'La puerta tiene grabado: "Nací de una chispa, devoro madera sin tener boca y muero cuando bebo agua. ¿Qué soy?"',
           choices: [
             { text: '"El fuego"', nextStep: 11, flavor: 'Las runas en la puerta brillan en rojo. La puerta se abre lentamente...' },
             { text: '"La sombra"', nextStep: 10, flavor: 'La puerta no se mueve. Pero escuchas un rugido detrás de ti.' },
