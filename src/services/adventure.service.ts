@@ -279,7 +279,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     let stepResult: StepResult
     switch (currentStep.type) {
       case "narrative": {
-        stepResult = { type: "narrative", description: currentStep.description }
+        stepResult = { type: "narrative", description: currentStep.description, stepName: currentStep.name }
         break
       }
       case "choice": {
@@ -293,10 +293,13 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
         const finalHeroState = combatRun.heroesFinalState[0]
         if (!finalHeroState) throw new Error("El combate no devolvió el estado final del héroe")
 
-        stepResult = mapAdventureCombatResult(combatRun, enemies.length, {
-          hp: hero.hpCurrent,
-          mp: hero.mpCurrent,
-        })
+        stepResult = {
+          ...mapAdventureCombatResult(combatRun, enemies.length, {
+            hp: hero.hpCurrent,
+            mp: hero.mpCurrent,
+          }),
+          stepName: currentStep.name,
+        }
         await tx.hero.update({
           where: { id: heroId },
           data: {
@@ -335,11 +338,11 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
         break
       }
       case "reward": {
-        stepResult = { type: "reward", rewards: currentStep.rewards ?? {} }
+        stepResult = { type: "reward", rewards: currentStep.rewards ?? {}, stepName: currentStep.name }
         break
       }
       default: {
-        stepResult = { type: "narrative", description: currentStep.description }
+        stepResult = { type: "narrative", description: currentStep.description, stepName: currentStep.name }
       }
     }
 
@@ -425,6 +428,7 @@ export async function makeChoice(
     if (!Array.isArray(resultData.steps)) resultData.steps = []
     const stepResult = {
       type: "choice" as const,
+      stepName: currentStep.name,
       chosenIndex: choiceIndex,
       chosen: chosen.text,
       nextStep: resolution.nextStep,

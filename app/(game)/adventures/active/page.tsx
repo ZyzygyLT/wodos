@@ -324,11 +324,14 @@ export default function ActiveAdventurePage() {
             {history.map((entry: any, i: number) => (
               <div key={i} className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-4">
                 {entry.type === 'narrative' && (
-                  <p className="text-gray-300 text-sm leading-relaxed">{entry.description}</p>
+                  <div>
+                    {entry.stepName && <p className="text-xs font-semibold text-cyan-300 mb-1">{entry.stepName}</p>}
+                    <p className="text-gray-300 text-sm leading-relaxed">{entry.description}</p>
+                  </div>
                 )}
                 {entry.type === 'combat' && (
                   <div>
-                    <p className="text-sm font-semibold text-amber-400 mb-1">⚔️ Combate</p>
+                    <p className="text-sm font-semibold text-amber-400 mb-1">⚔️ {entry.stepName ?? "Combate"}</p>
                     {entry.log?.map((l: string, j: number) => (
                       <p key={j} className="text-sm text-gray-300">{l}</p>
                     ))}
@@ -350,6 +353,7 @@ export default function ActiveAdventurePage() {
                 )}
                 {entry.type === 'choice' && (
                   <div>
+                    {entry.stepName && <p className="text-xs font-semibold text-cyan-300 mb-1">{entry.stepName}</p>}
                     <p className={`text-sm font-semibold mb-1 ${entry.skillCheck ? (entry.skillCheck.passed ? "text-emerald-400" : "text-red-400") : "text-emerald-400"}`}>
                       {entry.skillCheck ? (entry.skillCheck.passed ? "✓ Prueba superada" : "✕ Prueba fallida") : "🤔 Decisión tomada"}
                     </p>
@@ -370,7 +374,7 @@ export default function ActiveAdventurePage() {
                 )}
                 {entry.type === 'reward' && (
                   <div>
-                    <p className="text-sm font-semibold text-yellow-400 mb-1">🎁 Recompensa</p>
+                    <p className="text-sm font-semibold text-yellow-400 mb-1">🎁 {entry.stepName ?? "Recompensa"}</p>
                     {entry.rewards?.gold && <p className="text-sm text-gray-300">💰 +{entry.rewards.gold} oro</p>}
                     {entry.rewards?.ep && <p className="text-sm text-gray-300">⭐ +{entry.rewards.ep} EP</p>}
                     {entry.rewards?.fame ? <p className="text-sm text-gray-300">🏆 +{entry.rewards.fame} fama</p> : null}

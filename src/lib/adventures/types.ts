@@ -79,7 +79,7 @@ export interface RewardStepResult {
   rewards: StepRewards
 }
 
-export type StepResult = CombatStepResult | NarrativeStepResult | ChoiceStepResult | RewardStepResult
+export type StepResult = (CombatStepResult | NarrativeStepResult | ChoiceStepResult | RewardStepResult) & { stepName?: string }
 
 export type StepAction = 'continue' | 'choose' | 'fight' | 'claim'
 
