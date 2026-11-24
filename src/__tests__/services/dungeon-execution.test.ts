@@ -199,4 +199,126 @@ describe("persistRunResult", () => {
     expect(updates).toHaveLength(2)
     expect(updates[1]).toEqual(expect.objectContaining({ level: 2, freeAttrPoints: { increment: 5 } }))
   })
+
+  it("runs a real two-hero dungeon simulation and settles its actual combat output", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5)
+    const attrs = { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 }
+    const makeCombatHero = (id: string, position: string, hpCurrent: number, consumables: HeroData["consumables"] = []): HeroData => ({
+      id,
+      name: id === "hero-1" ? "Front Hero" : "Rear Hero",
+      level: 1,
+      attrs: { ...attrs },
+      hpMax: 100,
+      mpMax: 40,
+      hpCurrent,
+      mpCurrent: 15,
+      gold: 0,
+      combatProfile: {
+        position,
+        prelimRules: id === "hero-1" ? [{ itemId: 42 }] : [],
+        roundRules: [{ priority: 1, condition: { type: "always" }, action: { skillId: 1, targetPos: "front", targetType: "weakest" } }],
+        defenseSkills: {},
+      },
+      skills: [{
+        skillId: 1,
+        name: "Basic strike",
+        type: "basic",
+        multiplier: 1,
+        manaCost: 0,
+        effect: "attack",
+        rank: 1,
+        formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 50 },
+      }],
+      consumables,
+    })
+    const heroes = [
+      makeCombatHero("hero-1", "front", 20, [{ heroItemId: "hero-item-potion-1", itemId: 42, healHp: 25 }]),
+      makeCombatHero("hero-2", "rear", 70),
+    ]
+    const dungeon: DungeonData = {
+      id: 1,
+      name: "Integration Test Dungeon",
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: "Training Slime", icon: "🟢", hp: 1, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: "front" }],
+        epReward: 100,
+        goldReward: 50,
+      }],
+      epReward: 100,
+      goldReward: 50,
+      fameReward: 10,
+      lootTable: [],
+    }
+
+    const result = await runDungeon(heroes, dungeon)
+
+    expect(result.victory).toBe(true)
+    expect(result.levelsCleared).toBe(1)
+    expect(result.consumedConsumables).toEqual([
+      { heroId: "hero-1", heroItemId: "hero-item-potion-1" },
+    ])
+    expect(result.heroesFinalState).toHaveLength(2)
+    expect(result.heroesFinalState.find(hero => hero.id === "hero-1")?.hp).toBe(45)
+
+    const heroUpdates: Array<{ where: { id: string }; data: Record<string, unknown> }> = []
+    const deleteMany = vi.fn(async () => ({ count: 1 }))
+    const updateMany = vi.fn(async () => ({ count: 1 }))
+    const tx = {
+      dungeonRun: { updateMany },
+      hero: {
+        update: vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => {
+          heroUpdates.push(args)
+          return {}
+        }),
+        findFirst: vi.fn(async ({ where }: { where: { id: string } }) => ({
+          id: where.id,
+          epTotal: 0,
+          level: 1,
+          hpMax: 100,
+          mpMax: 40,
+          attrs,
+        })),
+      },
+      heroItem: {
+        deleteMany,
+        createMany: vi.fn(async () => ({ count: 0 })),
+      },
+    }
+
+    await persistRunResult(tx as unknown as Parameters<typeof persistRunResult>[0], {
+      runId: "run-integrated-party",
+      result,
+      heroesData: heroes,
+      totalHeroes: heroes.length,
+    })
+
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "run-integrated-party", status: "running" },
+      data: expect.objectContaining({
+        status: "done",
+        result: "victory",
+        epGained: result.epGained,
+        goldGained: result.goldGained,
+        fameGained: result.fameGained,
+        report: result.log,
+        levelReports: result.levelReports,
+      }),
+    }))
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["hero-item-potion-1"] }, heroId: "hero-1" },
+    })
+    expect(heroUpdates).toHaveLength(2)
+    for (const finalState of result.heroesFinalState) {
+      const persisted = heroUpdates.find(update => update.where.id === finalState.id)
+      expect(persisted?.data).toEqual(expect.objectContaining({
+        hpCurrent: finalState.hp,
+        mpCurrent: finalState.mp,
+        dungeonRegisteredId: null,
+      }))
+    }
+    expect(heroUpdates.reduce((total, update) => total + Number((update.data.epTotal as { increment: number }).increment), 0)).toBe(result.epGained)
+    expect(heroUpdates.reduce((total, update) => total + Number((update.data.gold as { increment: number }).increment), 0)).toBe(result.goldGained)
+    expect(heroUpdates.reduce((total, update) => total + Number((update.data.fame as { increment: number }).increment), 0)).toBe(result.fameGained)
+  })
+
 })
