@@ -164,7 +164,7 @@ function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boole
           Ninguna regla coincidió; se usó la acción predeterminada
         </p>
       )}
-      {!isEnemy && tacticRuleEvaluationTrace.length > 1 && (
+      {!isEnemy && tacticRuleEvaluationTrace.length > 0 && (
         <details className="ml-1 text-[10px] text-gray-400">
           <summary className="cursor-pointer select-none hover:text-gray-200">
             Evaluación táctica · {tacticRuleEvaluationTrace.length} reglas comprobadas
