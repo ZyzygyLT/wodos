@@ -37,9 +37,19 @@ export async function GET() {
 
   const itemMap = hasLootPreview ? await buildItemMap(dungeons) : {}
 
-  const registeredRun = hero.dungeonRegisteredId
+  // Participants have no hero.dungeonRegisteredId of their own. Resolve the
+  // active run through the participant relation so the map reflects the same
+  // reservation that registration enforces. Keep the legacy pointer fallback.
+  const activeParticipantRun = await db.dungeonRun.findFirst({
+    where: {
+      participants: { some: { heroId: hero.id } },
+      status: { in: ["registered", "running"] },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+  const registeredRun = activeParticipantRun ?? (hero.dungeonRegisteredId
     ? await db.dungeonRun.findUnique({ where: { id: hero.dungeonRegisteredId } })
-    : null
+    : null)
 
   const generalProfiles = hero.combatProfiles.filter(profile => profile.dungeonLevel === null)
   const selectableProfiles = generalProfiles.length > 0 ? generalProfiles : hero.combatProfiles.slice(0, 1)
@@ -47,6 +57,7 @@ export async function GET() {
   const result = dungeons.map(d => {
     const times = (d.scheduledTimes ?? []) as string[]
     const nextScheduledTime = getNextScheduledTime(times)
+    const isRegistered = registeredRun?.dungeonId === d.id
 
     const entry: Record<string, unknown> = {
       id: d.id, name: d.name, slug: d.slug, icon: d.icon,
@@ -56,8 +67,8 @@ export async function GET() {
       isInstant: d.isInstant,
       epReward: d.epReward, goldReward: d.goldReward, fameReward: d.fameReward,
       scheduledTimes: times,
-      isRegistered: registeredRun?.dungeonId === d.id,
-      registeredRunId: registeredRun?.dungeonId === d.id ? registeredRun.id : null,
+      isRegistered,
+      registeredRunId: isRegistered ? registeredRun!.id : null,
       nextScheduledTime: nextScheduledTime?.toISOString() ?? null,
       profiles: selectableProfiles.map(p => ({
         id: p.id, name: p.name, position: p.position,
