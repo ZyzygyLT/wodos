@@ -48,6 +48,7 @@ describe('dungeon post-run clan event contribution', () => {
       totalHeroes: 2,
       dungeon: { id: 1, name: 'Test Dungeon', slug: 'test-dungeon' },
       runId: 'run-1',
+      levelUps: [],
       clanMemberRec: { clanId: 'clan-1', clan: { upgrades: [] } },
     })
 
@@ -75,6 +76,7 @@ describe('dungeon post-run clan event contribution', () => {
       totalHeroes: 1,
       dungeon: { id: 1, name: 'Test Dungeon', slug: 'test-dungeon' },
       runId: 'run-2',
+      levelUps: [],
     })
 
     expect(mockDb.weeklyEvent.findFirst).not.toHaveBeenCalled()
