@@ -23,7 +23,7 @@ async function loadHeroWithCombatData(heroId: string): Promise<any> {
   return db.hero.findFirst({
     where: { id: heroId },
     include: {
-      combatProfiles: { where: { dungeonLevel: null }, take: 1 },
+      combatProfiles: { orderBy: { createdAt: 'asc' } },
       skills: { include: { skill: true } },
       items: { include: { item: true } },
     },
@@ -71,7 +71,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
     include: {
       hero: {
         include: {
-          combatProfiles: { where: { dungeonLevel: null }, take: 1 },
+          combatProfiles: { orderBy: { createdAt: 'asc' } },
           skills: { include: { skill: true } },
           items: { include: { item: true } },
         },
@@ -99,7 +99,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
         include: {
           hero: {
             include: {
-              combatProfiles: { where: { dungeonLevel: null }, take: 1 },
+              combatProfiles: { orderBy: { createdAt: 'asc' } },
               skills: { include: { skill: true } },
               items: { include: { item: true } },
             },
@@ -175,6 +175,17 @@ export async function reconcileDungeonParticipantConsumables(heroesData: HeroDat
 }
 
 export async function buildHeroData(hero: any, profile: any): Promise<HeroData> {
+  const baseProfile = profile ?? hero.combatProfiles?.find((candidate: any) => candidate.dungeonLevel === null) ?? null
+  const levelOverrides = Object.fromEntries(
+    (hero.combatProfiles ?? [])
+      .filter((candidate: any) => candidate.dungeonLevel !== null && candidate.dungeonLevel !== undefined)
+      .map((candidate: any) => [candidate.dungeonLevel, {
+        position: candidate.position,
+        prelimRules: candidate.prelimRules as any[],
+        roundRules: candidate.roundRules as any[],
+        defenseSkills: candidate.defenseSkills as Record<string, number | null>,
+      }])
+  )
   const hpMax = hero.hpMax
   const mpMax = hero.mpMax
   const attrs = { ...(hero.attrs as Record<string, number>) }
@@ -209,7 +220,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
 
   return {
     id: hero.id,
-    profileId: profile?.id ?? undefined,
+    profileId: baseProfile?.id ?? undefined,
     name: hero.name,
     level: hero.level,
     attrs,
@@ -220,13 +231,14 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     gold: hero.gold,
     manaShield,
     combatProfile: {
-      position: profile?.position ?? 'front',
-      prelimRules: (profile?.prelimRules ?? []) as any[],
-      roundRules: (profile?.roundRules ?? [
+      position: baseProfile?.position ?? 'front',
+      prelimRules: (baseProfile?.prelimRules ?? []) as any[],
+      roundRules: (baseProfile?.roundRules ?? [
         { priority: 1, condition: { type: 'hp_self_lt', value: 30 }, action: { skillId: defaultSkillId, targetPos: 'auto', targetType: 'weakest' } },
         { priority: 2, condition: { type: 'always' }, action: { skillId: defaultSkillId, targetPos: 'front', targetType: 'weakest' } },
       ]),
-      defenseSkills: (profile?.defenseSkills ?? {}) as Record<string, number | null>,
+      defenseSkills: (baseProfile?.defenseSkills ?? {}) as Record<string, number | null>,
+      levelOverrides,
     },
     skills: hero.skills.map((hs: any) => ({
       skillId: hs.skill.id,

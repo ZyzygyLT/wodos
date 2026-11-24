@@ -73,6 +73,13 @@ export interface HeroData {
     prelimRules: any[]
     roundRules: RoundRule[]
     defenseSkills: Record<string, number | null>
+    /** Per-dungeon-floor settings override the selected base profile when present. */
+    levelOverrides?: Record<number, Partial<{
+      position: string
+      prelimRules: any[]
+      roundRules: RoundRule[]
+      defenseSkills: Record<string, number | null>
+    }>>
   }
   skills: Array<{ skillId: number; type?: 'basic' | 'active' | 'passive'; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
   equipStats?: Record<string, number>
@@ -661,6 +668,44 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
     vampirePct: vampirePct > 0 ? vampirePct : undefined,
     counterPct: counterPct > 0 ? counterPct : undefined,
     resistances,
+  }
+}
+
+function applyLevelCombatProfile(
+  hero: HeroData,
+  unit: CombatUnit & { attrs: Record<string, number> },
+  levelNumber: number,
+  baseDefense: Pick<CombatUnit, 'defenseValues' | 'defenseSkillNames' | 'defenseEffects'>,
+  random: RandomSource,
+): void {
+  const base = hero.combatProfile
+  const override = base.levelOverrides?.[levelNumber]
+  hero.combatProfile = {
+    position: override?.position ?? base.position,
+    prelimRules: override?.prelimRules ?? base.prelimRules,
+    roundRules: override?.roundRules ?? base.roundRules,
+    defenseSkills: override?.defenseSkills ?? base.defenseSkills,
+    levelOverrides: base.levelOverrides,
+  }
+  unit.position = hero.combatProfile.position
+
+  if (override?.defenseSkills) {
+    const equip = hero.equipStats ?? {}
+    const merged = mergeHeroAttrs(hero, equip)
+    const { merged: mergedMod, defenseBonus } = applyHeroSkillModifiers(
+      hero.skills, merged, hero.hpMax, hero.mpMax, hero.level
+    )
+    const equipmentDefense = Number.isFinite(equip.def) ? equip.def! : 0
+    const defense = buildHeroDefenseValues(
+      hero.combatProfile.defenseSkills, hero.skills, mergedMod, random, defenseBonus + equipmentDefense
+    )
+    unit.defenseValues = defense.defenseValues
+    unit.defenseSkillNames = defense.defenseSkillNames
+    unit.defenseEffects = defense.defenseEffects
+  } else {
+    unit.defenseValues = { ...baseDefense.defenseValues }
+    unit.defenseSkillNames = { ...baseDefense.defenseSkillNames }
+    unit.defenseEffects = { ...baseDefense.defenseEffects }
   }
 }
 
@@ -2461,8 +2506,18 @@ export async function runDungeon(
   const totalGroupAtkBonus = heroes.reduce((sum, h) => sum + (h.groupAtkBonus ?? 0), 0)
 
   const levelReports: LevelReport[] = []
+  const baseHeroDefense = heroUnits.map(unit => ({
+    defenseValues: { ...(unit.defenseValues ?? {}) },
+    defenseSkillNames: { ...(unit.defenseSkillNames ?? {}) },
+    defenseEffects: { ...(unit.defenseEffects ?? {}) },
+  }))
 
   for (const lvl of dungeon.levels) {
+    heroes.forEach((hero, index) => {
+      const unit = heroUnits[index]
+      if (unit) applyLevelCombatProfile(hero, unit, lvl.number, baseHeroDefense[index], random)
+    })
+
     addLog(log, 'level_start', 0, lvl.number, 'prelim',
       `━━━ Nivel ${lvl.number} — ${dungeon.name} ━━━`)
 

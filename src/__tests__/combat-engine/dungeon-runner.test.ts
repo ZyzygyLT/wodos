@@ -123,6 +123,56 @@ describe('runDungeon', () => {
     })
   })
 
+  it('applies per-floor tactical overrides to actions and formation', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+        levelOverrides: {
+          2: {
+            position: 'rear',
+            prelimRules: [],
+            roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'front', targetType: 'weakest' } }],
+            defenseSkills: {},
+          },
+        },
+      },
+      skills: [
+        {
+          skillId: 1, name: 'First-floor strike', type: 'active', effect: 'attack',
+          multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+        },
+        {
+          skillId: 2, name: 'Second-floor strike', type: 'active', effect: 'attack',
+          multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 200 },
+        },
+      ],
+    })
+    const floor = (number: number) => ({
+      number,
+      enemies: [{ id: number, name: `Training target ${number}`, icon: '🎯', hp: 1, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+      epReward: 0,
+      goldReward: 0,
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [floor(1), floor(2)],
+      lootTable: [],
+    }))
+
+    const firstRound = result.levelReports[0]?.rounds[0]
+    const secondRound = result.levelReports[1]?.rounds[0]
+    expect(firstRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('First-floor strike')
+    expect(secondRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('Second-floor strike')
+    expect(firstRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('front')
+    expect(secondRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('rear')
+  })
+
   it('returns victory after clearing all levels', async () => {
     // High random = all hits connect, no misses
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)

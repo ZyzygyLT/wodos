@@ -60,7 +60,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
 
   const profile = params.profileId
     ? hero.combatProfiles.find(p => p.id === params.profileId) ?? null
-    : hero.combatProfiles[0] ?? null
+    : hero.combatProfiles.find(p => p.dungeonLevel === null) ?? hero.combatProfiles[0] ?? null
   if (params.profileId && !profile) {
     return { ok: false, error: 'Perfil de combate no válido', status: 404 }
   }
@@ -159,7 +159,7 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
 
   const profile = params.profileId
     ? hero.combatProfiles.find(p => p.id === params.profileId) ?? null
-    : hero.combatProfiles[0] ?? null
+    : hero.combatProfiles.find(p => p.dungeonLevel === null) ?? hero.combatProfiles[0] ?? null
   if (params.profileId && !profile) {
     return { ok: false, error: 'Perfil de combate no válido', status: 404 }
   }
@@ -322,7 +322,7 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
     // with the already-authorized selection before freezing the party.
     const heroesData = await Promise.all(groupResult.heroesData.map(participant =>
       participant.id === hero.id
-        ? buildHeroData(hero, profile ?? hero.combatProfiles?.[0] ?? null)
+        ? buildHeroData(hero, profile ?? hero.combatProfiles?.find(p => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null)
         : Promise.resolve(participant)
     ))
     return { ok: true, heroesData, totalHeroes: heroesData.length, isGroup: heroesData.length > 1 }
