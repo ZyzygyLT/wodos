@@ -87,16 +87,16 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-200">⚔️ {dungeonName}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="break-words text-xl font-bold text-gray-200">⚔️ {dungeonName}</h1>
           <p className="text-sm text-gray-500">
             Nivel {current.level.levelNumber} · Ronda {current.round.roundNumber} ({currentIndex + 1}/{totalRounds})
           </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Progress bar */}
-          <div className="w-32 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+          <div className="w-28 sm:w-32 h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-amber-500 rounded-full transition-all duration-300"
               style={{ width: `${percent}%` }}
@@ -118,7 +118,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-center gap-3 pt-4 border-t border-gray-800">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-4 border-t border-gray-800">
         <button
           onClick={() => { goTo(0); setPlaying(true) }}
           className="px-3 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 transition disabled:opacity-30"
@@ -156,7 +156,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
           Fin ⏭
         </button>
 
-        <div className="ml-4 flex items-center gap-1">
+        <div className="basis-full sm:basis-auto ml-0 sm:ml-4 flex items-center justify-center gap-1">
           <span className="text-[10px] text-gray-600 font-mono">Vel:</span>
           {[0.5, 1, 2, 4].map(s => (
             <button
@@ -188,7 +188,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
               </>
             )}
           </div>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <button
               onClick={() => { goTo(0); setPlaying(true) }}
               className="px-4 py-2 rounded bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition"
