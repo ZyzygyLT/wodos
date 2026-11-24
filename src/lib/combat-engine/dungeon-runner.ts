@@ -1002,29 +1002,77 @@ function executeHeroItemAction(
 ): DetailedAction | null {
   if (action.itemId == null) return null
   const itemId: number = action.itemId
-  const consumables = hero.consumables ?? []
-  const item = getItem(consumables, itemId)
+  const item = getItem(hero.consumables ?? [], itemId)
   if (!item) return null
+
   const itemName = `item_${item.itemId}`
+  let healedHp = 0
+  let healedMp = 0
+
   if (item.healHp) {
-    const actual = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
-    applyHealingWithEvent(heroUnit, actual, heroUnit.id, ctx)
-    const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} HP`
-    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
-    consumeItem(hero, itemId)
-    return makeDetail({ skill: null, heroUnit, target: null, action, initiative, actionNum, total: totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'hp', buffN: null, buffV: null, itemN: itemName, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
+    healedHp = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
+    applyHealingWithEvent(heroUnit, healedHp, heroUnit.id, ctx)
+    addLog(
+      ctx.log,
+      'heal',
+      ctx.round,
+      ctx.level,
+      'combat',
+      `${heroUnit.name} usa ${itemName} → recupera ${healedHp} HP`,
+      { actor: heroUnit.name, skill: itemName, value: healedHp },
+    )
   }
+
   if (item.healMp) {
     const previousMp = heroUnit.mp
-    const actual = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
-    heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + actual)
+    healedMp = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
+    heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + healedMp)
     if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
-    const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} MP`
-    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
-    consumeItem(hero, itemId)
-    return makeDetail({ skill: null, heroUnit, target: null, action, initiative, actionNum, total: totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'mp', buffN: null, buffV: null, itemN: itemName, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
+    addLog(
+      ctx.log,
+      'heal',
+      ctx.round,
+      ctx.level,
+      'combat',
+      `${heroUnit.name} usa ${itemName} → recupera ${healedMp} MP`,
+      { actor: heroUnit.name, skill: itemName, value: healedMp },
+    )
   }
-  return null
+
+  if (!item.healHp && !item.healMp) return null
+
+  consumeItem(hero, itemId)
+  const primaryHeal = healedHp > 0 || !healedMp ? healedHp : healedMp
+  const primaryHealType = healedHp > 0 || !healedMp ? 'hp' : 'mp'
+  const effects = [
+    ...(item.healHp ? [`${healedHp} HP`] : []),
+    ...(item.healMp ? [`${healedMp} MP`] : []),
+  ]
+  const msg = `${heroUnit.name} usa ${itemName} → recupera ${effects.join(' y ')}`
+
+  return makeDetail({
+    skill: null,
+    heroUnit,
+    target: null,
+    action,
+    initiative,
+    actionNum,
+    total: totalActions,
+    dmg: null,
+    hit: null,
+    crit: null,
+    healA: primaryHeal,
+    healT: primaryHealType,
+    buffN: null,
+    buffV: null,
+    itemN: itemName,
+    defVal: undefined,
+    defRoll: undefined,
+    defSkill: undefined,
+    defEffect: undefined,
+    defEquip: undefined,
+    msg,
+  })
 }
 
 function handleHeroSkillMana(

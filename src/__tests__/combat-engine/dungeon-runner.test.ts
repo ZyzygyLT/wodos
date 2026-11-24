@@ -331,6 +331,44 @@ describe('runDungeon', () => {
     ])
   })
 
+  it('applies both HP and MP restoration from a dual-effect consumable during combat', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 100,
+      mpMax: 100,
+      hpCurrent: 20,
+      mpCurrent: 0,
+      consumables: [{ heroItemId: 'hero-item-dual-potion', itemId: 43, healHp: 25, healMp: 30 }],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{
+          priority: 1,
+          condition: { type: 'always' },
+          action: { skillId: 1, itemId: 43, targetPos: 'self', targetType: 'self' },
+        }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+
+    expect(result.heroesFinalState[0].hp).toBeGreaterThan(20)
+    expect(result.heroesFinalState[0].mp).toBeGreaterThan(5)
+    expect(result.consumedConsumables).toEqual([
+      { heroId: 'hero-1', heroItemId: 'hero-item-dual-potion' },
+    ])
+    expect(result.log.some(entry => entry.message.includes('recupera 25 HP'))).toBe(true)
+    expect(result.log.some(entry => entry.message.includes('recupera 30 MP'))).toBe(true)
+  })
+
   it('returns defeat when hero dies', async () => {
     const hero = makeHero({ hpMax: 5, attrs: { ...baseAttrs, st: 0, dx: 0, co: 0 } })
     // randoms: init_hero, init_enemy, enemy_hit(0.1<0.75→hit), enemy_crit(0.1<0.21→crit)
