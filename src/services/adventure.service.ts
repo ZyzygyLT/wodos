@@ -172,15 +172,20 @@ export async function getActiveAdventure(heroId: string) {
 
   const steps = ha.adventure.steps as unknown as AdventureStep[]
   const result = (ha.result as any) ?? { steps: [], rewards: null }
-  const historySteps = Array.isArray(result.steps) ? result.steps.map((entry: any) => {
-    if (entry.type !== 'choice' || !Number.isInteger(entry.nextStep)) return entry
-    const destination = steps[entry.nextStep]
-    return {
-      ...entry,
-      nextStepName: entry.nextStepName ?? destination?.name ?? null,
-      nextStepDescription: entry.nextStepDescription ?? destination?.description ?? null,
-    }
-  }) : []
+  const historySteps = Array.isArray(result.steps)
+    ? result.steps
+      .filter((entry: unknown): entry is { type?: unknown; nextStep?: unknown; nextStepName?: unknown; nextStepDescription?: unknown; [key: string]: unknown } =>
+        entry !== null && typeof entry === 'object' && !Array.isArray(entry))
+      .map((entry) => {
+        if (entry.type !== 'choice' || typeof entry.nextStep !== 'number' || !Number.isInteger(entry.nextStep)) return entry
+        const destination = steps[entry.nextStep]
+        return {
+          ...entry,
+          nextStepName: entry.nextStepName ?? destination?.name ?? null,
+          nextStepDescription: entry.nextStepDescription ?? destination?.description ?? null,
+        }
+      })
+    : []
   const currentStep = steps[ha.currentStep]
   const currentStepData = withAdventureChoicePreviews(currentStep, steps)
 

@@ -304,6 +304,45 @@ describe("getActiveAdventure", () => {
     })
   })
 
+  it("skips malformed null records when restoring adventure history", async () => {
+    findMany.mockResolvedValue([{
+      id: "run-malformed-history",
+      adventureId: 4,
+      currentStep: 1,
+      totalSteps: 2,
+      status: "active",
+      startedAt: new Date("2026-11-23T12:00:00.000Z"),
+      result: {
+        steps: [
+          null,
+          { type: "narrative", description: "A safe passage" },
+        ],
+      },
+      adventure: {
+        name: "The Ruins",
+        icon: "🏚️",
+        description: "A forgotten place",
+        lore: "An old story",
+        steps: [
+          { type: "narrative", name: "Entrance", description: "A gate." },
+          { type: "narrative", name: "Passage", description: "A corridor." },
+        ],
+      },
+    }] as never)
+    findHero.mockResolvedValue({
+      hpCurrent: 42,
+      hpMax: 60,
+      mpCurrent: 8,
+      mpMax: 20,
+    } as never)
+
+    await expect(getActiveAdventure("hero-1")).resolves.toMatchObject({
+      result: {
+        steps: [{ type: "narrative", description: "A safe passage" }],
+      },
+    })
+  })
+
   it("returns effective hero attributes including equipped bonuses", async () => {
     const run = {
       id: "run-equipped",
