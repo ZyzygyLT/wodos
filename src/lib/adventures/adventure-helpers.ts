@@ -1,6 +1,7 @@
 import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
 import type { Prisma } from '@/generated/prisma'
 import { ENERGY_RECHARGE_INTERVAL_MINUTES } from './types'
+import type { AdventureStep } from './types'
 
 /** Attach destination details to every choice so previews stay available after each transition. */
 export function withAdventureChoicePreviews(
@@ -94,6 +95,15 @@ export function canAffordAdventureChoice(
 ): boolean {
   return (costs.hp === 0 || resources.hpCurrent > costs.hp) &&
     resources.mpCurrent >= costs.mp
+}
+
+/** A route may end at an explicit step before the adventure's final array entry. */
+export function isAdventureStepTerminal(
+  step: Pick<AdventureStep, 'endsAdventure'>,
+  nextStepIndex: number,
+  totalSteps: number,
+): boolean {
+  return step.endsAdventure === true || nextStepIndex >= totalSteps
 }
 
 /** True when an adventure contains an encounter that requires a living hero. */

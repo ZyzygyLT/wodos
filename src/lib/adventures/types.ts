@@ -39,6 +39,8 @@ export interface AdventureStep {
   type: 'narrative' | 'choice' | 'combat' | 'reward'
   name: string
   description: string
+  /** Ends this route after the step is resolved, even when later branches exist. */
+  endsAdventure?: boolean
   image?: string
   enemies?: AdventureStepEnemy[]
   choices?: AdventureChoice[]

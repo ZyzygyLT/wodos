@@ -8,6 +8,7 @@ import {
   adventureRequiresCombat, calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
   ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned, combineAdventureRewards,
   canClaimAdventureRewards, withAdventureChoicePreviews, getAdventureChoiceCosts, canAffordAdventureChoice,
+  isAdventureStepTerminal,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -384,7 +385,7 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     }
 
     resultData.steps.push(stepResult)
-    const isLastStep = nextStepIndex >= ha.totalSteps
+    const isLastStep = isAdventureStepTerminal(currentStep, nextStepIndex, ha.totalSteps)
     if (isLastStep) {
       const rewardsTable = ha.adventure.rewards as unknown as AdventureRewardTable
       const rewards = rollAdventureRewards(rewardsTable)

@@ -8,6 +8,7 @@ export interface AdventureGraphChoice {
 
 export interface AdventureGraphStep {
   readonly type: string
+  readonly endsAdventure?: boolean
   readonly choices?: readonly AdventureGraphChoice[]
 }
 
@@ -23,7 +24,7 @@ export function getAdventureStepGraphErrors(steps: readonly AdventureGraphStep[]
 
   steps.forEach((step, index) => {
     if (step.type !== 'choice') {
-      if (index < steps.length - 1) edges[index].push(index + 1)
+      if (!step.endsAdventure && index < steps.length - 1) edges[index].push(index + 1)
       return
     }
 

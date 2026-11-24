@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveAdventureChoice, resolveCombatStep, isAdventureBlockingNewStart, getNextEnergyRechargeAt } from '@/lib/adventures/adventure-helpers'
+import { resolveAdventureChoice, resolveCombatStep, isAdventureBlockingNewStart, getNextEnergyRechargeAt, isAdventureStepTerminal } from '@/lib/adventures/adventure-helpers'
 import { getAdventureStepGraphErrors } from '@/lib/adventures/step-graph'
 import { mergeHeroAttrs } from '@/lib/dungeon-helpers'
 
@@ -162,6 +162,21 @@ describe('adventure step graph validation', () => {
       { type: 'reward' },
     ]
     expect(getAdventureStepGraphErrors(steps)).toEqual([])
+  })
+
+  it('supports a terminal branch before later branch-only encounters', () => {
+    const steps = [
+      { type: 'choice', choices: [{ nextStep: 1 }, { nextStep: 3 }] },
+      { type: 'narrative' },
+      { type: 'reward', endsAdventure: true },
+      { type: 'combat' },
+      { type: 'reward' },
+    ]
+
+    expect(getAdventureStepGraphErrors(steps)).toEqual([])
+    expect(isAdventureStepTerminal(steps[2], 3, steps.length)).toBe(true)
+    expect(isAdventureStepTerminal(steps[3], 4, steps.length)).toBe(false)
+    expect(isAdventureStepTerminal(steps[4], 5, steps.length)).toBe(true)
   })
 
   it('rejects a choice that points back to itself', () => {
