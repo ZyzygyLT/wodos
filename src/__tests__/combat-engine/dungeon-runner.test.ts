@@ -345,7 +345,7 @@ describe('runDungeon', () => {
         roundRules: [{
           priority: 1,
           condition: { type: 'always' },
-          action: { skillId: 1, itemId: 43, targetPos: 'self', targetType: 'self' },
+          action: { skillId: 1, itemId: 43, targetPos: 'front', targetType: 'self' },
         }],
         defenseSkills: {},
       },
