@@ -406,6 +406,17 @@ describe("combineAdventureRewards", () => {
     })
   })
 
+  it("ignores null entries in malformed reward drop arrays", () => {
+    expect(hasAdventureRewardPayload({
+      items: [null as never],
+      materials: [null as never],
+    })).toBe(false)
+    expect(combineAdventureRewards({
+      items: [null as never],
+      materials: [null as never],
+    })).toEqual({})
+  })
+
   it("filters malformed reward amounts and drops before claim", () => {
     expect(combineAdventureRewards(
       { gold: 2.5, ep: 4, items: [{ itemId: 0, qty: 1 }, { itemId: 3, qty: 2.5 }] },

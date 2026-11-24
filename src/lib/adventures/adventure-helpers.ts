@@ -41,11 +41,11 @@ export function hasAdventureRewardPayload(rewards: StepRewards | null | undefine
   }
 
   const hasItems = Array.isArray(rewards.items) &&
-    rewards.items.some(item => item !== null &&
+    rewards.items.some(item => item !== null && typeof item === 'object' &&
       Number.isSafeInteger(item.itemId) && item.itemId > 0 &&
       Number.isSafeInteger(item.qty) && item.qty > 0)
   const hasMaterials = Array.isArray(rewards.materials) &&
-    rewards.materials.some(material => material !== null &&
+    rewards.materials.some(material => material !== null && typeof material === 'object' &&
       Number.isSafeInteger(material.materialId) && material.materialId > 0 &&
       Number.isSafeInteger(material.qty) && material.qty > 0)
 
@@ -231,10 +231,12 @@ export function combineAdventureRewards(
     }
 
     const validItems = (rewards.items ?? []).filter(item =>
+      item !== null && typeof item === 'object' &&
       Number.isSafeInteger(item.itemId) && item.itemId > 0 &&
       Number.isSafeInteger(item.qty) && item.qty > 0
     )
     const validMaterials = (rewards.materials ?? []).filter(material =>
+      material !== null && typeof material === 'object' &&
       Number.isSafeInteger(material.materialId) && material.materialId > 0 &&
       Number.isSafeInteger(material.qty) && material.qty > 0
     )

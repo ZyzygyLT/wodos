@@ -1,7 +1,7 @@
 "use client"
 
 import logger from "@/lib/logger"
-import { hasAdventureRewardPayload } from "@/lib/adventures/adventure-helpers"
+import { combineAdventureRewards, hasAdventureRewardPayload } from "@/lib/adventures/adventure-helpers"
 import type { StepResult, StepRewards, AdventureStepEnemy } from "@/lib/adventures/types"
 import type { LevelUpResult } from "@/lib/level-up"
 import { CombatPlayback } from "@/components/combat/CombatPlayback"
@@ -217,26 +217,28 @@ export default function ActiveAdventurePage() {
       (entry.type === 'reward' || entry.type === 'choice') && hasAdventureRewardPayload(entry.rewards))
   const hasRecoverableRewards = isDefeated && rewardSteps.length > 0
   const globalRewards: StepRewards = active?.result?.rewards ?? {}
-  const sumReward = (key: 'gold' | 'ep' | 'fame') => Number(globalRewards[key] ?? 0) +
-    rewardSteps.reduce((total, entry) => total + Number(entry.rewards[key] ?? 0), 0)
-  const totalItems = [...(globalRewards.items ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.items ?? [])]
-    .reduce((totals, item) => {
-      const existing = totals.find((entry) => entry.itemId === item.itemId)
-      if (existing) existing.qty += Number(item.qty ?? 0)
-      else totals.push({ itemId: item.itemId, qty: Number(item.qty ?? 0) })
-      return totals
-    }, [] as Array<{ itemId: number; qty: number }>)
-  const totalMaterials = [...(globalRewards.materials ?? []), ...rewardSteps.flatMap((entry) => entry.rewards?.materials ?? [])]
-    .reduce((totals, material) => {
-      const existing = totals.find((entry) => entry.materialId === material.materialId)
-      if (existing) existing.qty += Number(material.qty ?? 0)
-      else totals.push({ materialId: material.materialId, qty: Number(material.qty ?? 0) })
-      return totals
-    }, [] as Array<{ materialId: number; qty: number }>)
+  // Use the same normalization as the claim transaction so the preview never
+  // promises malformed rewards that the server will discard.
+  const claimableRewards = combineAdventureRewards(
+    isDefeated ? undefined : globalRewards,
+    active?.result?.steps ?? [],
+  )
+  const totalItems = (claimableRewards.items ?? []).reduce((totals, item) => {
+    const existing = totals.find((entry) => entry.itemId === item.itemId)
+    if (existing) existing.qty += item.qty
+    else totals.push({ itemId: item.itemId, qty: item.qty })
+    return totals
+  }, [] as Array<{ itemId: number; qty: number }>)
+  const totalMaterials = (claimableRewards.materials ?? []).reduce((totals, material) => {
+    const existing = totals.find((entry) => entry.materialId === material.materialId)
+    if (existing) existing.qty += material.qty
+    else totals.push({ materialId: material.materialId, qty: material.qty })
+    return totals
+  }, [] as Array<{ materialId: number; qty: number }>)
   const totalRewards = {
-    gold: sumReward('gold'),
-    ep: sumReward('ep'),
-    fame: sumReward('fame'),
+    gold: claimableRewards.gold ?? 0,
+    ep: claimableRewards.ep ?? 0,
+    fame: claimableRewards.fame ?? 0,
     items: totalItems.reduce((total, item) => total + item.qty, 0),
     materials: totalMaterials.reduce((total, material) => total + material.qty, 0),
   }
