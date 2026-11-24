@@ -216,7 +216,10 @@ describe("persistRunResult", () => {
       combatProfile: {
         position,
         prelimRules: id === "hero-1" ? [{ itemId: 42 }] : [],
-        roundRules: [{ priority: 1, condition: { type: "always" }, action: { skillId: 1, targetPos: "front", targetType: "weakest" } }],
+        roundRules: [
+          { priority: 1, condition: { type: "hp_self_lt", value: 1 }, action: { skillId: 1, targetPos: "front", targetType: "weakest" } },
+          { priority: 2, condition: { type: "always" }, action: { skillId: 1, targetPos: "front", targetType: "weakest" } },
+        ],
         defenseSkills: {},
       },
       skills: [{
@@ -251,6 +254,14 @@ describe("persistRunResult", () => {
     }
 
     const result = await runDungeon(heroes, dungeon)
+
+    const tacticalAction = result.levelReports
+      .flatMap(level => level.rounds.flatMap(round => round.actions))
+      .find(action => action.actorId === "hero-1")
+    expect(tacticalAction?.tacticRuleEvaluationTrace).toEqual([
+      expect.objectContaining({ priority: 1, condition: { type: "hp_self_lt", value: 1 }, matched: false }),
+      expect.objectContaining({ priority: 2, condition: { type: "always" }, matched: true }),
+    ])
 
     expect(result.victory).toBe(true)
     expect(result.levelsCleared).toBe(1)
