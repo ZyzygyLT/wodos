@@ -20,7 +20,9 @@ export async function GET() {
         { heroId: hero.id },
         { participants: { some: { heroId: hero.id } } },
       ],
-      status: { not: 'registered' },
+      // Only terminal runs belong in history. A running expedition has no
+      // settled result yet and must not be presented as a defeat.
+      status: { in: ['done', 'failed'] },
     },
     orderBy: { createdAt: "desc" },
     take: 20,

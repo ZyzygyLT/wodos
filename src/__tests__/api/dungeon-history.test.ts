@@ -11,7 +11,7 @@ describe('GET /api/dungeon/history', () => {
     ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: 'hero-member' })
   })
 
-  it('includes completed expeditions joined as a group participant', async () => {
+  it('includes completed expeditions joined as a group participant and excludes unsettled runs', async () => {
     ;(mockDb.dungeonRun.findMany as Mock).mockResolvedValue([{
       id: 'run-led-by-someone-else',
       status: 'done',
@@ -34,7 +34,7 @@ describe('GET /api/dungeon/history', () => {
           { heroId: 'hero-member' },
           { participants: { some: { heroId: 'hero-member' } } },
         ],
-        status: { not: 'registered' },
+        status: { in: ['done', 'failed'] },
       },
     }))
     expect(data).toEqual([expect.objectContaining({
