@@ -83,6 +83,90 @@ describe("persistRunResult", () => {
     ])
   })
 
+  it("settles a defeated group run with partial rewards, final resources, and exact consumable ownership", async () => {
+    const heroUpdates: Array<{ where: { id: string }; data: Record<string, unknown> }> = []
+    const deleteMany = vi.fn(async () => ({ count: 1 }))
+    const updateMany = vi.fn(async () => ({ count: 1 }))
+    const tx = {
+      dungeonRun: { updateMany },
+      hero: {
+        update: vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => {
+          heroUpdates.push(args)
+          return {}
+        }),
+        findFirst: vi.fn(async ({ where }: { where: { id: string } }) => ({
+          id: where.id,
+          epTotal: 0,
+          level: 1,
+          hpMax: 100,
+          mpMax: 40,
+          attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
+        })),
+      },
+      heroItem: {
+        deleteMany,
+        createMany: vi.fn(async () => ({ count: 0 })),
+      },
+    }
+    const result = {
+      victory: false,
+      levelsCleared: 1,
+      totalRounds: 4,
+      epGained: 15,
+      goldGained: 9,
+      fameGained: 3,
+      loot: [],
+      heroesFinalState: [
+        { id: "hero-1", hp: 0, mp: 3 },
+        { id: "hero-2", hp: 12, mp: 7 },
+      ],
+      consumedConsumables: [
+        { heroId: "hero-1", heroItemId: "hero-item-potion-1" },
+      ],
+      log: [{ type: "heal", message: "Hero 1 uses a potion" }],
+      levelReports: [{ level: 1, result: "defeat" }],
+    } as unknown as RunResult
+
+    await persistRunResult(tx as unknown as Parameters<typeof persistRunResult>[0], {
+      runId: "run-group-defeat",
+      result,
+      heroesData: [{ id: "hero-1" }, { id: "hero-2" }] as HeroData[],
+      totalHeroes: 2,
+    })
+
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "run-group-defeat", status: "running" },
+      data: expect.objectContaining({ status: "failed", result: "defeat", epGained: 15, goldGained: 9, fameGained: 3 }),
+    }))
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["hero-item-potion-1"] }, heroId: "hero-1" },
+    })
+    expect(heroUpdates).toEqual([
+      {
+        where: { id: "hero-1" },
+        data: {
+          epTotal: { increment: 8 },
+          gold: { increment: 5 },
+          fame: { increment: 2 },
+          hpCurrent: 0,
+          mpCurrent: 3,
+          dungeonRegisteredId: null,
+        },
+      },
+      {
+        where: { id: "hero-2" },
+        data: {
+          epTotal: { increment: 7 },
+          gold: { increment: 4 },
+          fame: { increment: 1 },
+          hpCurrent: 12,
+          mpCurrent: 7,
+          dungeonRegisteredId: null,
+        },
+      },
+    ])
+  })
+
   it("applies level progression inside the reward transaction", async () => {
     const updates: Record<string, unknown>[] = []
     const tx = {
