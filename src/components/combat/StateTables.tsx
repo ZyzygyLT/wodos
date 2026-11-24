@@ -106,20 +106,22 @@ function FactionTable({ units, label, bgColor }: Readonly<{ units: UnitState[]; 
   return (
     <div className={`${bgColor} rounded-lg overflow-hidden`}>
       <div className="text-xs font-semibold px-3 py-1.5 bg-black/20">{label} ({alive.length > 0 ? `${alive.length} en pie` : ''}{dead.length > 0 ? `, ${dead.length} caídos` : ''})</div>
-      <table className="w-full">
-        <thead>
-          <tr className="text-xs text-gray-500">
-            <th className="text-left py-1.5 px-3 font-medium">Unidad</th>
-            <th className="text-left py-1.5 px-3 font-medium">HP</th>
-            <th className="text-left py-1.5 px-3 font-medium">MP</th>
-            <th className="text-left py-1.5 px-3 font-medium">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {alive.map(u => <UnitRow key={u.id} u={u} isDead={false} />)}
-          {dead.map(u => <UnitRow key={u.id} u={u} isDead={true} />)}
-        </tbody>
-      </table>
+      <div className="overflow-x-auto" role="region" aria-label={`${label} estado de unidades`} tabIndex={0}>
+        <table className="w-full min-w-[560px]">
+          <thead>
+            <tr className="text-xs text-gray-500">
+              <th className="text-left py-1.5 px-3 font-medium">Unidad</th>
+              <th className="text-left py-1.5 px-3 font-medium">HP</th>
+              <th className="text-left py-1.5 px-3 font-medium">MP</th>
+              <th className="text-left py-1.5 px-3 font-medium">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {alive.map(u => <UnitRow key={u.id} u={u} isDead={false} />)}
+            {dead.map(u => <UnitRow key={u.id} u={u} isDead={true} />)}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
