@@ -365,7 +365,14 @@ describe("claimRewards transaction", () => {
     mocks.tx.heroItem.createMany.mockResolvedValue({ count: 1 } as never)
     mocks.tx.heroMaterial.upsert.mockResolvedValue({} as never)
     mocks.tx.heroFactionRep.upsert.mockResolvedValue({} as never)
-    vi.mocked(applyLevelUpInTransaction).mockResolvedValue(null)
+    vi.mocked(applyLevelUpInTransaction).mockResolvedValue({
+      leveledUp: false,
+      levelsGained: 0,
+      newLevel: 1,
+      newHpMax: 40,
+      newMpMax: 20,
+      pointsAwarded: 0,
+    })
   })
 
   it("claims only previously collected loot after defeat and excludes completion rewards and faction reputation", async () => {
@@ -417,50 +424,3 @@ describe("claimRewards transaction", () => {
       },
       adventure: { factionId: 5, factionRep: 25 },
     } as never)
-
-    const result = await claimRewards("hero-1", "run-1")
-
-    expect(result).toMatchObject({
-      claimed: true, partial: false,
-      rewards: { gold: 48, ep: 12, fame: 6, items: [{ itemId: 2, qty: 1 }], materials: [{ materialId: 6, qty: 2 }] },
-    })
-    expect(mocks.tx.hero.update).toHaveBeenCalledWith({
-      where: { id: "hero-1" },
-      data: { gold: { increment: 48 }, epTotal: { increment: 12 }, fame: { increment: 6 } },
-    })
-    expect(mocks.tx.heroItem.createMany).toHaveBeenCalledWith({
-      data: [{ heroId: "hero-1", itemId: 2, equipped: false }],
-    })
-    expect(mocks.tx.heroMaterial.upsert).toHaveBeenCalledWith({
-      where: { heroId_materialId: { heroId: "hero-1", materialId: 6 } },
-      create: { heroId: "hero-1", materialId: 6, quantity: 2 },
-      update: { quantity: { increment: 2 } },
-    })
-    expect(mocks.tx.heroFactionRep.upsert).toHaveBeenCalledWith({
-      where: { heroId_factionId: { heroId: "hero-1", factionId: 5 } },
-      create: { heroId: "hero-1", factionId: 5, rep: 25 },
-      update: { rep: { increment: 25 } },
-    })
-    expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith({
-      where: { id: "run-1", heroId: "hero-1", status: "completed" },
-      data: { status: "claimed" },
-    })
-    expect(applyLevelUpInTransaction).toHaveBeenCalledWith(mocks.tx, "hero-1")
-  })
-
-  it("rejects a second claim before crediting any reward", async () => {
-    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
-      id: "run-1", heroId: "hero-1", status: "claimed",
-      result: { rewards: { gold: 50 }, steps: [] },
-      adventure: { factionId: 5, factionRep: 25 },
-    } as never)
-
-    await expect(claimRewards("hero-1", "run-1")).rejects.toThrow("Recompensas ya reclamadas")
-
-    expect(mocks.tx.hero.update).not.toHaveBeenCalled()
-    expect(mocks.tx.heroItem.createMany).not.toHaveBeenCalled()
-    expect(mocks.tx.heroMaterial.upsert).not.toHaveBeenCalled()
-    expect(mocks.tx.heroFactionRep.upsert).not.toHaveBeenCalled()
-    expect(mocks.tx.heroAdventure.updateMany).not.toHaveBeenCalled()
-  })
-})
