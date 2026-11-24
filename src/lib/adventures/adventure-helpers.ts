@@ -207,39 +207,37 @@ export function markAdventureAbandoned(result: unknown): Prisma.InputJsonObject 
 /** Combine adventure-wide rewards with every reward granted by an individual step. */
 export function combineAdventureRewards(
   globalRewards: StepRewards | null | undefined,
-  steps: Array<{ type?: string; rewards?: StepRewards | null }> = [],
+  steps: readonly unknown[] = [],
 ): StepRewards {
   const combined: StepRewards = {}
-  const sources = [
-    globalRewards,
-    ...steps
-      .filter(step => step !== null && typeof step === 'object' &&
-        (step.type === 'reward' || step.type === 'choice'))
-      .map(step => step.rewards),
-  ]
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+  const stepRewards = steps.flatMap(step => {
+    if (!isRecord(step) || (step.type !== 'reward' && step.type !== 'choice')) return []
+    return [step.rewards]
+  })
 
-  for (const rewards of sources) {
-    if (!rewards) continue
+  for (const source of [globalRewards, ...stepRewards]) {
+    if (!isRecord(source)) continue
 
-    if (Number.isSafeInteger(rewards.gold) && rewards.gold! > 0) {
-      combined.gold = (combined.gold ?? 0) + rewards.gold!
-    }
-    if (Number.isSafeInteger(rewards.ep) && rewards.ep! > 0) {
-      combined.ep = (combined.ep ?? 0) + rewards.ep!
-    }
-    if (Number.isSafeInteger(rewards.fame) && rewards.fame! > 0) {
-      combined.fame = (combined.fame ?? 0) + rewards.fame!
+    for (const currency of ['gold', 'ep', 'fame'] as const) {
+      const amount = source[currency]
+      if (typeof amount === 'number' && Number.isSafeInteger(amount) && amount > 0) {
+        combined[currency] = (combined[currency] ?? 0) + amount
+      }
     }
 
-    const validItems = (rewards.items ?? []).filter(item =>
-      item !== null && typeof item === 'object' &&
-      Number.isSafeInteger(item.itemId) && item.itemId > 0 &&
-      Number.isSafeInteger(item.qty) && item.qty > 0
+    const validItems = (Array.isArray(source.items) ? source.items : []).filter(
+      (item): item is { itemId: number; qty: number } =>
+        isRecord(item) &&
+        typeof item.itemId === 'number' && Number.isSafeInteger(item.itemId) && item.itemId > 0 &&
+        typeof item.qty === 'number' && Number.isSafeInteger(item.qty) && item.qty > 0,
     )
-    const validMaterials = (rewards.materials ?? []).filter(material =>
-      material !== null && typeof material === 'object' &&
-      Number.isSafeInteger(material.materialId) && material.materialId > 0 &&
-      Number.isSafeInteger(material.qty) && material.qty > 0
+    const validMaterials = (Array.isArray(source.materials) ? source.materials : []).filter(
+      (material): material is { materialId: number; qty: number } =>
+        isRecord(material) &&
+        typeof material.materialId === 'number' && Number.isSafeInteger(material.materialId) && material.materialId > 0 &&
+        typeof material.qty === 'number' && Number.isSafeInteger(material.qty) && material.qty > 0,
     )
 
     if (validItems.length) combined.items = [...(combined.items ?? []), ...validItems]

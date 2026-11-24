@@ -468,6 +468,21 @@ describe("combineAdventureRewards", () => {
     })).toEqual({})
   })
 
+  it("ignores malformed reward collections instead of crashing the claim flow", () => {
+    expect(combineAdventureRewards(
+      { gold: 6, items: "not-an-array" as never, materials: { invalid: true } as never },
+      [
+        { type: "reward", rewards: { ep: 3, items: "invalid" } },
+        { type: "choice", rewards: { fame: 2, materials: 42 } },
+        { type: "reward", rewards: "invalid" as never },
+      ],
+    )).toEqual({ gold: 6, ep: 3, fame: 2 })
+    expect(hasAdventureRewardPayload({
+      items: "not-an-array" as never,
+      materials: { invalid: true } as never,
+    })).toBe(false)
+  })
+
   it("filters malformed reward amounts and drops before claim", () => {
     expect(combineAdventureRewards(
       { gold: 2.5, ep: 4, items: [{ itemId: 0, qty: 1 }, { itemId: 3, qty: 2.5 }] },
