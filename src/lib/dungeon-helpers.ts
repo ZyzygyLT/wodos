@@ -175,13 +175,21 @@ export async function reconcileDungeonParticipantConsumables(heroesData: HeroDat
 }
 
 export async function buildHeroData(hero: any, profile: any): Promise<HeroData> {
-  const generalProfile = hero.combatProfiles?.find(candidate => candidate.dungeonLevel === null) ?? null
+  const combatProfiles = (hero.combatProfiles ?? []) as Array<{
+    id: string
+    dungeonLevel: number | null
+    position: string
+    prelimRules: unknown
+    roundRules: unknown
+    defenseSkills: unknown
+  }>
+  const generalProfile = combatProfiles.find(candidate => candidate.dungeonLevel === null) ?? null
   const baseProfile = profile?.dungeonLevel == null
     ? profile ?? generalProfile
     : generalProfile ?? profile ?? null
   const levelOverrides = Object.fromEntries(
-    (hero.combatProfiles ?? [])
-      .filter(candidate => candidate.dungeonLevel !== null && candidate.dungeonLevel !== undefined)
+    combatProfiles
+      .filter(candidate => candidate.dungeonLevel !== null)
       .map(candidate => [candidate.dungeonLevel, {
         position: candidate.position,
         prelimRules: candidate.prelimRules as Array<{ skillId?: number; itemId?: number }>,
