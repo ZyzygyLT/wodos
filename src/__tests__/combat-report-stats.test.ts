@@ -91,7 +91,7 @@ describe("computeCombatStats", () => {
       targetId: "hero-1",
       targetName: "Aventurera",
       resultType: "success",
-      damageBreakdown: [{ type: "acid", value: 4 }],
+      damageBreakdown: [{ type: "poison", value: 4 }],
     }])
 
     expect(computeCombatStats(reports(round))[0]).toMatchObject({
