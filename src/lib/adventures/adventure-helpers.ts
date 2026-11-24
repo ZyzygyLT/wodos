@@ -36,7 +36,7 @@ export function hasAdventureRewardPayload(rewards: StepRewards | null | undefine
   if (!rewards) return false
 
   const currencies = [rewards.gold, rewards.ep, rewards.fame]
-  if (currencies.some(amount => Number.isSafeInteger(amount) && amount > 0)) {
+  if (currencies.some(amount => typeof amount === 'number' && Number.isSafeInteger(amount) && amount > 0)) {
     return true
   }
 
