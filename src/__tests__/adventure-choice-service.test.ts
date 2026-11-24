@@ -31,7 +31,7 @@ vi.mock("@/lib/dungeon-helpers", () => ({
   mergeHeroAttrs: vi.fn((hero: { attrs: Record<string, number> }) => hero.attrs),
 }))
 
-import { makeChoice } from "@/services/adventure.service"
+import { executeStep, makeChoice } from "@/services/adventure.service"
 
 const adventureSteps = [
   {
@@ -78,6 +78,62 @@ function makeRun(currentStep = 0) {
     adventure: { steps: adventureSteps },
   }
 }
+
+describe("executeStep terminal adventure rewards", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.transaction.mockImplementation(async callback => callback(mocks.tx))
+    mocks.tx.$queryRaw.mockResolvedValue([])
+    mocks.tx.hero.findUnique.mockResolvedValue(makeHero(20) as never)
+    mocks.tx.heroAdventure.updateMany.mockResolvedValue({ count: 1 } as never)
+  })
+
+  it("completes an explicitly terminal reward step without entering the next branch", async () => {
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      ...makeRun(1),
+      currentStep: 1,
+      totalSteps: 3,
+      adventure: {
+        steps: [
+          { type: "narrative", name: "El altar", description: "Un altar." },
+          {
+            type: "reward",
+            name: "Recompensa del Obispo",
+            rewards: { gold: 80, ep: 15, fame: 5 },
+            endsAdventure: true,
+          },
+          { type: "combat", name: "Lo Que Despierta Abajo", enemies: [] },
+        ],
+        rewards: { goldMin: 50, goldMax: 50, ep: 10, fame: 2 },
+      },
+    } as never)
+
+    const result = await executeStep("hero-1", "run-1", 1)
+
+    expect(result).toMatchObject({
+      completed: true,
+      victory: true,
+      totalSteps: 3,
+      stepResult: {
+        type: "reward",
+        stepName: "Recompensa del Obispo",
+        rewards: { gold: 80, ep: 15, fame: 5 },
+      },
+      rewards: { gold: 50, ep: 10, fame: 2, items: [], materials: [] },
+    })
+    expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "run-1", heroId: "hero-1", status: "active", currentStep: 1 },
+      data: expect.objectContaining({
+        status: "completed",
+        currentStep: 2,
+        result: expect.objectContaining({
+          steps: [expect.objectContaining({ type: "reward", stepName: "Recompensa del Obispo" })],
+          rewards: { gold: 50, ep: 10, fame: 2, items: [], materials: [] },
+        }),
+      }),
+    }))
+  })
+})
 
 describe("makeChoice resource costs", () => {
   beforeEach(() => {
