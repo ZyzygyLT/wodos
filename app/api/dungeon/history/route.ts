@@ -15,7 +15,13 @@ export async function GET() {
   }
 
   const runs = await db.dungeonRun.findMany({
-    where: { heroId: hero.id, status: { not: 'registered' } },
+    where: {
+      OR: [
+        { heroId: hero.id },
+        { participants: { some: { heroId: hero.id } } },
+      ],
+      status: { not: 'registered' },
+    },
     orderBy: { createdAt: "desc" },
     take: 20,
     include: { dungeon: { select: { name: true, icon: true } } },
