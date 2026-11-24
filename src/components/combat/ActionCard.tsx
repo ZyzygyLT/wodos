@@ -98,10 +98,10 @@ function TargetRow({ t, isEnemy }: Readonly<{ t: NonNullable<DetailedAction['tar
   const badge = targetResultBadge(t.resultType, t.defenseEffect)
   const dmgCls = isEnemy ? 'text-orange-300' : 'text-green-300'
   return (
-    <div className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-gray-800/40 border border-gray-700/30">
+    <div className="flex flex-wrap items-center gap-2 text-xs py-1 px-2 rounded bg-gray-800/40 border border-gray-700/30">
       <span className="text-gray-300 font-medium min-w-[80px] truncate">{t.targetName}</span>
       {defStr && <span className="text-blue-400 font-mono shrink-0">({defStr})</span>}
-      <span className="ml-auto flex items-center gap-1.5 shrink-0">
+      <span className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
         {badge && (
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.cls}`}>
             {badge.icon} {badge.label}
@@ -291,7 +291,7 @@ export function ActionCard({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy
 
       {/* Body — two columns */}
       <div className="p-3">
-        <div className="grid grid-cols-[1fr_1fr] gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
           {/* LEFT: narrative */}
           <div className="space-y-1 min-w-0">
             <Narrative a={a} isEnemy={isEnemy} />
