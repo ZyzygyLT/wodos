@@ -209,6 +209,71 @@ describe("executeStep adventure combat branch", () => {
     mocks.tx.hero.update.mockResolvedValue({} as never)
   })
 
+
+  it("marks the run defeated and withholds completion rewards when the hero loses", async () => {
+    vi.mocked(runDungeon).mockResolvedValue({
+      victory: false,
+      heroesFinalState: [{ id: "hero-1", hp: 0, mp: 3 }],
+      levelReports: [],
+      log: [{ message: "El Vestigio derriba al héroe." }],
+      totalRounds: 3,
+      epGained: 0,
+      goldGained: 0,
+      loot: [],
+      consumedConsumables: [],
+    } as never)
+
+    const steps = [
+      {
+        type: "combat",
+        name: "Lo Que Despierta Abajo",
+        description: "El Vestigio emerge.",
+        enemies: [{
+          name: "Vestigio del Rey Brujo", icon: "👑", hp: 120, mp: 60,
+          atk: 22, def: 10, dx: 10, ag: 8, level: 9,
+        }],
+      },
+      {
+        type: "reward",
+        name: "Trofeo de Guerra",
+        description: "El fragmento de sombra queda en la cámara.",
+        rewards: { gold: 60, ep: 20, fame: 8, materials: [{ materialId: 7, qty: 1 }] },
+      },
+    ]
+
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      ...makeRun(0),
+      currentStep: 0,
+      totalSteps: steps.length,
+      adventure: { steps, rewards: { goldMin: 50, goldMax: 120, ep: 45, fame: 6 } },
+    } as never)
+
+    const result = await executeStep("hero-1", "run-1", 0)
+
+    expect(mocks.tx.hero.update).toHaveBeenCalledWith({
+      where: { id: "hero-1" },
+      data: { hpCurrent: 0, mpCurrent: 3 },
+    })
+    expect(result).toMatchObject({
+      completed: true,
+      victory: false,
+      rewards: null,
+      stepResult: { type: "combat", victory: false, heroHpRemaining: 0 },
+      heroResources: { hpCurrent: 0, hpMax: 40, mpCurrent: 3, mpMax: 20 },
+    })
+    expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "run-1", heroId: "hero-1", status: "active", currentStep: 0 },
+      data: expect.objectContaining({
+        status: "failed",
+        result: expect.objectContaining({
+          outcome: "defeated",
+          steps: [expect.objectContaining({ type: "combat", victory: false })],
+        }),
+      }),
+    }))
+    expect(result.rewards).toBeNull()
+  })
+
   it("persists the shared combat result and advances to the post-boss narrative without completing early", async () => {
     vi.mocked(runDungeon).mockResolvedValue({
       victory: true,
