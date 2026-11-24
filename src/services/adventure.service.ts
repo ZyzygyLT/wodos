@@ -593,7 +593,15 @@ export async function claimRewards(heroId: string, heroAdventureId: string) {
     })
     if (claimed.count !== 1) throw new Error('AVENTURA_CLAIM_STALE')
 
-    return { claimed: true, rewards, partial: isDefeatClaim, levelUp }
+    return {
+      claimed: true,
+      rewards,
+      partial: isDefeatClaim,
+      factionRep: !isDefeatClaim && ha.adventure.factionId && ha.adventure.factionRep > 0
+        ? ha.adventure.factionRep
+        : 0,
+      levelUp,
+    }
   })
 
   if (claim.levelUp) publishLevelUpEffects(heroId, claim.levelUp)

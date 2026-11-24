@@ -14,6 +14,7 @@ type AdventureClaimResult = {
   claimed: true
   partial: boolean
   rewards: StepRewards
+  factionRep: number
   levelUp: LevelUpResult | null
 }
 
@@ -580,6 +581,9 @@ export default function ActiveAdventurePage() {
                 <span className="text-amber-300">💰 +{claimResult.rewards?.gold ?? 0} oro</span>
                 <span className="text-purple-300">⭐ +{claimResult.rewards?.ep ?? 0} EP</span>
                 <span className="text-blue-300">🏆 +{claimResult.rewards?.fame ?? 0} fama</span>
+                {claimResult.factionRep > 0 && (
+                  <span className="text-cyan-300">⚑ +{claimResult.factionRep} reputación de facción</span>
+                )}
               </div>
               {claimResult.levelUp?.leveledUp && (
                 <div className="mt-3 rounded-md border border-amber-700/70 bg-amber-950/40 p-3">

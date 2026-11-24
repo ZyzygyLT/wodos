@@ -393,6 +393,7 @@ describe("claimRewards transaction", () => {
 
     expect(result).toMatchObject({
       claimed: true, partial: true,
+      factionRep: 0,
       rewards: { gold: 12, ep: 3, fame: 2, items: [{ itemId: 7, qty: 2 }], materials: [{ materialId: 4, qty: 3 }] },
     })
     expect(mocks.tx.hero.update).toHaveBeenCalledWith({
@@ -429,6 +430,7 @@ describe("claimRewards transaction", () => {
 
     expect(result).toMatchObject({
       claimed: true, partial: false,
+      factionRep: 25,
       rewards: { gold: 48, ep: 12, fame: 6, items: [{ itemId: 2, qty: 1 }], materials: [{ materialId: 6, qty: 2 }] },
     })
     expect(mocks.tx.hero.update).toHaveBeenCalledWith({
