@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     hero: {
       findUnique: vi.fn(),
       updateMany: vi.fn(),
+      update: vi.fn(),
     },
   }
 
@@ -23,6 +24,8 @@ vi.mock("@/lib/db", () => ({
   default: { $transaction: mocks.transaction },
 }))
 
+vi.mock("@/lib/combat-engine/dungeon-runner", () => ({ runDungeon: vi.fn() }))
+
 vi.mock("@/lib/dungeon-helpers", () => ({
   buildHeroData: vi.fn(async (hero: { attrs: Record<string, number> }) => ({
     attrs: hero.attrs,
@@ -31,6 +34,7 @@ vi.mock("@/lib/dungeon-helpers", () => ({
   mergeHeroAttrs: vi.fn((hero: { attrs: Record<string, number> }) => hero.attrs),
 }))
 
+import { runDungeon } from "@/lib/combat-engine/dungeon-runner"
 import { executeStep, makeChoice } from "@/services/adventure.service"
 
 const adventureSteps = [
@@ -191,5 +195,88 @@ describe("makeChoice resource costs", () => {
       .rejects.toThrow("AVENTURA_CHOICE_STALE")
 
     expect(mocks.tx.hero.updateMany).toHaveBeenCalledTimes(1)
+  })
+})
+
+
+describe("executeStep adventure combat branch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.transaction.mockImplementation(async callback => callback(mocks.tx))
+    mocks.tx.$queryRaw.mockResolvedValue([])
+    mocks.tx.heroAdventure.updateMany.mockResolvedValue({ count: 1 } as never)
+    mocks.tx.hero.findUnique.mockResolvedValue(makeHero(14) as never)
+    mocks.tx.hero.update.mockResolvedValue({} as never)
+  })
+
+  it("persists the shared combat result and advances to the post-boss narrative without completing early", async () => {
+    vi.mocked(runDungeon).mockResolvedValue({
+      victory: true,
+      heroesFinalState: [{ id: "hero-1", hp: 9, mp: 7 }],
+      levelReports: [],
+      log: [{ message: "El Vestigio del Rey Brujo cae." }],
+      totalRounds: 2,
+      epGained: 0,
+      goldGained: 0,
+      loot: [],
+      consumedConsumables: [],
+    } as never)
+
+    const steps = [
+      adventureSteps[0],
+      {
+        type: "combat",
+        name: "Lo Que Despierta Abajo",
+        description: "El Vestigio emerge.",
+        enemies: [{
+          name: "Vestigio del Rey Brujo", icon: "👑", hp: 120, mp: 60,
+          atk: 22, def: 10, dx: 10, ag: 8, level: 9,
+        }],
+      },
+      { type: "narrative", name: "El Precio de la Curiosidad", description: "La amenaza queda contenida." },
+      {
+        type: "reward",
+        name: "Trofeo de Guerra",
+        description: "Recoges un fragmento de sombra.",
+        rewards: { gold: 60, ep: 20, fame: 8, materials: [{ materialId: 7, qty: 1 }] },
+      },
+    ]
+
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      ...makeRun(1),
+      currentStep: 1,
+      totalSteps: steps.length,
+      adventure: { steps, rewards: { goldMin: 50, goldMax: 120, ep: 45, fame: 6 } },
+    } as never)
+
+    const result = await executeStep("hero-1", "run-1", 1)
+
+    expect(runDungeon).toHaveBeenCalledTimes(1)
+    expect(mocks.tx.hero.update).toHaveBeenCalledWith({
+      where: { id: "hero-1" },
+      data: { hpCurrent: 9, mpCurrent: 7 },
+    })
+    expect(result).toMatchObject({
+      completed: false,
+      currentStep: 2,
+      nextStep: { type: "narrative", name: "El Precio de la Curiosidad" },
+      heroResources: { hpCurrent: 9, hpMax: 40, mpCurrent: 7, mpMax: 20 },
+      stepResult: {
+        type: "combat",
+        victory: true,
+        stepName: "Lo Que Despierta Abajo",
+        heroHpRemaining: 9,
+        heroMpRemaining: 7,
+      },
+    })
+    expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "run-1", heroId: "hero-1", status: "active", currentStep: 1 },
+      data: expect.objectContaining({
+        currentStep: 2,
+        result: expect.objectContaining({
+          steps: [expect.objectContaining({ type: "combat", victory: true })],
+        }),
+      }),
+    }))
   })
 })
