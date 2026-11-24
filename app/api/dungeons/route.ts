@@ -46,10 +46,17 @@ export async function GET() {
       status: { in: ["registered", "running"] },
     },
     orderBy: { createdAt: "desc" },
+    include: { dungeon: { select: { name: true } } },
   })
   const registeredRun = activeParticipantRun ?? (hero.dungeonRegisteredId
-    ? await db.dungeonRun.findUnique({ where: { id: hero.dungeonRegisteredId } })
+    ? await db.dungeonRun.findUnique({
+        where: { id: hero.dungeonRegisteredId },
+        include: { dungeon: { select: { name: true } } },
+      })
     : null)
+  const activeRun = registeredRun && ["registered", "running"].includes(registeredRun.status)
+    ? registeredRun
+    : null
 
   const generalProfiles = hero.combatProfiles.filter(profile => profile.dungeonLevel === null)
   const selectableProfiles = generalProfiles.length > 0 ? generalProfiles : hero.combatProfiles.slice(0, 1)
@@ -57,7 +64,7 @@ export async function GET() {
   const result = dungeons.map(d => {
     const times = (d.scheduledTimes ?? []) as string[]
     const nextScheduledTime = getNextScheduledTime(times)
-    const isRegistered = registeredRun?.dungeonId === d.id
+    const isRegistered = activeRun?.dungeonId === d.id
 
     const entry: Record<string, unknown> = {
       id: d.id, name: d.name, slug: d.slug, icon: d.icon,
@@ -68,7 +75,9 @@ export async function GET() {
       epReward: d.epReward, goldReward: d.goldReward, fameReward: d.fameReward,
       scheduledTimes: times,
       isRegistered,
-      registeredRunId: isRegistered ? registeredRun!.id : null,
+      registeredRunId: isRegistered ? activeRun!.id : null,
+      activeRunDungeonId: activeRun?.dungeonId ?? null,
+      activeRunDungeonName: activeRun?.dungeon.name ?? null,
       nextScheduledTime: nextScheduledTime?.toISOString() ?? null,
       profiles: selectableProfiles.map(p => ({
         id: p.id, name: p.name, position: p.position,

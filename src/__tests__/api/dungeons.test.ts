@@ -36,6 +36,7 @@ describe('GET /api/dungeons', () => {
       heroId: 'hero-leader',
       dungeonId: 7,
       status: 'registered',
+      dungeon: { name: 'Crypt' },
     })
 
     const { GET } = await import('@/app/api/dungeons/route')
@@ -52,6 +53,29 @@ describe('GET /api/dungeons', () => {
     expect(data[0]).toEqual(expect.objectContaining({
       isRegistered: true,
       registeredRunId: 'run-led-by-another-hero',
+      activeRunDungeonId: 7,
+      activeRunDungeonName: 'Crypt',
+    }))
+  })
+
+  it('exposes an active run on another dungeon to prevent overlapping entry', async () => {
+    ;(mockDb.dungeonRun.findFirst as Mock).mockResolvedValue({
+      id: 'run-on-another-dungeon',
+      heroId: 'hero-leader',
+      dungeonId: 9,
+      status: 'running',
+      dungeon: { name: 'Ashen Depths' },
+    })
+
+    const { GET } = await import('@/app/api/dungeons/route')
+    const response = await GET()
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data[0]).toEqual(expect.objectContaining({
+      isRegistered: false,
+      activeRunDungeonId: 9,
+      activeRunDungeonName: 'Ashen Depths',
     }))
   })
 

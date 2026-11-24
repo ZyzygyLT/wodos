@@ -104,6 +104,32 @@ describe('DungeonMap', () => {
     expect(screen.getByText('Entrar ahora')).toBeTruthy()
   })
 
+  it('blocks entry into a different dungeon while the hero is committed elsewhere', () => {
+    const activeDungeons = mockDungeons.map(d => ({
+      ...d,
+      isRegistered: d.id === 2,
+      activeRunDungeonId: 2,
+      activeRunDungeonName: 'Ruinas Abandonadas',
+    }))
+    const onRegister = vi.fn()
+    render(
+      <DungeonMap
+        dungeons={activeDungeons}
+        heroLevel={5}
+        heroHp={100}
+        selectedProfiles={{}}
+        onSelectProfile={vi.fn()}
+        onRegister={onRegister}
+      />
+    )
+    fireEvent.click(screen.getByText('🕷️'))
+    expect(screen.getByText(/Tu héroe ya participa en Ruinas Abandonadas/)).toBeTruthy()
+    const button = screen.getByRole('button', { name: 'Comprometido' })
+    expect(button.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(button)
+    expect(onRegister).not.toHaveBeenCalled()
+  })
+
   it('shows registered status for registered dungeons', () => {
     render(
       <DungeonMap
