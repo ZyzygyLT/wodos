@@ -70,6 +70,32 @@ import type {
   CombatStepResult, StepRewards,
 } from './types'
 
+export interface AdventureChoiceResourceCosts {
+  hp: number
+  mp: number
+}
+
+/** Validate and normalize the optional HP/MP price attached to a choice. */
+export function getAdventureChoiceCosts(
+  choice: Pick<AdventureChoice, 'costs'>,
+): AdventureChoiceResourceCosts {
+  const hp = choice.costs?.hp ?? 0
+  const mp = choice.costs?.mp ?? 0
+  if (!Number.isSafeInteger(hp) || hp < 0 || !Number.isSafeInteger(mp) || mp < 0) {
+    throw new Error("La opción tiene un coste de recursos inválido")
+  }
+  return { hp, mp }
+}
+
+/** HP costs must leave the hero alive; MP may be spent down to zero. */
+export function canAffordAdventureChoice(
+  costs: AdventureChoiceResourceCosts,
+  resources: { hpCurrent: number; mpCurrent: number },
+): boolean {
+  return (costs.hp === 0 || resources.hpCurrent > costs.hp) &&
+    resources.mpCurrent >= costs.mp
+}
+
 /** True when an adventure contains an encounter that requires a living hero. */
 export function adventureRequiresCombat(steps: AdventureStep[]): boolean {
   return steps.some(step => step.type === 'combat')

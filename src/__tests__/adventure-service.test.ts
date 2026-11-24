@@ -22,12 +22,36 @@ vi.mock("@/lib/dungeon-helpers", () => ({
   })),
 }))
 
-import { adventureRequiresCombat, canClaimAdventureRewards, combineAdventureRewards, hasAdventureRewardPayload, isAdventureBlockingNewStart, markAdventureAbandoned, withAdventureChoicePreviews } from "@/lib/adventures/adventure-helpers"
+import {
+  adventureRequiresCombat, canClaimAdventureRewards, combineAdventureRewards, hasAdventureRewardPayload,
+  isAdventureBlockingNewStart, markAdventureAbandoned, withAdventureChoicePreviews,
+  getAdventureChoiceCosts, canAffordAdventureChoice,
+} from "@/lib/adventures/adventure-helpers"
 import { getActiveAdventure } from "@/services/adventure.service"
 import { buildHeroData } from "@/lib/dungeon-helpers"
 
 const findMany = vi.mocked(db.heroAdventure.findMany)
 const findHero = vi.mocked(db.hero.findUnique)
+
+describe("adventure choice resource costs", () => {
+  it("normalizes missing costs to zero and accepts positive integer costs", () => {
+    expect(getAdventureChoiceCosts({})).toEqual({ hp: 0, mp: 0 })
+    expect(getAdventureChoiceCosts({ costs: { hp: 4, mp: 7 } })).toEqual({ hp: 4, mp: 7 })
+  })
+
+  it("rejects negative, fractional and unsafe resource costs", () => {
+    expect(() => getAdventureChoiceCosts({ costs: { hp: -1 } })).toThrow("coste de recursos inválido")
+    expect(() => getAdventureChoiceCosts({ costs: { mp: 1.5 } })).toThrow("coste de recursos inválido")
+    expect(() => getAdventureChoiceCosts({ costs: { hp: Number.MAX_SAFE_INTEGER + 1 } })).toThrow("coste de recursos inválido")
+  })
+
+  it("requires enough MP and leaves at least one HP after paying", () => {
+    const costs = { hp: 5, mp: 8 }
+    expect(canAffordAdventureChoice(costs, { hpCurrent: 6, mpCurrent: 8 })).toBe(true)
+    expect(canAffordAdventureChoice(costs, { hpCurrent: 5, mpCurrent: 20 })).toBe(false)
+    expect(canAffordAdventureChoice(costs, { hpCurrent: 20, mpCurrent: 7 })).toBe(false)
+  })
+})
 
 describe("adventure start readiness", () => {
   it("requires positive health when the route contains combat", () => {

@@ -17,6 +17,7 @@ export interface AdventureChoice {
   nextStep: number
   flavor?: string
   skillCheck?: { attr: string; dc: number; passStep: number; failStep: number }
+  costs?: { hp?: number; mp?: number }
   rewards?: StepRewards
 }
 
@@ -76,6 +77,7 @@ export interface ChoiceStepResult {
   nextStepDescription?: string | null
   flavor?: string
   skillCheck?: { attr: string; dc: number; value: number; passed: boolean }
+  costs?: { hp: number; mp: number }
   rewards?: StepRewards
 }
 

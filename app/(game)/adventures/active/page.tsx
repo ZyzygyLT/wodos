@@ -1,8 +1,10 @@
 "use client"
 
 import logger from "@/lib/logger"
-import { combineAdventureRewards, hasAdventureRewardPayload } from "@/lib/adventures/adventure-helpers"
-import type { StepResult, StepRewards, AdventureStepEnemy } from "@/lib/adventures/types"
+import {
+  combineAdventureRewards, hasAdventureRewardPayload, getAdventureChoiceCosts, canAffordAdventureChoice,
+} from "@/lib/adventures/adventure-helpers"
+import type { StepResult, StepRewards, AdventureStepEnemy, AdventureChoice } from "@/lib/adventures/types"
 import type { LevelUpResult } from "@/lib/level-up"
 import { CombatPlayback } from "@/components/combat/CombatPlayback"
 import { useEffect, useState } from "react"
@@ -126,6 +128,7 @@ export default function ActiveAdventurePage() {
         currentStep: result.nextStepIndex,
         currentStepData: result.nextStep ?? null,
         result: { steps: [...(prev.result?.steps ?? []), result.stepResult], rewards: null },
+        heroResources: result.heroResources ?? prev.heroResources,
       }))
       setStepType(result.nextStep?.type ?? null)
     } catch { setError("Error al elegir") } finally {
@@ -387,6 +390,13 @@ export default function ActiveAdventurePage() {
                       {entry.skillCheck ? (entry.skillCheck.passed ? "✓ Prueba superada" : "✕ Prueba fallida") : "🤔 Decisión tomada"}
                     </p>
                     {entry.chosen && <p className="text-sm text-gray-200">{entry.chosen}</p>}
+                    {entry.costs && (
+                      <p className="mt-1 text-xs text-orange-300">
+                        Coste pagado: {entry.costs.hp > 0 ? `-${entry.costs.hp} HP` : ""}
+                        {entry.costs.hp > 0 && entry.costs.mp > 0 ? " · " : ""}
+                        {entry.costs.mp > 0 ? `-${entry.costs.mp} MP` : ""}
+                      </p>
+                    )}
                     {entry.flavor && <p className="text-sm text-gray-400 italic">{entry.flavor}</p>}
                     {entry.nextStepName && (
                       <div className="mt-2 rounded-md border border-cyan-900/60 bg-cyan-950/20 px-3 py-2">
@@ -472,14 +482,32 @@ export default function ActiveAdventurePage() {
 
               {isChoice && currentStep.choices && (
                 <div className="mt-4 space-y-2">
-                  {currentStep.choices.map((c: any, i: number) => (
+                  {currentStep.choices.map((c: AdventureChoice, i: number) => {
+                    const costs = getAdventureChoiceCosts(c)
+                    const canAfford = canAffordAdventureChoice(
+                      costs,
+                      active?.heroResources ?? { hpCurrent: 0, mpCurrent: 0 },
+                    )
+                    return (
                     <button
                       key={i}
                       onClick={() => makeChoice(i)}
-                      disabled={choosing}
+                      disabled={choosing || !canAfford}
                       className="w-full text-left p-3 bg-gray-800 hover:bg-amber-900/40 border border-gray-600 hover:border-amber-600 rounded-lg transition-colors disabled:opacity-50"
                     >
                       <span className="text-amber-300 font-medium">{c.text}</span>
+                      {(costs.hp > 0 || costs.mp > 0) && (
+                        <p className="mt-1 text-xs text-orange-300">
+                          Coste: {costs.hp > 0 ? `${costs.hp} HP` : ""}
+                          {costs.hp > 0 && costs.mp > 0 ? " · " : ""}
+                          {costs.mp > 0 ? `${costs.mp} MP` : ""}
+                        </p>
+                      )}
+                      {!canAfford && (
+                        <p className="mt-1 text-xs font-semibold text-red-300">
+                          No tienes recursos suficientes para esta opción.
+                        </p>
+                      )}
                       {c.skillCheck && (() => {
                         const value = active?.heroAttributes?.[c.skillCheck.attr]
                         const canPass = typeof value === 'number' && value >= c.skillCheck.dc
@@ -533,7 +561,8 @@ export default function ActiveAdventurePage() {
                       )}
                       {c.flavor && <p className="text-xs text-gray-500 mt-1 italic">{c.flavor}</p>}
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

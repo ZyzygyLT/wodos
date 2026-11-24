@@ -7,7 +7,7 @@ import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, Adve
 import {
   adventureRequiresCombat, calcEnergyRecharge, getNextEnergyRechargeAt, resolveAdventureChoice, rollAdventureRewards,
   ADVENTURE_STATUSES_BLOCKING_NEW_START, isAdventureBlockingNewStart, markAdventureAbandoned, combineAdventureRewards,
-  canClaimAdventureRewards, withAdventureChoicePreviews,
+  canClaimAdventureRewards, withAdventureChoicePreviews, getAdventureChoiceCosts, canAffordAdventureChoice,
 } from '@/lib/adventures/adventure-helpers'
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
@@ -425,6 +425,8 @@ export async function makeChoice(
   heroId: string, heroAdventureId: string, choiceIndex: number, expectedCurrentStep: number
 ) {
   return await db.$transaction(async tx => {
+    // Keep the same hero → adventure lock order used by step execution.
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
     await tx.$queryRaw`SELECT "id" FROM "hero_adventures" WHERE "id" = ${heroAdventureId} FOR UPDATE`
 
     const ha = await tx.heroAdventure.findUnique({
@@ -460,6 +462,32 @@ export async function makeChoice(
       mergeHeroAttrs(combatHero),
       steps.length,
     )
+    const costs = getAdventureChoiceCosts(chosen)
+    if (!canAffordAdventureChoice(costs, hero)) {
+      throw new Error("No tienes suficiente salud o maná para elegir esta opción")
+    }
+    if (costs.hp > 0 || costs.mp > 0) {
+      const resourceUpdate = await tx.hero.updateMany({
+        where: {
+          id: heroId,
+          ...(costs.hp > 0 ? { hpCurrent: { gt: costs.hp } } : {}),
+          mpCurrent: { gte: costs.mp },
+        },
+        data: {
+          hpCurrent: { decrement: costs.hp },
+          mpCurrent: { decrement: costs.mp },
+        },
+      })
+      if (resourceUpdate.count !== 1) {
+        throw new Error("No tienes suficiente salud o maná para elegir esta opción")
+      }
+    }
+    const heroResources = {
+      hpCurrent: hero.hpCurrent - costs.hp,
+      hpMax: hero.hpMax,
+      mpCurrent: hero.mpCurrent - costs.mp,
+      mpMax: hero.mpMax,
+    }
 
     const resultData = (ha.result as any) ?? { steps: [], rewards: null }
     if (!Array.isArray(resultData.steps)) resultData.steps = []
@@ -473,6 +501,7 @@ export async function makeChoice(
       nextStepDescription: steps[resolution.nextStep]?.description ?? null,
       flavor: chosen.flavor ?? undefined,
       skillCheck: resolution.skillCheck,
+      costs: costs.hp > 0 || costs.mp > 0 ? costs : undefined,
       rewards: chosen.rewards ?? undefined,
     }
     resultData.steps.push(stepResult)
@@ -491,6 +520,7 @@ export async function makeChoice(
       stepResult,
       nextStep: withAdventureChoicePreviews(steps[resolution.nextStep], steps),
       totalSteps: ha.totalSteps,
+      heroResources,
     }
   })
 }
