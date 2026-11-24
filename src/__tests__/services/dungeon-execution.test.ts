@@ -13,7 +13,13 @@ describe("persistRunResult", () => {
       dungeonRun: {
         updateMany: vi.fn(async () => ({ count: 1 })),
       },
-      hero: { update: heroUpdate },
+      hero: {
+        update: heroUpdate,
+        findFirst: vi.fn(async () => ({
+          id: "hero-1", epTotal: 0, level: 1, hpMax: 100, mpMax: 40,
+          attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
+        })),
+      },
       heroItem: {
         deleteMany: vi.fn(async () => ({ count: 0 })),
         createMany: vi.fn(async () => ({ count: 0 })),
@@ -48,6 +54,7 @@ describe("persistRunResult", () => {
       totalHeroes: 3,
     })
 
+    expect(tx.hero.findFirst).toHaveBeenCalledTimes(3)
     expect(heroUpdateData).toEqual([
       {
         epTotal: { increment: 4 },
@@ -74,5 +81,38 @@ describe("persistRunResult", () => {
         dungeonRegisteredId: null,
       },
     ])
+  })
+
+  it("applies level progression inside the reward transaction", async () => {
+    const updates: Record<string, unknown>[] = []
+    const tx = {
+      dungeonRun: { updateMany: vi.fn(async () => ({ count: 1 })) },
+      hero: {
+        update: vi.fn(async (args: { data: Record<string, unknown> }) => { updates.push(args.data); return {} }),
+        findFirst: vi.fn(async ({ where }: { where: { id: string } }) => ({
+          id: where.id, epTotal: 200, level: 1, hpMax: 100, mpMax: 40,
+          attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
+        })),
+      },
+      heroItem: { deleteMany: vi.fn(async () => ({ count: 0 })), createMany: vi.fn(async () => ({ count: 0 })) },
+    }
+    const heroesFinalState = [{ id: "hero-1", hp: 10, mp: 4 }]
+    const result = {
+      victory: true, levelsCleared: 1, totalRounds: 1, epGained: 200,
+      goldGained: 0, fameGained: 0, loot: [], heroesFinalState,
+      consumedConsumables: [], log: [], levelResults: [], levelReports: [],
+      eventJournal: { schemaVersion: 1, events: [] },
+    } as unknown as RunResult
+
+    const settlement = await persistRunResult(tx as unknown as Parameters<typeof persistRunResult>[0], {
+      runId: "run-level-up", result, heroesData: [{ id: "hero-1" } as HeroData], totalHeroes: 1,
+    })
+
+    expect(settlement.levelUps).toEqual([{
+      heroId: "hero-1",
+      result: expect.objectContaining({ leveledUp: true, newLevel: 2, pointsAwarded: 5 }),
+    }])
+    expect(updates).toHaveLength(2)
+    expect(updates[1]).toEqual(expect.objectContaining({ level: 2, freeAttrPoints: { increment: 5 } }))
   })
 })

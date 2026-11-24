@@ -101,11 +101,11 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
 
   const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
 
-  await db.$transaction(async (tx) => {
-    await persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
-  })
+  const settlement = await db.$transaction(async (tx) =>
+    persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
+  )
 
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id, clanMemberRec })
+  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id, clanMemberRec, levelUps: settlement.levelUps })
 
   return result
   } catch (error) {

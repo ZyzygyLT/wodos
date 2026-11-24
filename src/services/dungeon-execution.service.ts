@@ -1,7 +1,7 @@
 import db from '@/lib/db'
 import { splitIntegerReward } from '@/lib/reward-distribution'
 import type { RunResult, HeroData } from '@/lib/combat-engine/dungeon-runner'
-import { checkLevelUp } from '@/lib/level-up'
+import { applyLevelUpInTransaction, publishLevelUpEffects, type LevelUpResult } from '@/lib/level-up'
 import { grantMaterialDrops } from '@/lib/craft/material-drops'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
@@ -57,6 +57,7 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
   const fameShares = splitIntegerReward(result.fameGained, result.heroesFinalState.length)
   const epShares = splitIntegerReward(result.epGained, result.heroesFinalState.length)
   const goldShares = splitIntegerReward(result.goldGained, result.heroesFinalState.length)
+  const levelUps: Array<{ heroId: string; result: LevelUpResult }> = []
   for (const [index, fs] of result.heroesFinalState.entries()) {
     const hData = heroesData.find(h => h.id === fs.id)
     if (!hData) continue
@@ -71,11 +72,15 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
         dungeonRegisteredId: null,
       },
     })
+    const levelUp = await applyLevelUpInTransaction(tx, fs.id)
+    levelUps.push({ heroId: fs.id, result: levelUp })
   }
 
   if (result.loot && result.loot.length > 0) {
     await persistLootToHeroes(tx, result)
   }
+
+  return { levelUps }
 }
 
 async function persistLootToHeroes(tx: any, result: RunResult) {
@@ -105,11 +110,12 @@ interface PostRunParams {
   totalHeroes: number
   dungeon: { id: number; name: string; slug: string }
   runId: string
+  levelUps: Array<{ heroId: string; result: LevelUpResult }>
   clanMemberRec?: { clanId: string; clan: { upgrades: { upgradeId: string; tier: number }[] } } | null
 }
 
 export async function processPostRun(params: PostRunParams) {
-  const { result, heroesData, dungeon, runId, clanMemberRec } = params
+  const { result, heroesData, dungeon, runId, clanMemberRec, levelUps } = params
 
   const kills = (result.log as any[])?.filter(
     (l: any) => l.type === 'death' && !l.actorId?.startsWith('hero')
@@ -122,6 +128,7 @@ export async function processPostRun(params: PostRunParams) {
       result, dungeon, runId, kills,
       epShare: epShares[index],
       goldShare: goldShares[index],
+      levelUp: levelUps.find(entry => entry.heroId === fs.id)?.result,
     })
   }
 
@@ -139,11 +146,12 @@ interface PostRunHeroContext {
   kills: number
   epShare: number
   goldShare: number
+  levelUp?: LevelUpResult
 }
 
 async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
-  const { result, dungeon, runId, kills, epShare, goldShare } = ctx
-  await checkLevelUp(heroId).catch(e => logger.error('dungeon-service', 'Error en level up', e))
+  const { result, dungeon, runId, kills, epShare, goldShare, levelUp } = ctx
+  if (levelUp) publishLevelUpEffects(heroId, levelUp)
   await grantMaterialDrops(heroId, dungeon.id, runId).catch(e => logger.error('dungeon-service', 'Error en material drops', e))
   await updateQuestProgressForHero(heroId, dungeon, kills, epShare, runId)
   checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => logger.error('dungeon-service', 'Error en achievements', e))

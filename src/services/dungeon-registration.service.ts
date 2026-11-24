@@ -2,7 +2,7 @@ import db from '@/lib/db'
 import type { Prisma } from '@/generated/prisma'
 import { runDungeon, HeroData, RunResult } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, snapshotDungeonParticipant } from '@/lib/dungeon-helpers'
-import { checkLevelUp, LevelUpResult } from '@/lib/level-up'
+import type { LevelUpResult } from '@/lib/level-up'
 import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
 import { calcClanBonuses } from "@/lib/clan/upgrades"
 import logger from "@/lib/logger"
@@ -94,6 +94,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   // Evaluate the daily bonus after reservation so concurrent runs cannot both claim first-of-day.
   let firstOfDay = false
   let result: RunResult
+  let levelUps: Array<{ heroId: string; result: LevelUpResult }> = []
   let itemMap: Map<number, LootItem> = new Map()
   try {
     firstOfDay = isGroup
@@ -101,9 +102,10 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
       : !(await hasHeroRunDungeonToday(hero.id))
     result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
     itemMap = await loadLootItemMap(result)
-    await db.$transaction(async tx => {
-      await persistRunResult(tx, { runId, result, heroesData, totalHeroes })
-    })
+    const settlement = await db.$transaction(async tx =>
+      persistRunResult(tx, { runId, result, heroesData, totalHeroes })
+    )
+    levelUps = settlement.levelUps
   } catch (error) {
     logger.error('dungeon-registration', 'Instant dungeon execution failed', error)
     await db.dungeonRun.updateMany({
@@ -113,13 +115,8 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
     return { ok: false, error: 'No se pudo completar la expedición. Intentá nuevamente.', status: 500 }
   }
 
-  let levelUp: LevelUpResult | undefined
-  try {
-    levelUp = await checkLevelUp(hero.id)
-  } catch (error) {
-    logger.error('dungeon-registration', 'Leader level-up processing failed', error)
-  }
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId, clanMemberRec }).catch(error => {
+  const levelUp = levelUps.find(entry => entry.heroId === hero.id)?.result
+  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId, clanMemberRec, levelUps }).catch(error => {
     logger.error('dungeon-registration', 'Post-run processing failed', error)
   })
 
