@@ -172,45 +172,59 @@ export async function getActiveAdventure(heroId: string) {
 
   const steps = ha.adventure.steps as unknown as AdventureStep[]
   const result = (ha.result as any) ?? { steps: [], rewards: null }
-  const historySteps = Array.isArray(result.steps)
-    ? result.steps
-      .filter((entry: unknown): entry is { type?: unknown; nextStep?: unknown; nextStepName?: unknown; nextStepDescription?: unknown; [key: string]: unknown } =>
+  type HistoryStep = {
+    type?: unknown
+    nextStep?: unknown
+    nextStepName?: unknown
+    nextStepDescription?: unknown
+    rewards?: unknown
+    [key: string]: unknown
+  }
+  const historyEntries: HistoryStep[] = Array.isArray(result.steps)
+    ? result.steps.filter((entry: unknown): entry is HistoryStep =>
         entry !== null && typeof entry === 'object' && !Array.isArray(entry))
-      .map((entry) => {
-        if (entry.type !== 'choice' || typeof entry.nextStep !== 'number' || !Number.isInteger(entry.nextStep)) return entry
-        const destination = steps[entry.nextStep]
-        return {
-          ...entry,
-          nextStepName: entry.nextStepName ?? destination?.name ?? null,
-          nextStepDescription: entry.nextStepDescription ?? destination?.description ?? null,
-        }
-      })
     : []
+  const historySteps = historyEntries.map((entry: HistoryStep) => {
+    if (entry.type !== 'choice' || typeof entry.nextStep !== 'number' || !Number.isInteger(entry.nextStep)) return entry
+    const destination = steps[entry.nextStep]
+    return {
+      ...entry,
+      nextStepName: entry.nextStepName ?? destination?.name ?? null,
+      nextStepDescription: entry.nextStepDescription ?? destination?.description ?? null,
+    }
+  })
   const currentStep = steps[ha.currentStep]
   const currentStepData = withAdventureChoicePreviews(currentStep, steps)
 
   // Resolve reward IDs to player-facing names without changing the persisted reward record.
-  type RewardLookup = {
-    items?: Array<{ itemId?: unknown }>
-    materials?: Array<{ materialId?: unknown }>
-  }
-  type RewardStep = { type?: unknown; rewards?: RewardLookup | null }
-  type AdventureResultForCatalog = { rewards?: RewardLookup | null; steps?: RewardStep[] }
+  type RewardLookup = { items?: unknown; materials?: unknown }
+  type RewardStep = { type?: unknown; rewards?: unknown }
+  type AdventureResultForCatalog = { rewards?: unknown; steps?: unknown }
   const catalogResult = ha.result as AdventureResultForCatalog | null
+  const catalogSteps: RewardStep[] = Array.isArray(catalogResult?.steps)
+    ? catalogResult.steps.filter((entry: unknown): entry is RewardStep =>
+        entry !== null && typeof entry === 'object' && !Array.isArray(entry))
+    : []
+  const isRewardRecord = (value: unknown): value is RewardLookup =>
+    value !== null && typeof value === 'object' && !Array.isArray(value)
   const rewardSources: RewardLookup[] = [
-    ...(catalogResult?.rewards ? [catalogResult.rewards] : []),
-    ...(catalogResult?.steps ?? [])
-      .filter((entry) => (entry.type === 'reward' || entry.type === 'choice') && entry.rewards)
-      .flatMap((entry) => entry.rewards ? [entry.rewards] : []),
+    ...(isRewardRecord(catalogResult?.rewards) ? [catalogResult.rewards] : []),
+    ...catalogSteps
+      .filter((entry) => (entry.type === 'reward' || entry.type === 'choice') && isRewardRecord(entry.rewards))
+      .flatMap((entry) => isRewardRecord(entry.rewards) ? [entry.rewards] : []),
   ]
   const itemIds = [...new Set(rewardSources.flatMap((rewards) =>
-    (rewards.items ?? [])
-      .map((item) => item.itemId)
+    (Array.isArray(rewards.items) ? rewards.items : [])
+      .map((item: unknown) => item !== null && typeof item === 'object' && !Array.isArray(item)
+        ? (item as { itemId?: unknown }).itemId
+        : undefined)
       .filter((value): value is number => typeof value === 'number' && Number.isInteger(value))
   ))]
   const materialIds = [...new Set(rewardSources.flatMap((rewards) =>
-    (rewards.materials ?? [])
-      .map((material) => material.materialId)
+    (Array.isArray(rewards.materials) ? rewards.materials : [])
+      .map((material: unknown) => material !== null && typeof material === 'object' && !Array.isArray(material)
+        ? (material as { materialId?: unknown }).materialId
+        : undefined)
       .filter((value): value is number => typeof value === 'number' && Number.isInteger(value))
   ))]
   const [rewardItems, rewardMaterials] = await Promise.all([

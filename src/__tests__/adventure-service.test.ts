@@ -315,6 +315,7 @@ describe("getActiveAdventure", () => {
       result: {
         steps: [
           null,
+          { type: "reward", rewards: { items: [null], materials: [null] } },
           { type: "narrative", description: "A safe passage" },
         ],
       },
@@ -338,7 +339,10 @@ describe("getActiveAdventure", () => {
 
     await expect(getActiveAdventure("hero-1")).resolves.toMatchObject({
       result: {
-        steps: [{ type: "narrative", description: "A safe passage" }],
+        steps: [
+          { type: "reward", rewards: { items: [null], materials: [null] } },
+          { type: "narrative", description: "A safe passage" },
+        ],
       },
     })
   })
