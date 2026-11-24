@@ -76,7 +76,7 @@ export interface HeroData {
     /** Per-dungeon-floor settings override the selected base profile when present. */
     levelOverrides?: Record<number, Partial<{
       position: string
-      prelimRules: any[]
+      prelimRules: Array<{ skillId?: number; itemId?: number }>
       roundRules: RoundRule[]
       defenseSkills: Record<string, number | null>
     }>>
@@ -674,18 +674,18 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
 function applyLevelCombatProfile(
   hero: HeroData,
   unit: CombatUnit & { attrs: Record<string, number> },
+  baseProfile: HeroData['combatProfile'],
   levelNumber: number,
   baseDefense: Pick<CombatUnit, 'defenseValues' | 'defenseSkillNames' | 'defenseEffects'>,
   random: RandomSource,
 ): void {
-  const base = hero.combatProfile
-  const override = base.levelOverrides?.[levelNumber]
+  const override = baseProfile.levelOverrides?.[levelNumber]
   hero.combatProfile = {
-    position: override?.position ?? base.position,
-    prelimRules: override?.prelimRules ?? base.prelimRules,
-    roundRules: override?.roundRules ?? base.roundRules,
-    defenseSkills: override?.defenseSkills ?? base.defenseSkills,
-    levelOverrides: base.levelOverrides,
+    position: override?.position ?? baseProfile.position,
+    prelimRules: override?.prelimRules ?? baseProfile.prelimRules,
+    roundRules: override?.roundRules ?? baseProfile.roundRules,
+    defenseSkills: override?.defenseSkills ?? baseProfile.defenseSkills,
+    levelOverrides: baseProfile.levelOverrides,
   }
   unit.position = hero.combatProfile.position
 
@@ -2506,6 +2506,7 @@ export async function runDungeon(
   const totalGroupAtkBonus = heroes.reduce((sum, h) => sum + (h.groupAtkBonus ?? 0), 0)
 
   const levelReports: LevelReport[] = []
+  const baseCombatProfiles = heroes.map(hero => hero.combatProfile)
   const baseHeroDefense = heroUnits.map(unit => ({
     defenseValues: { ...(unit.defenseValues ?? {}) },
     defenseSkillNames: { ...(unit.defenseSkillNames ?? {}) },
@@ -2515,7 +2516,7 @@ export async function runDungeon(
   for (const lvl of dungeon.levels) {
     heroes.forEach((hero, index) => {
       const unit = heroUnits[index]
-      if (unit) applyLevelCombatProfile(hero, unit, lvl.number, baseHeroDefense[index], random)
+      if (unit) applyLevelCombatProfile(hero, unit, baseCombatProfiles[index], lvl.number, baseHeroDefense[index], random)
     })
 
     addLog(log, 'level_start', 0, lvl.number, 'prelim',

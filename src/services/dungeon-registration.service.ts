@@ -72,7 +72,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   if (!groupResult.ok) return { ok: false, error: groupResult.error!, status: groupResult.status! }
   const { heroesData, totalHeroes, isGroup } = groupResult
 
-  if (isGroup && !heroesData.some(h => h.combatProfile?.position === 'front')) {
+  if (isGroup && !heroesData.some(h => (h.combatProfile?.levelOverrides?.[1]?.position ?? h.combatProfile?.position) === 'front')) {
     return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
   }
 
@@ -170,7 +170,7 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
 
   const groupResult = await loadCombatGroup(effectiveGroupId, hero, profile, dungeon.levelReq)
   if (!groupResult.ok) return { ok: false, error: groupResult.error!, status: groupResult.status! }
-  if (groupResult.isGroup && !groupResult.heroesData.some(h => h.combatProfile?.position === 'front')) {
+  if (groupResult.isGroup && !groupResult.heroesData.some(h => (h.combatProfile?.levelOverrides?.[1]?.position ?? h.combatProfile?.position) === 'front')) {
     return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
   }
 

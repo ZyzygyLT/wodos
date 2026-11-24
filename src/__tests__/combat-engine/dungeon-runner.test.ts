@@ -161,16 +161,19 @@ describe('runDungeon', () => {
       goldReward: 0,
     })
     const result = await runDungeon([hero], makeDungeon({
-      levels: [floor(1), floor(2)],
+      levels: [floor(1), floor(2), floor(3)],
       lootTable: [],
     }))
 
     const firstRound = result.levelReports[0]?.rounds[0]
     const secondRound = result.levelReports[1]?.rounds[0]
+    const thirdRound = result.levelReports[2]?.rounds[0]
     expect(firstRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('First-floor strike')
     expect(secondRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('Second-floor strike')
+    expect(thirdRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('First-floor strike')
     expect(firstRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('front')
     expect(secondRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('rear')
+    expect(thirdRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('front')
   })
 
   it('returns victory after clearing all levels', async () => {

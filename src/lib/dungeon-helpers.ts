@@ -81,7 +81,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
 
   if (groupMembers.length > 0) {
     let heroesData = await Promise.all(groupMembers.map(async (m) => {
-      const p = m.hero.combatProfiles?.[0] ?? null
+      const p = m.hero.combatProfiles?.find(candidate => candidate.dungeonLevel === null) ?? m.hero.combatProfiles?.[0] ?? null
       return buildHeroData(m.hero, p)
     }))
     // Deduplicar por ID por si hay miembros repetidos
@@ -111,7 +111,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
 
   if (clanGroup && clanGroup.members.length > 0) {
     let heroesData = await Promise.all(clanGroup.members.map(async (m) => {
-      const p = m.hero.combatProfiles?.[0] ?? null
+      const p = m.hero.combatProfiles?.find(candidate => candidate.dungeonLevel === null) ?? m.hero.combatProfiles?.[0] ?? null
       return buildHeroData(m.hero, p)
     }))
     const seen = new Set<string>()
@@ -175,15 +175,18 @@ export async function reconcileDungeonParticipantConsumables(heroesData: HeroDat
 }
 
 export async function buildHeroData(hero: any, profile: any): Promise<HeroData> {
-  const baseProfile = profile ?? hero.combatProfiles?.find((candidate: any) => candidate.dungeonLevel === null) ?? null
+  const generalProfile = hero.combatProfiles?.find(candidate => candidate.dungeonLevel === null) ?? null
+  const baseProfile = profile?.dungeonLevel == null
+    ? profile ?? generalProfile
+    : generalProfile ?? profile ?? null
   const levelOverrides = Object.fromEntries(
     (hero.combatProfiles ?? [])
-      .filter((candidate: any) => candidate.dungeonLevel !== null && candidate.dungeonLevel !== undefined)
-      .map((candidate: any) => [candidate.dungeonLevel, {
+      .filter(candidate => candidate.dungeonLevel !== null && candidate.dungeonLevel !== undefined)
+      .map(candidate => [candidate.dungeonLevel, {
         position: candidate.position,
-        prelimRules: candidate.prelimRules as any[],
-        roundRules: candidate.roundRules as any[],
-        defenseSkills: candidate.defenseSkills as Record<string, number | null>,
+        prelimRules: candidate.prelimRules as Array<{ skillId?: number; itemId?: number }>,
+        roundRules: candidate.roundRules as HeroData['combatProfile']['roundRules'],
+        defenseSkills: candidate.defenseSkills as HeroData['combatProfile']['defenseSkills'],
       }])
   )
   const hpMax = hero.hpMax
@@ -220,7 +223,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
 
   return {
     id: hero.id,
-    profileId: baseProfile?.id ?? undefined,
+    profileId: profile?.id ?? baseProfile?.id ?? undefined,
     name: hero.name,
     level: hero.level,
     attrs,
