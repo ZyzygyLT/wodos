@@ -3,10 +3,13 @@
 import { useState } from "react"
 import type { LevelReport } from "@/lib/combat-engine/dungeon-runner"
 import { RoundView } from "./RoundView"
+import { StateTables } from "./StateTables"
 import { ErrorBoundary } from "@/components/ErrorBoundary"
 
 export function LevelAccordion({ level, defaultOpen }: Readonly<{ level: LevelReport; defaultOpen: boolean }>) {
   const [open, setOpen] = useState(defaultOpen)
+  const finalSnapshot = level.rounds.at(-1)?.stateAfter
+
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
       <button onClick={() => setOpen(!open)}
@@ -50,6 +53,12 @@ export function LevelAccordion({ level, defaultOpen }: Readonly<{ level: LevelRe
             <p className="text-sm text-gray-500 text-center py-4">
               {level.victory ? 'Nivel superado sin combate' : 'Derrota inmediata'}
             </p>
+          )}
+          {finalSnapshot && (
+            <section aria-label="Estado al finalizar el nivel" className="space-y-2 border-t border-gray-800 pt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-400">Estado al finalizar el nivel</h3>
+              <StateTables snapshot={finalSnapshot} />
+            </section>
           )}
         </div>
       )}
