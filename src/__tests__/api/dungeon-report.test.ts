@@ -24,7 +24,22 @@ function mockRun() {
     goldGained: 50,
     fameGained: 12,
     report: [],
-    levelReports: [],
+    levelReports: [{
+      levelNumber: 1,
+      victory: true,
+      epGained: 100,
+      goldGained: 50,
+      rounds: [{
+        roundNumber: 1,
+        actions: [{
+          actorId: 'hero-leader',
+          tacticRuleEvaluationTrace: [
+            { priority: 1, condition: { type: 'hp_self_lt', value: 1 }, matched: false },
+            { priority: 2, condition: { type: 'always' }, matched: true },
+          ],
+        }],
+      }],
+    }],
     loot: [],
     dungeon: { id: 1, name: 'Crypt' },
     participants: [
@@ -53,6 +68,13 @@ describe('GET /api/dungeon/report/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(data.fameGained).toBe(12)
+    expect(data.levelReports[0].rounds[0].actions[0]).toEqual({
+      actorId: 'hero-leader',
+      tacticRuleEvaluationTrace: [
+        { priority: 1, condition: { type: 'hp_self_lt', value: 1 }, matched: false },
+        { priority: 2, condition: { type: 'always' }, matched: true },
+      ],
+    })
     expect(data.participants).toEqual([
       { heroId: 'hero-leader', name: 'Leader' },
       { heroId: 'hero-member', name: 'Former member' },
