@@ -89,6 +89,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     levelsCleared: run.levelsCleared,
     epGained: run.epGained,
     goldGained: run.goldGained,
+    fameGained: run.fameGained,
     loot: lootItems,
     recentLog: report ? report.slice(-20) : null,
     fullReport: report,

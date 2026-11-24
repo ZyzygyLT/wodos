@@ -10,7 +10,7 @@ import type { LevelReport } from "@/lib/combat-engine/dungeon-runner"
 interface RunReport {
   id: string; dungeonName: string; status: string
   result: string | null; levelsCleared: number | null
-  epGained: number | null; goldGained: number | null
+  epGained: number | null; goldGained: number | null; fameGained: number | null
   loot: any; recentLog: string[] | null
   fullReport: any[] | null; levelReports: LevelReport[] | null
   groupRun?: boolean; totalHeroes?: number
@@ -109,7 +109,7 @@ export default function DungeonReport() {
         totalRounds={totalRounds}
         epGained={report.epGained}
         goldGained={report.goldGained}
-        fameGained={null}
+        fameGained={report.fameGained}
         groupRun={report.groupRun}
         totalHeroes={report.totalHeroes}
         participants={report.participants}

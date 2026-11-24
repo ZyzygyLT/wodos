@@ -22,6 +22,7 @@ function mockRun() {
     levelsCleared: 2,
     epGained: 100,
     goldGained: 50,
+    fameGained: 12,
     report: [],
     levelReports: [],
     loot: [],
@@ -51,6 +52,7 @@ describe('GET /api/dungeon/report/[id]', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
+    expect(data.fameGained).toBe(12)
     expect(data.participants).toEqual([
       { heroId: 'hero-leader', name: 'Leader' },
       { heroId: 'hero-member', name: 'Former member' },
