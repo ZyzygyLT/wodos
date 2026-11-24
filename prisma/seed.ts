@@ -1039,7 +1039,7 @@ async function seedAdventures() {
           description: 'El libro del obispo contiene ritos de sellado y una última página en blanco. Frente al altar, hay dos objetos: un incensario de oro y un cuchillo de obsidiana.',
           choices: [
             { text: 'Tomar el incensario y realizar el rito de sellado', nextStep: 13, flavor: 'El incienso arde con una luz blanca. Las paredes tiemblan mientras el sello se refuerza.' },
-            { text: 'Tomar el cuchillo de obsidiana', nextStep: 14, flavor: 'El cuchillo vibra en tu mano. Algo despierta en las profundidades bajo la capilla.' },
+            { text: 'Tomar el cuchillo de obsidiana', nextStep: 14, flavor: 'El cuchillo vibra en tu mano. Su filo te abre la palma y la sangre despierta algo en las profundidades bajo la capilla.', costs: { hp: 6 } },
           ],
         },
         {

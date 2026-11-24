@@ -18,6 +18,12 @@ export interface AdventureChoice {
   flavor?: string
   skillCheck?: { attr: string; dc: number; passStep: number; failStep: number }
   costs?: { hp?: number; mp?: number }
+  nextStepName?: string | null
+  nextStepDescription?: string | null
+  passStepName?: string | null
+  passStepDescription?: string | null
+  failStepName?: string | null
+  failStepDescription?: string | null
   rewards?: StepRewards
 }
 
