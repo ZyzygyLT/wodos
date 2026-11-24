@@ -393,7 +393,7 @@ export default function DungeonMap({ dungeons, heroLevel, heroHp, selectedProfil
             <div className="relative">
               <button onClick={() => setProfileDropdown(profileDropdown === selected.id ? null : selected.id)}
                 className="flex items-center justify-between w-full bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition">
-                <span>⚔️ {selected.profiles.find(p => p.id === selectedProfiles[selected.id])?.name ?? "Perfil"}</span>
+                <span>⚔️ {selected.profiles.find(p => p.id === selectedProfiles[selected.id])?.name ?? selected.profiles[0]?.name ?? "Perfil"}</span>
                 <span className="text-gray-500">▼</span>
               </button>
 

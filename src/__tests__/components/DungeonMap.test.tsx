@@ -164,7 +164,7 @@ describe('DungeonMap', () => {
       />
     )
     fireEvent.click(screen.getByText('🏛️'))
-    fireEvent.click(screen.getByText(/Perfil/))
+    fireEvent.click(screen.getByText(/Estándar/))
     expect(screen.getByText('Agresivo')).toBeTruthy()
   })
 
@@ -181,7 +181,7 @@ describe('DungeonMap', () => {
       />
     )
     fireEvent.click(screen.getByText('🏛️'))
-    fireEvent.click(screen.getByText(/Perfil/))
+    fireEvent.click(screen.getByText(/Estándar/))
     fireEvent.click(screen.getByText('Agresivo'))
     expect(onSelectProfile).toHaveBeenCalledWith(2, 'p2')
   })

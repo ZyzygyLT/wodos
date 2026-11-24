@@ -53,6 +53,17 @@ export default function DungeonPage() {
       }
       setHero(heroData)
       setDungeons(dungeonData)
+      setSelectedProfiles(current => {
+        const next = { ...current }
+        for (const dungeon of dungeonData) {
+          const availableProfiles = dungeon.profiles ?? []
+          if (!availableProfiles.some((profile: { id: string }) => profile.id === next[dungeon.id])) {
+            if (availableProfiles[0]?.id) next[dungeon.id] = availableProfiles[0].id
+            else delete next[dungeon.id]
+          }
+        }
+        return next
+      })
       return heroData
     } catch (error) {
       throw error

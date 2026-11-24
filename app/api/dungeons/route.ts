@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   const hero = await getActiveHeroByUserId(session.user.id, {
-    include: { combatProfiles: { orderBy: { createdAt: "asc" } } },
+    include: { combatProfiles: { orderBy: [{ dungeonLevel: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }] } },
   })
   if (!hero) {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
@@ -41,6 +41,9 @@ export async function GET() {
     ? await db.dungeonRun.findUnique({ where: { id: hero.dungeonRegisteredId } })
     : null
 
+  const generalProfiles = hero.combatProfiles.filter(profile => profile.dungeonLevel === null)
+  const selectableProfiles = generalProfiles.length > 0 ? generalProfiles : hero.combatProfiles.slice(0, 1)
+
   const result = dungeons.map(d => {
     const times = (d.scheduledTimes ?? []) as string[]
     const nextScheduledTime = getNextScheduledTime(times)
@@ -56,7 +59,7 @@ export async function GET() {
       isRegistered: registeredRun?.dungeonId === d.id,
       registeredRunId: registeredRun?.dungeonId === d.id ? registeredRun.id : null,
       nextScheduledTime: nextScheduledTime?.toISOString() ?? null,
-      profiles: hero.combatProfiles.map(p => ({
+      profiles: selectableProfiles.map(p => ({
         id: p.id, name: p.name, position: p.position,
       })),
     }
