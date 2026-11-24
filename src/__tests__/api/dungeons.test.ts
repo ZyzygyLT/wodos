@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 import { auth } from '@/auth'
-import { getActiveHeroByUserId } from '@/lib/hero-utils'
 import { mockDb } from '../setup'
 
 describe('GET /api/dungeons', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(auth as Mock).mockResolvedValue({ user: { id: 'user-1' } })
-    ;(getActiveHeroByUserId as Mock).mockResolvedValue({
+    ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: 'hero-participant' })
+    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({
       id: 'hero-participant',
       level: 5,
       dungeonRegisteredId: null,
