@@ -213,7 +213,8 @@ export function combineAdventureRewards(
   const sources = [
     globalRewards,
     ...steps
-      .filter(step => step.type === 'reward' || step.type === 'choice')
+      .filter(step => step !== null && typeof step === 'object' &&
+        (step.type === 'reward' || step.type === 'choice'))
       .map(step => step.rewards),
   ]
 

@@ -406,6 +406,14 @@ describe("combineAdventureRewards", () => {
     })
   })
 
+  it("skips malformed null step records while combining rewards", () => {
+    expect(combineAdventureRewards(undefined, [
+      null as never,
+      { type: "reward", rewards: { gold: 12 } },
+      { type: "narrative" },
+    ])).toEqual({ gold: 12 })
+  })
+
   it("ignores null entries in malformed reward drop arrays", () => {
     expect(hasAdventureRewardPayload({
       items: [null as never],
