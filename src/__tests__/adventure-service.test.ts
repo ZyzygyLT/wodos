@@ -113,10 +113,15 @@ describe("canClaimAdventureRewards", () => {
     expect(isAdventureBlockingNewStart("failed", emptyLoot)).toBe(false)
   })
 
-  it("recognizes positive item and material rewards even without currency", () => {
+  it("recognizes only structurally valid positive reward payloads", () => {
     expect(hasAdventureRewardPayload({ items: [{ itemId: 7, qty: 1 }] })).toBe(true)
     expect(hasAdventureRewardPayload({ materials: [{ materialId: 3, qty: 2 }] })).toBe(true)
+    expect(hasAdventureRewardPayload({ gold: 5 })).toBe(true)
     expect(hasAdventureRewardPayload({ gold: 0, ep: 0, fame: 0 })).toBe(false)
+    expect(hasAdventureRewardPayload({ gold: 1.5 })).toBe(false)
+    expect(hasAdventureRewardPayload({ items: [{ itemId: 0, qty: 1 }] })).toBe(false)
+    expect(hasAdventureRewardPayload({ items: [{ itemId: 7, qty: 0.5 }] })).toBe(false)
+    expect(hasAdventureRewardPayload({ materials: [{ materialId: -1, qty: 2 }] })).toBe(false)
   })
 
   it("never allows abandoned adventures to claim rewards", () => {
@@ -398,6 +403,21 @@ describe("combineAdventureRewards", () => {
       ep: 5,
       fame: 1,
       items: [{ itemId: 1, qty: 1 }, { itemId: 2, qty: 2 }],
+    })
+  })
+
+  it("filters malformed reward amounts and drops before claim", () => {
+    expect(combineAdventureRewards(
+      { gold: 2.5, ep: 4, items: [{ itemId: 0, qty: 1 }, { itemId: 3, qty: 2.5 }] },
+      [
+        { type: "reward", rewards: { gold: -5, fame: 3, materials: [{ materialId: -1, qty: 2 }] } },
+        { type: "choice", rewards: { gold: 7, items: [{ itemId: 4, qty: 1 }] } },
+      ],
+    )).toEqual({
+      ep: 4,
+      fame: 3,
+      gold: 7,
+      items: [{ itemId: 4, qty: 1 }],
     })
   })
 })

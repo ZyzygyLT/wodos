@@ -36,14 +36,18 @@ export function hasAdventureRewardPayload(rewards: StepRewards | null | undefine
   if (!rewards) return false
 
   const currencies = [rewards.gold, rewards.ep, rewards.fame]
-  if (currencies.some(amount => typeof amount === 'number' && Number.isFinite(amount) && amount > 0)) {
+  if (currencies.some(amount => Number.isSafeInteger(amount) && amount > 0)) {
     return true
   }
 
   const hasItems = Array.isArray(rewards.items) &&
-    rewards.items.some(item => item !== null && Number.isFinite(item.qty) && item.qty > 0)
+    rewards.items.some(item => item !== null &&
+      Number.isSafeInteger(item.itemId) && item.itemId > 0 &&
+      Number.isSafeInteger(item.qty) && item.qty > 0)
   const hasMaterials = Array.isArray(rewards.materials) &&
-    rewards.materials.some(material => material !== null && Number.isFinite(material.qty) && material.qty > 0)
+    rewards.materials.some(material => material !== null &&
+      Number.isSafeInteger(material.materialId) && material.materialId > 0 &&
+      Number.isSafeInteger(material.qty) && material.qty > 0)
 
   return hasItems || hasMaterials
 }
@@ -205,17 +209,38 @@ export function combineAdventureRewards(
   globalRewards: StepRewards | null | undefined,
   steps: Array<{ type?: string; rewards?: StepRewards | null }> = [],
 ): StepRewards {
-  const combined: StepRewards = { ...globalRewards }
+  const combined: StepRewards = {}
+  const sources = [
+    globalRewards,
+    ...steps
+      .filter(step => step.type === 'reward' || step.type === 'choice')
+      .map(step => step.rewards),
+  ]
 
-  for (const step of steps) {
-    if ((step.type !== 'reward' && step.type !== 'choice') || !step.rewards) continue
-    const rewards = step.rewards
+  for (const rewards of sources) {
+    if (!rewards) continue
 
-    if (typeof rewards.gold === 'number') combined.gold = (combined.gold ?? 0) + rewards.gold
-    if (typeof rewards.ep === 'number') combined.ep = (combined.ep ?? 0) + rewards.ep
-    if (typeof rewards.fame === 'number') combined.fame = (combined.fame ?? 0) + rewards.fame
-    if (rewards.items?.length) combined.items = [...(combined.items ?? []), ...rewards.items]
-    if (rewards.materials?.length) combined.materials = [...(combined.materials ?? []), ...rewards.materials]
+    if (Number.isSafeInteger(rewards.gold) && rewards.gold! > 0) {
+      combined.gold = (combined.gold ?? 0) + rewards.gold!
+    }
+    if (Number.isSafeInteger(rewards.ep) && rewards.ep! > 0) {
+      combined.ep = (combined.ep ?? 0) + rewards.ep!
+    }
+    if (Number.isSafeInteger(rewards.fame) && rewards.fame! > 0) {
+      combined.fame = (combined.fame ?? 0) + rewards.fame!
+    }
+
+    const validItems = (rewards.items ?? []).filter(item =>
+      Number.isSafeInteger(item.itemId) && item.itemId > 0 &&
+      Number.isSafeInteger(item.qty) && item.qty > 0
+    )
+    const validMaterials = (rewards.materials ?? []).filter(material =>
+      Number.isSafeInteger(material.materialId) && material.materialId > 0 &&
+      Number.isSafeInteger(material.qty) && material.qty > 0
+    )
+
+    if (validItems.length) combined.items = [...(combined.items ?? []), ...validItems]
+    if (validMaterials.length) combined.materials = [...(combined.materials ?? []), ...validMaterials]
   }
 
   return combined
