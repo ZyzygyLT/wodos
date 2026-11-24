@@ -114,7 +114,7 @@ export default function TacticsEditor() {
         <div className="space-y-4">
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
             <h2 className="text-sm font-semibold text-gray-400 mb-3">
-              ⚙️ Config general — {profile.dungeonLevel ? `Nivel ${profile.dungeonLevel}` : 'Todas las rondas'}
+              ⚙️ {profile.dungeonLevel ? `Configuración del piso ${profile.dungeonLevel}` : 'Perfil general — mazmorras y aventuras'}
             </h2>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
@@ -130,6 +130,11 @@ export default function TacticsEditor() {
                 <p className="text-xs text-gray-400">⚡ La iniciativa se calcula automáticamente: <strong className="text-gray-200">AG + PE/2</strong></p>
               </div>
             </div>
+            {!profile.dungeonLevel && (
+              <p className="mt-3 text-xs text-emerald-300/80">
+                Este perfil también se utiliza automáticamente en los combates de aventuras. Los perfiles por piso solo modifican la configuración de mazmorras.
+              </p>
+            )}
           </div>
 
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
@@ -183,7 +188,7 @@ export default function TacticsEditor() {
             <div className="space-y-2">
               {profile.prelimRules.length === 0 && (
                 <p className="text-sm text-gray-500 text-center py-3">
-                  Sin efectos de preparación. Se ejecutan al inicio de la mazmorra.
+                  Sin efectos de preparación. Se ejecutan al inicio de cada combate, también en aventuras.
                 </p>
               )}
               {profile.prelimRules.map((rule, i) => (
