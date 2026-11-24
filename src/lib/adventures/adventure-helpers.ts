@@ -1,7 +1,6 @@
 import type { HeroData } from '@/lib/combat-engine/dungeon-runner'
 import type { Prisma } from '@/generated/prisma'
 import { ENERGY_RECHARGE_INTERVAL_MINUTES } from './types'
-import type { AdventureStep } from './types'
 
 /** Attach destination details to every choice so previews stay available after each transition. */
 export function withAdventureChoicePreviews(
