@@ -28,6 +28,13 @@ interface CombatProfile {
   prelimRules: any[]; roundRules: any[]
 }
 
+interface AdventureDashboardStatus {
+  hasActiveAdventure: boolean
+  blockingAdventureStatus: string | null
+  energy: number
+  energyMax: number
+}
+
 const ATTR_LABELS: Record<string, string> = {
   st: 'Fuerza', co: 'Constitución', in: 'Inteligencia',
   dx: 'Destreza', ch: 'Carisma', ag: 'Agilidad',
@@ -42,6 +49,7 @@ const POSITION_LABELS: Record<string, string> = {
 export default function Dashboard() {
   const router = useRouter()
   const [hero, setHero] = useState<HeroData | null>(null)
+  const [adventureStatus, setAdventureStatus] = useState<AdventureDashboardStatus | null>(null)
   const [loadError, setLoadError] = useState("")
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [spending, setSpending] = useState<Record<string, number>>({})
@@ -89,6 +97,24 @@ export default function Dashboard() {
   useEffect(() => {
     void Promise.resolve().then(fetchData)
   }, [fetchData, loadAttempt])
+
+  useEffect(() => {
+    let active = true
+    fetch("/api/adventures")
+      .then(async response => response.ok ? response.json() : null)
+      .then(data => {
+        if (!active || !data) return
+        setAdventureStatus({
+          hasActiveAdventure: Boolean(data.hasActiveAdventure),
+          blockingAdventureStatus: data.blockingAdventureStatus ?? null,
+          energy: Number(data.energy ?? 0),
+          energyMax: Number(data.energyMax ?? 0),
+        })
+      })
+      .catch(error => logger.error("dashboard", "Failed to load adventure status", error))
+
+    return () => { active = false }
+  }, [])
 
   const epForLevel = (level: number) => Math.round(200 * Math.pow(1.6, level - 1))
   const currentLevelEp = hero ? epForLevel(hero.level) : 1
@@ -217,7 +243,7 @@ export default function Dashboard() {
           <span className="text-yellow-400">Nv. {hero.level}</span>
           <span className="text-yellow-300">💰 {hero.gold}</span>
           <span className="text-gray-500 text-xs">{hero.heroCount ?? 1}/{hero.maxHeroes ?? 3} héroes</span>
-          <Link href="/dungeon" className="text-gray-400 hover:text-gray-200 text-xs">🗺️ Ir al juego</Link>
+          <Link href="/adventures" className="text-gray-400 hover:text-gray-200 text-xs">🏕️ Jugar</Link>
         </div>
       </header>
 
@@ -470,6 +496,36 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-gray-900 rounded-xl border border-amber-800/60 p-4">
+            <h3 className="text-sm font-bold text-amber-300 mb-2">🏕️ Aventuras</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              {adventureStatus?.hasActiveAdventure
+                ? adventureStatus.blockingAdventureStatus === "completed"
+                  ? "Tu aventura terminó. Las recompensas están esperando."
+                  : adventureStatus.blockingAdventureStatus === "failed"
+                    ? "Hay botín pendiente de recuperar."
+                    : "Tu aventura sigue en marcha. Retomá donde la dejaste."
+                : "Elegí una expedición individual, superá sus desafíos y conseguí recompensas."}
+            </p>
+            {adventureStatus && adventureStatus.energyMax > 0 && (
+              <p className="text-[11px] text-gray-500 mb-3">
+                Energía: <span className="text-emerald-300">{adventureStatus.energy}/{adventureStatus.energyMax}</span>
+              </p>
+            )}
+            <Link
+              href={adventureStatus?.hasActiveAdventure ? "/adventures/active" : "/adventures"}
+              className="block rounded-lg bg-amber-700 px-3 py-2 text-center text-sm font-semibold text-white transition hover:bg-amber-600"
+            >
+              {adventureStatus?.hasActiveAdventure
+                ? adventureStatus.blockingAdventureStatus === "completed"
+                  ? "🎁 Reclamar recompensas"
+                  : adventureStatus.blockingAdventureStatus === "failed"
+                    ? "🎒 Recuperar botín"
+                    : "▶ Continuar aventura"
+                : "⚔️ Elegir aventura"}
+            </Link>
           </div>
 
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
