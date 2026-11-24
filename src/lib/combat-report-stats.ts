@@ -14,6 +14,10 @@ export interface HeroStats {
   dodged: number
   blocked: number
   barriered: number
+  totalManaSpent: number
+  buffsUsed: number
+  itemsUsed: number
+  totalDamageAbsorbed: number
 }
 
 export function computeCombatStats(levelReports: LevelReport[]): HeroStats[] {
@@ -33,6 +37,9 @@ export function computeCombatStats(levelReports: LevelReport[]): HeroStats[] {
         if (actor) {
           actor.totalActions++
           trackHealing(action, actor, hpMap)
+          actor.totalManaSpent += action.mpCost ?? 0
+          if (action.buffName) actor.buffsUsed++
+          if (action.itemName) actor.itemsUsed++
         }
         trackActionTargets(action, actor, statsMap, hpMap)
       }
@@ -57,6 +64,10 @@ function createStats(id: string, name: string): HeroStats {
     dodged: 0,
     blocked: 0,
     barriered: 0,
+    totalManaSpent: 0,
+    buffsUsed: 0,
+    itemsUsed: 0,
+    totalDamageAbsorbed: 0,
   }
 }
 
@@ -95,6 +106,7 @@ function trackActionTargets(
           resultType: action.resultType,
           defenseEffect: action.defenseEffect,
           damageBreakdown: action.damageBreakdown,
+          absorbed: action.absorbed,
         }]
       : []
 
@@ -124,6 +136,7 @@ function trackActionTargets(
     const defender = statsMap.get(target.targetId)
     if (defender) {
       defender.totalDamageTaken += damage
+      defender.totalDamageAbsorbed += target.absorbed ?? 0
       if (target.resultType === "failed") {
         if (target.defenseEffect === "dodge") defender.dodged++
         else if (target.defenseEffect === "block") defender.blocked++

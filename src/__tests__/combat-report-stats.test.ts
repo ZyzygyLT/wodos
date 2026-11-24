@@ -78,6 +78,17 @@ describe("computeCombatStats", () => {
     ])
   })
 
+  it("tracks mana, support actions, consumables and absorbed damage", () => {
+    const round = makeRound([
+      { actorId: "hero-1", actorName: "Aventurera", actionNumber: 1, totalActions: 2, initiative: 20, skillId: 4, skillName: "Canción de valor", message: "Buff", mpCost: 6, buffName: "valor", buffValue: 15, targetId: "hero-1" },
+      { actorId: "enemy-1", actorName: "Limo", actionNumber: 1, totalActions: 1, initiative: 10, skillId: 5, skillName: "Golpe", message: "Ataca", targetId: "hero-1", resultType: "success", damageBreakdown: [{ type: "physical", value: 5 }], absorbed: 3 },
+      { actorId: "hero-1", actorName: "Aventurera", actionNumber: 2, totalActions: 2, initiative: 20, skillId: 6, skillName: "Poción", message: "Usa objeto", itemName: "Poción de maná", mpCost: 2 },
+    ])
+    expect(computeCombatStats(reports(round))[0]).toMatchObject({
+      totalManaSpent: 8, buffsUsed: 1, itemsUsed: 1, totalDamageAbsorbed: 3,
+    })
+  })
+
   it("attributes single-target damage received to the defender", () => {
     const round = makeRound([{
       actorId: "enemy-1",
