@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import type { RunResult, HeroData } from "@/lib/combat-engine/dungeon-runner"
+import { runDungeon, type DungeonData, type HeroData, type RunResult } from "@/lib/combat-engine/dungeon-runner"
 import { persistRunResult } from "@/services/dungeon-execution.service"
 
 describe("persistRunResult", () => {
