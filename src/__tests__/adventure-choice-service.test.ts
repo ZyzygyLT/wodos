@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => {
       updateMany: vi.fn(),
       update: vi.fn(),
     },
+    heroItem: { createMany: vi.fn() },
+    heroMaterial: { upsert: vi.fn() },
+    heroFactionRep: { upsert: vi.fn() },
   }
 
   return {
@@ -26,6 +29,11 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/combat-engine/dungeon-runner", () => ({ runDungeon: vi.fn() }))
 
+vi.mock("@/lib/level-up", () => ({
+  applyLevelUpInTransaction: vi.fn(async () => null),
+  publishLevelUpEffects: vi.fn(),
+}))
+
 vi.mock("@/lib/dungeon-helpers", () => ({
   buildHeroData: vi.fn(async (hero: { attrs: Record<string, number> }) => ({
     attrs: hero.attrs,
@@ -35,7 +43,8 @@ vi.mock("@/lib/dungeon-helpers", () => ({
 }))
 
 import { runDungeon } from "@/lib/combat-engine/dungeon-runner"
-import { executeStep, makeChoice } from "@/services/adventure.service"
+import { executeStep, makeChoice, claimRewards } from "@/services/adventure.service"
+import { applyLevelUpInTransaction } from "@/lib/level-up"
 
 const adventureSteps = [
   {
@@ -343,5 +352,115 @@ describe("executeStep adventure combat branch", () => {
         }),
       }),
     }))
+  })
+})
+
+describe("claimRewards transaction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.transaction.mockImplementation(async callback => callback(mocks.tx))
+    mocks.tx.$queryRaw.mockResolvedValue([])
+    mocks.tx.heroAdventure.updateMany.mockResolvedValue({ count: 1 } as never)
+    mocks.tx.hero.update.mockResolvedValue({} as never)
+    mocks.tx.heroItem.createMany.mockResolvedValue({ count: 1 } as never)
+    mocks.tx.heroMaterial.upsert.mockResolvedValue({} as never)
+    mocks.tx.heroFactionRep.upsert.mockResolvedValue({} as never)
+    vi.mocked(applyLevelUpInTransaction).mockResolvedValue(null)
+  })
+
+  it("claims only previously collected loot after defeat and excludes completion rewards and faction reputation", async () => {
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      id: "run-1", heroId: "hero-1", status: "failed",
+      result: {
+        outcome: "defeated",
+        rewards: { gold: 100, ep: 80, fame: 40, items: [{ itemId: 99, qty: 1 }] },
+        steps: [
+          { type: "reward", rewards: { gold: 12, ep: 3, fame: 2, items: [{ itemId: 7, qty: 2 }], materials: [{ materialId: 4, qty: 3 }] } },
+          { type: "combat", victory: false },
+        ],
+      },
+      adventure: { factionId: 5, factionRep: 25 },
+    } as never)
+
+    const result = await claimRewards("hero-1", "run-1")
+
+    expect(result).toMatchObject({
+      claimed: true, partial: true,
+      rewards: { gold: 12, ep: 3, fame: 2, items: [{ itemId: 7, qty: 2 }], materials: [{ materialId: 4, qty: 3 }] },
+    })
+    expect(mocks.tx.hero.update).toHaveBeenCalledWith({
+      where: { id: "hero-1" },
+      data: { gold: { increment: 12 }, epTotal: { increment: 3 }, fame: { increment: 2 } },
+    })
+    expect(mocks.tx.heroItem.createMany).toHaveBeenCalledWith({
+      data: [{ heroId: "hero-1", itemId: 7, equipped: false }, { heroId: "hero-1", itemId: 7, equipped: false }],
+    })
+    expect(mocks.tx.heroMaterial.upsert).toHaveBeenCalledWith({
+      where: { heroId_materialId: { heroId: "hero-1", materialId: 4 } },
+      create: { heroId: "hero-1", materialId: 4, quantity: 3 },
+      update: { quantity: { increment: 3 } },
+    })
+    expect(mocks.tx.heroFactionRep.upsert).not.toHaveBeenCalled()
+    expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith({
+      where: { id: "run-1", heroId: "hero-1", status: "failed" },
+      data: { status: "claimed" },
+    })
+    expect(applyLevelUpInTransaction).toHaveBeenCalledWith(mocks.tx, "hero-1")
+  })
+
+  it("claims completion and step rewards together and grants faction reputation after victory", async () => {
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      id: "run-1", heroId: "hero-1", status: "completed",
+      result: {
+        rewards: { gold: 40, ep: 10, fame: 5, items: [{ itemId: 2, qty: 1 }] },
+        steps: [{ type: "reward", rewards: { gold: 8, ep: 2, fame: 1, materials: [{ materialId: 6, qty: 2 }] } }],
+      },
+      adventure: { factionId: 5, factionRep: 25 },
+    } as never)
+
+    const result = await claimRewards("hero-1", "run-1")
+
+    expect(result).toMatchObject({
+      claimed: true, partial: false,
+      rewards: { gold: 48, ep: 12, fame: 6, items: [{ itemId: 2, qty: 1 }], materials: [{ materialId: 6, qty: 2 }] },
+    })
+    expect(mocks.tx.hero.update).toHaveBeenCalledWith({
+      where: { id: "hero-1" },
+      data: { gold: { increment: 48 }, epTotal: { increment: 12 }, fame: { increment: 6 } },
+    })
+    expect(mocks.tx.heroItem.createMany).toHaveBeenCalledWith({
+      data: [{ heroId: "hero-1", itemId: 2, equipped: false }],
+    })
+    expect(mocks.tx.heroMaterial.upsert).toHaveBeenCalledWith({
+      where: { heroId_materialId: { heroId: "hero-1", materialId: 6 } },
+      create: { heroId: "hero-1", materialId: 6, quantity: 2 },
+      update: { quantity: { increment: 2 } },
+    })
+    expect(mocks.tx.heroFactionRep.upsert).toHaveBeenCalledWith({
+      where: { heroId_factionId: { heroId: "hero-1", factionId: 5 } },
+      create: { heroId: "hero-1", factionId: 5, rep: 25 },
+      update: { rep: { increment: 25 } },
+    })
+    expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith({
+      where: { id: "run-1", heroId: "hero-1", status: "completed" },
+      data: { status: "claimed" },
+    })
+    expect(applyLevelUpInTransaction).toHaveBeenCalledWith(mocks.tx, "hero-1")
+  })
+
+  it("rejects a second claim before crediting any reward", async () => {
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      id: "run-1", heroId: "hero-1", status: "claimed",
+      result: { rewards: { gold: 50 }, steps: [] },
+      adventure: { factionId: 5, factionRep: 25 },
+    } as never)
+
+    await expect(claimRewards("hero-1", "run-1")).rejects.toThrow("Recompensas ya reclamadas")
+
+    expect(mocks.tx.hero.update).not.toHaveBeenCalled()
+    expect(mocks.tx.heroItem.createMany).not.toHaveBeenCalled()
+    expect(mocks.tx.heroMaterial.upsert).not.toHaveBeenCalled()
+    expect(mocks.tx.heroFactionRep.upsert).not.toHaveBeenCalled()
+    expect(mocks.tx.heroAdventure.updateMany).not.toHaveBeenCalled()
   })
 })
