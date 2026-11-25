@@ -35,11 +35,14 @@ vi.mock("@/lib/level-up", () => ({
 }))
 
 vi.mock("@/lib/dungeon-helpers", () => ({
-  buildHeroData: vi.fn(async (hero: { attrs: Record<string, number> }) => ({
+  buildHeroData: vi.fn(async (hero: { attrs: Record<string, number>; equipStats?: Record<string, number> }) => ({
     attrs: hero.attrs,
-    equipStats: {},
+    equipStats: hero.equipStats ?? {},
+    skills: [],
   })),
-  mergeHeroAttrs: vi.fn((hero: { attrs: Record<string, number> }) => hero.attrs),
+  mergeHeroAttrs: vi.fn((hero: { attrs: Record<string, number>; equipStats?: Record<string, number> }) =>
+    Object.fromEntries(Object.entries({ ...hero.attrs }).map(([key, value]) => [key, value + (hero.equipStats?.[key] ?? 0)])),
+  ),
 }))
 
 import { runDungeon } from "@/lib/combat-engine/dungeon-runner"
@@ -68,7 +71,9 @@ const adventureSteps = [
 function makeHero(hpCurrent: number) {
   return {
     id: "hero-1",
-    attrs: { pe: 10 },
+    attrs: { pe: 10, co: 2, wi: 2, in: 2 },
+    equipStats: { co: 2, in: 3 },
+    level: 1,
     hpCurrent,
     hpMax: 40,
     mpCurrent: 12,
@@ -180,7 +185,7 @@ describe("makeChoice resource costs", () => {
         }),
       }),
     }))
-    expect(result.heroResources).toEqual({ hpCurrent: 14, hpMax: 40, mpCurrent: 12, mpMax: 20 })
+    expect(result.heroResources).toEqual({ hpCurrent: 14, hpMax: 60, mpCurrent: 12, mpMax: 32 })
     expect(result.stepResult.costs).toEqual({ hp: 6, mp: 0 })
   })
 
@@ -268,7 +273,7 @@ describe("executeStep adventure combat branch", () => {
       victory: false,
       rewards: null,
       stepResult: { type: "combat", victory: false, heroHpRemaining: 0 },
-      heroResources: { hpCurrent: 0, hpMax: 40, mpCurrent: 3, mpMax: 20 },
+      heroResources: { hpCurrent: 0, hpMax: 60, mpCurrent: 3, mpMax: 32 },
     })
     expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "run-1", heroId: "hero-1", status: "active", currentStep: 0 },

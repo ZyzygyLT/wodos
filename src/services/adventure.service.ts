@@ -1,6 +1,7 @@
 import db from '@/lib/db'
 import { applyLevelUpInTransaction, publishLevelUpEffects } from '@/lib/level-up'
 import { runDungeon } from '@/lib/combat-engine/dungeon-runner'
+import { calculateEffectiveResourceMaxima } from '@/engine/core/stats/derived-stats'
 import { buildHeroData, mergeHeroAttrs } from '@/lib/dungeon-helpers'
 import { createAdventureCombatDungeon, mapAdventureCombatResult } from '@/lib/adventures/combat-adapter'
 import type { AdventureRewardTable, AdventureStep, StepResult, StepRewards, AdventureChoice } from '@/lib/adventures/types'
@@ -13,6 +14,23 @@ import {
 import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
 } from '@/lib/adventures/types'
+
+function getEffectiveHeroResourceMaxima(
+  hero: { level: number; hpMax: number; mpMax: number; attrs: unknown },
+  combatHero: Awaited<ReturnType<typeof buildHeroData>>,
+) {
+  const equipment = combatHero.equipStats ?? {}
+  return calculateEffectiveResourceMaxima({
+    baseHpMax: hero.hpMax,
+    baseMpMax: hero.mpMax,
+    level: hero.level,
+    baseAttributes: hero.attrs as Record<string, number>,
+    effectiveAttributes: mergeHeroAttrs(combatHero),
+    equipmentHp: equipment.hp,
+    equipmentMp: equipment.mp,
+    skillEffects: combatHero.skills.map(skill => skill.effect),
+  })
+}
 
 async function getHeroWithEnergy(heroId: string) {
   return db.$transaction(async tx => {
@@ -46,6 +64,20 @@ async function getHeroWithEnergy(heroId: string) {
 
 export async function listAdventures(heroId: string) {
   const hero = await getHeroWithEnergy(heroId)
+  const heroCombatRecord = await db.hero.findUnique({
+    where: { id: heroId },
+    include: {
+      combatProfiles: { where: { dungeonLevel: null }, take: 1 },
+      skills: { include: { skill: true } },
+      items: { include: { item: true } },
+    },
+  })
+  const combatHero = heroCombatRecord
+    ? await buildHeroData(heroCombatRecord, heroCombatRecord.combatProfiles[0] ?? null)
+    : null
+  const effectiveMaxima = combatHero
+    ? getEffectiveHeroResourceMaxima(heroCombatRecord!, combatHero)
+    : { hpMax: hero.hpMax, mpMax: hero.mpMax }
   const adventures = await db.adventure.findMany({
     where: {
       isActive: true,
@@ -87,7 +119,7 @@ export async function listAdventures(heroId: string) {
     }),
     energy: hero.adventureEnergy,
     energyMax: hero.adventureEnergyMax,
-    heroResources: { hpCurrent: hero.hpCurrent, hpMax: hero.hpMax, mpCurrent: hero.mpCurrent, mpMax: hero.mpMax },
+    heroResources: { hpCurrent: hero.hpCurrent, hpMax: effectiveMaxima.hpMax, mpCurrent: hero.mpCurrent, mpMax: effectiveMaxima.mpMax },
     hasActiveAdventure: !!activeAdventure,
     blockingAdventureStatus: activeAdventure?.status ?? null,
   }
@@ -240,11 +272,29 @@ export async function getActiveAdventure(heroId: string) {
       items: { include: { item: true } },
     },
   })
-  const heroAttributes = hero
-    ? Array.isArray(hero.skills) && Array.isArray(hero.items)
-      ? mergeHeroAttrs(await buildHeroData(hero, hero.combatProfiles?.[0] ?? null))
-      : hero.attrs as Record<string, number> | undefined
-    : undefined
+  let heroAttributes: Record<string, number> | undefined
+  let heroResources: { hpCurrent: number; hpMax: number; mpCurrent: number; mpMax: number } | null = null
+  if (hero) {
+    if (Array.isArray(hero.skills) && Array.isArray(hero.items)) {
+      const combatHero = await buildHeroData(hero, hero.combatProfiles?.[0] ?? null)
+      const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
+      heroAttributes = mergeHeroAttrs(combatHero)
+      heroResources = {
+        hpCurrent: hero.hpCurrent,
+        hpMax: effectiveMaxima.hpMax,
+        mpCurrent: hero.mpCurrent,
+        mpMax: effectiveMaxima.mpMax,
+      }
+    } else {
+      heroAttributes = hero.attrs as Record<string, number> | undefined
+      heroResources = {
+        hpCurrent: hero.hpCurrent,
+        hpMax: hero.hpMax,
+        mpCurrent: hero.mpCurrent,
+        mpMax: hero.mpMax,
+      }
+    }
+  }
 
   return {
     id: ha.id,
@@ -264,12 +314,7 @@ export async function getActiveAdventure(heroId: string) {
     },
     currentStepData,
     heroAttributes,
-    heroResources: hero ? {
-      hpCurrent: hero.hpCurrent,
-      hpMax: hero.hpMax,
-      mpCurrent: hero.mpCurrent,
-      mpMax: hero.mpMax,
-    } : null,
+    heroResources,
   }
 }
 
@@ -300,11 +345,13 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     })
     if (!hero) throw new Error("Héroe no encontrado")
 
+    const combatHero = await buildHeroData(hero, hero.combatProfiles[0] ?? null)
+    const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
     let heroResources = {
       hpCurrent: hero.hpCurrent,
-      hpMax: hero.hpMax,
+      hpMax: effectiveMaxima.hpMax,
       mpCurrent: hero.mpCurrent,
-      mpMax: hero.mpMax,
+      mpMax: effectiveMaxima.mpMax,
     }
     const steps = ha.adventure.steps as unknown as AdventureStep[]
     const currentStep = steps[ha.currentStep]
@@ -325,7 +372,6 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
       }
       case "combat": {
         const enemies = currentStep.enemies ?? []
-        const combatHero = await buildHeroData(hero, hero.combatProfiles[0] ?? null)
         const combatDungeon = createAdventureCombatDungeon(currentStep.name, enemies)
         const combatRun = await runDungeon([combatHero], combatDungeon)
         const finalHeroState = combatRun.heroesFinalState[0]
@@ -347,9 +393,9 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
         })
         heroResources = {
           hpCurrent: finalHeroState.hp,
-          hpMax: hero.hpMax,
+          hpMax: effectiveMaxima.hpMax,
           mpCurrent: finalHeroState.mp,
-          mpMax: hero.mpMax,
+          mpMax: effectiveMaxima.mpMax,
         }
 
         const consumedItemIds = [...new Set((combatRun.consumedConsumables ?? [])
@@ -483,11 +529,12 @@ export async function makeChoice(
         throw new Error("No tienes suficiente salud o maná para elegir esta opción")
       }
     }
+    const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
     const heroResources = {
       hpCurrent: hero.hpCurrent - costs.hp,
-      hpMax: hero.hpMax,
+      hpMax: effectiveMaxima.hpMax,
       mpCurrent: hero.mpCurrent - costs.mp,
-      mpMax: hero.mpMax,
+      mpMax: effectiveMaxima.mpMax,
     }
 
     const resultData = (ha.result as any) ?? { steps: [], rewards: null }
