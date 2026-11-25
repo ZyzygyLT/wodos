@@ -53,6 +53,19 @@ const state = vi.hoisted(() => {
         formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 3 },
         tags: [],
       },
+    }, {
+      rank: 1,
+      skill: {
+        id: 9001,
+        type: 'active',
+        name: 'Tomar poción',
+        icon: '🧪',
+        multiplier: 1,
+        manaCost: 0,
+        effect: 'use_potion',
+        formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 },
+        tags: ['consumable', 'healing'],
+      },
     }],
     get items() { return inventory },
   }
@@ -217,7 +230,14 @@ describe('adventure potion end-to-end service integration', () => {
     })
     expect(potionAction?.healAmount).toEqual(expect.any(Number))
     expect(Number(potionAction?.healAmount)).toBeGreaterThan(0)
-    expect(Number(potionAction?.healAmount)).toBeLessThanOrEqual(50)
+    expect(Number(potionAction?.healAmount)).toBeLessThanOrEqual(53)
+    expect(potionAction).toMatchObject({
+      potionSkillName: 'Tomar poción',
+      potionSkillRank: 1,
+      potionWisdom: 1,
+      potionBaseHeal: 50,
+      potionSkillBonus: 3,
+    })
 
     expect(state.tx.heroItem.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ['earned-potion-1'] }, heroId: state.hero.id },

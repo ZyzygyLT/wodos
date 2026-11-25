@@ -313,6 +313,8 @@ async function seedSkills(): Promise<Record<string, number>> {
     { classId: classMap.druida, slug: 'zarpa', name: 'Zarpa', icon: '🐾', type: 'active' as const, timing: 'round' as const, tier: 1, description: 'Ataque cuerpo a cuerpo con garras naturales.', effect: 'attack', epCost: 0, goldCost: 0, manaCost: 0, multiplier: 1.2, cooldownRounds: 0, tags: ['melee'], formula: { damageType: 'physical', diceCount: 1, diceSides: 6, diceDivisor: 2 } },
     { classId: classMap.druida, slug: 'piel-corteza-activa', name: 'Piel de Corteza', icon: '🌳', type: 'active' as const, timing: 'round' as const, tier: 2, description: 'Endurece tu piel para aumentar la defensa.', effect: 'defense_up', epCost: 10, goldCost: 50, manaCost: 6, multiplier: 1.3, cooldownRounds: 2, tags: ['buff'], formula: null, requiresSlugs: ['zarpa'] },
     { classId: classMap.druida, slug: 'forma-salvaje', name: 'Forma Salvaje', icon: '🐺', type: 'active' as const, timing: 'round' as const, tier: 3, description: 'Te transformas mejorando ataque y defensa.', effect: 'buff', epCost: 24, goldCost: 140, manaCost: 18, multiplier: 1.0, cooldownRounds: 4, tags: ['buff'], formula: null, requiresSlugs: ['piel-corteza-activa'] },
+    // Universal skill: consumables can be used by every class.
+    { classId: null, slug: 'tomar-pocion', name: 'Tomar poción', icon: '🧪', type: 'active' as const, timing: 'round' as const, tier: 1, description: 'Permite usar pociones. La curación aumenta con el rango y la Sabiduría.', effect: 'use_potion', epCost: 0, goldCost: 0, manaCost: 0, multiplier: 1.0, cooldownRounds: 0, tags: ['consumable', 'healing'], formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
   ]
 
   // Resolve requiresSlugs → IDs and create skills

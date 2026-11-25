@@ -251,6 +251,12 @@ export interface DetailedAction {
   buffName?: string
   buffValue?: number
   itemName?: string
+  /** Potion-use audit fields persisted in the combat replay. */
+  potionSkillName?: string
+  potionSkillRank?: number
+  potionWisdom?: number
+  potionBaseHeal?: number
+  potionSkillBonus?: number
   absorbed?: number
   fled?: boolean
   message: string
@@ -847,6 +853,25 @@ function getItem(consumables: Array<{ heroItemId: string; itemId: number; healHp
   return consumables.find(c => c.itemId === itemId)
 }
 
+function getPotionSkill(hero: HeroData) {
+  return hero.skills.find(skill => skill.effect === 'use_potion')
+}
+
+function calculatePotionHpHealing(
+  baseHeal: number,
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: NonNullable<ReturnType<typeof getPotionSkill>>,
+) {
+  const rank = Math.max(1, skill.rank ?? 1)
+  const wisdom = Math.max(0, heroUnit.attrs.wi ?? 0)
+  const formula = skill.formula
+  const wisdomBonus = wisdom * (formula?.attrCoeffs?.wi ?? 0)
+  const rankBonus = rank * (formula?.skillRankCoeff ?? 0)
+  const flatBonus = formula?.flatBonus ?? 0
+  const bonus = Math.max(0, Math.round(wisdomBonus + rankBonus + flatBonus))
+  return { amount: Math.max(0, baseHeal + bonus), rank, wisdom, bonus }
+}
+
 function consumeItem(hero: HeroData, itemId: number) {
   const consumables = hero.consumables ?? []
   const idx = consumables.findIndex(c => c.itemId === itemId)
@@ -886,15 +911,21 @@ function applyPrelimItem(
 ) {
   const item = getItem(hero.consumables ?? [], rule.itemId)
   if (!item) return
+  const potionSkill = getPotionSkill(hero)
+  if (!potionSkill) {
+    addLog(log, 'tactic_eval', 0, level, 'prelim', \`\${heroUnit.name} no puede usar item_\${item.itemId}: necesita aprender Tomar poción\`, { actor: heroUnit.name })
+    return
+  }
   if (item.healHp) {
-    const actual = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
+    const scaling = calculatePotionHpHealing(item.healHp, heroUnit, potionSkill)
+    const actual = Math.min(scaling.amount, heroUnit.maxHp - heroUnit.hp)
     heroUnit.hp = applyHpHealing(heroUnit.hp, heroUnit.maxHp, actual).currentHp
-    addLog(log, 'heal', 0, level, 'prelim', `${heroUnit.name} usa item_${item.itemId} → recupera ${actual} HP`, { actor: heroUnit.name, skill: `item_${item.itemId}`, value: actual })
+    addLog(log, 'heal', 0, level, 'prelim', \`\${heroUnit.name} usa item_\${item.itemId} con Tomar poción R\${scaling.rank} (Sabiduría \${scaling.wisdom}): \${item.healHp} + \${scaling.bonus} = \${actual} HP\`, { actor: heroUnit.name, skill: \`item_\${item.itemId}\`, value: actual })
   }
   if (item.healMp) {
     const actual = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
     heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + actual)
-    addLog(log, 'heal', 0, level, 'prelim', `${heroUnit.name} usa item_${item.itemId} → recupera ${actual} MP`, { actor: heroUnit.name, skill: `item_${item.itemId}`, value: actual })
+    addLog(log, 'heal', 0, level, 'prelim', \`\${heroUnit.name} usa item_\${item.itemId} → recupera \${actual} MP\`, { actor: heroUnit.name, skill: \`item_\${item.itemId}\`, value: actual })
   }
   consumeItem(hero, rule.itemId)
 }
@@ -1048,24 +1079,22 @@ function executeHeroItemAction(
   if (action.itemId == null) return null
   const itemId: number = action.itemId
   const item = getItem(hero.consumables ?? [], itemId)
-  if (!item) return null
+  const potionSkill = getPotionSkill(hero)
+  if (!item || !potionSkill) return null
 
-  const itemName = `item_${item.itemId}`
+  const itemName = \`item_\${item.itemId}\`
   let healedHp = 0
   let healedMp = 0
+  const scaling = item.healHp
+    ? calculatePotionHpHealing(item.healHp, heroUnit, potionSkill)
+    : null
 
-  if (item.healHp) {
-    healedHp = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
+  if (item.healHp && scaling) {
+    healedHp = Math.min(scaling.amount, heroUnit.maxHp - heroUnit.hp)
     applyHealingWithEvent(heroUnit, healedHp, heroUnit.id, ctx)
-    addLog(
-      ctx.log,
-      'heal',
-      ctx.round,
-      ctx.level,
-      'combat',
-      `${heroUnit.name} usa ${itemName} → recupera ${healedHp} HP`,
-      { actor: heroUnit.name, skill: itemName, value: healedHp },
-    )
+    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
+      \`\${heroUnit.name} usa \${itemName} con Tomar poción R\${scaling.rank} (Sabiduría \${scaling.wisdom}): \${item.healHp} + \${scaling.bonus} = \${healedHp} HP\`,
+      { actor: heroUnit.name, skill: itemName, value: healedHp })
   }
 
   if (item.healMp) {
@@ -1073,15 +1102,9 @@ function executeHeroItemAction(
     healedMp = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
     heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + healedMp)
     if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
-    addLog(
-      ctx.log,
-      'heal',
-      ctx.round,
-      ctx.level,
-      'combat',
-      `${heroUnit.name} usa ${itemName} → recupera ${healedMp} MP`,
-      { actor: heroUnit.name, skill: itemName, value: healedMp },
-    )
+    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
+      \`\${heroUnit.name} usa \${itemName} → recupera \${healedMp} MP\`,
+      { actor: heroUnit.name, skill: itemName, value: healedMp })
   }
 
   if (!item.healHp && !item.healMp) return null
@@ -1090,34 +1113,27 @@ function executeHeroItemAction(
   const primaryHeal = healedHp > 0 || !healedMp ? healedHp : healedMp
   const primaryHealType = healedHp > 0 || !healedMp ? 'hp' : 'mp'
   const effects = [
-    ...(item.healHp ? [`${healedHp} HP`] : []),
-    ...(item.healMp ? [`${healedMp} MP`] : []),
+    ...(item.healHp ? [\`\${healedHp} HP\`] : []),
+    ...(item.healMp ? [\`\${healedMp} MP\`] : []),
   ]
-  const msg = `${heroUnit.name} usa ${itemName} → recupera ${effects.join(' y ')}`
+  const msg = \`\${heroUnit.name} usa \${itemName} → recupera \${effects.join(' y ')}\`
 
-  return makeDetail({
-    skill: null,
-    heroUnit,
-    target: null,
-    action,
-    initiative,
-    actionNum,
-    total: totalActions,
-    dmg: null,
-    hit: null,
-    crit: null,
-    healA: primaryHeal,
-    healT: primaryHealType,
-    buffN: null,
-    buffV: null,
-    itemN: itemName,
-    defVal: undefined,
-    defRoll: undefined,
-    defSkill: undefined,
-    defEffect: undefined,
-    defEquip: undefined,
-    msg,
+  const detail = makeDetail({
+    skill: null, heroUnit, target: null, action, initiative, actionNum,
+    total: totalActions, dmg: null, hit: null, crit: null,
+    healA: primaryHeal, healT: primaryHealType,
+    buffN: null, buffV: null, itemN: itemName,
+    defVal: undefined, defRoll: undefined, defSkill: undefined,
+    defEffect: undefined, defEquip: undefined, msg,
   })
+  if (scaling) {
+    detail.potionSkillName = potionSkill.name ?? 'Tomar poción'
+    detail.potionSkillRank = scaling.rank
+    detail.potionWisdom = scaling.wisdom
+    detail.potionBaseHeal = item.healHp
+    detail.potionSkillBonus = scaling.bonus
+  }
+  return detail
 }
 
 function handleHeroSkillMana(
@@ -1355,7 +1371,26 @@ function executeHeroAction(
 ): DetailedAction | null {
   const state = ctx.state!
   const action = meta.action!
-  if (action.itemId) return executeHeroItemAction(heroUnit, hero, action, ctx, meta.initiative, meta.actionNum, meta.totalActions)
+  if (action.itemId != null) {
+    const item = getItem(hero.consumables ?? [], action.itemId)
+    const potionSkill = getPotionSkill(hero)
+    if (!item || !potionSkill) {
+      const reason = !item ? 'el consumible ya no está disponible' : 'no conoce la habilidad Tomar poción'
+      addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+        \`\${heroUnit.name} no puede usar item_\${action.itemId}: \${reason}. Ejecuta un ataque básico\`,
+        { actor: heroUnit.name, skill: 'Tomar poción' })
+      const fallbackAction = { ...action, itemId: undefined, skillId: getDefaultCombatSkillId(hero.skills) }
+      const fallbackResult = executeHeroAction(
+        heroUnit, hero, { ...meta, action: fallbackAction }, ctx, extraUnits,
+      )
+      if (fallbackResult) {
+        fallbackResult.skillFallback = 'forced'
+        fallbackResult.selectedSkillName = 'Tomar poción'
+      }
+      return fallbackResult
+    }
+    return executeHeroItemAction(heroUnit, hero, action, ctx, meta.initiative, meta.actionNum, meta.totalActions)
+  }
 
   let skill = getSkill(hero, action.skillId)
   const { skill: resolvedSkill, mpCost, fallback, selectedSkillName } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
