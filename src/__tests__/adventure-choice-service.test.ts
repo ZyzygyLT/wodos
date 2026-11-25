@@ -352,6 +352,14 @@ describe("executeStep adventure combat branch", () => {
       heroesFinalState: [{ id: "hero-1", hp: 28, mp: 8 }],
       levelReports: [{
         rounds: [{
+          stateBefore: {
+            heroes: [{ id: "hero-1", name: "Héroe", level: 1, position: "front", hp: 14, maxHp: 60, mp: 12, maxMp: 32, condition: "normal", isHero: true }],
+            enemies: [{ id: "enemy-1", name: "Corrupción Primigenia", level: 4, position: "front", hp: 80, maxHp: 80, mp: 40, maxMp: 40, condition: "normal", isHero: false }],
+          },
+          stateAfter: {
+            heroes: [{ id: "hero-1", name: "Héroe", level: 1, position: "front", hp: 28, maxHp: 60, mp: 8, maxMp: 32, condition: "normal", isHero: true }],
+            enemies: [{ id: "enemy-1", name: "Corrupción Primigenia", level: 4, position: "front", hp: 0, maxHp: 80, mp: 40, maxMp: 40, condition: "defeated", isHero: false }],
+          },
           actions: [{
             actorId: "hero-1",
             itemName: "Poción de Vida",
@@ -379,7 +387,22 @@ describe("executeStep adventure combat branch", () => {
       where: { id: { in: ["earned-item-1"] }, heroId: "hero-1" },
     })
     expect(inventory).toHaveLength(0)
-    expect(combat.stepResult).toMatchObject({ type: "combat", victory: true })
+    expect(combat.stepResult).toMatchObject({
+      type: "combat",
+      victory: true,
+      enemiesDefeated: 1,
+      replay: {
+        levelReports: [{
+          rounds: [{
+            actions: [expect.objectContaining({
+              itemName: "Poción de Vida",
+              healAmount: 50,
+              healType: "hp",
+            })],
+          }],
+        }],
+      },
+    })
   })
 
 
