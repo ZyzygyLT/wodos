@@ -361,4 +361,100 @@ describe('adventure energy recharge timing', () => {
     expect(mapped.replay?.levelReports).toHaveLength(1)
   })
 
+  it('uses an adventure potion through the real combat engine only when its HP condition matches', async () => {
+    const { buildHeroData } = await import('@/lib/dungeon-helpers')
+    const { runDungeon } = await import('@/lib/combat-engine/dungeon-runner')
+    const { createAdventureCombatDungeon, mapAdventureCombatResult } = await import('@/lib/adventures/combat-adapter')
+
+    const profile = {
+      id: 'potion-profile',
+      dungeonLevel: null,
+      position: 'front',
+      prelimRules: [],
+      roundRules: [
+        {
+          priority: 1,
+          condition: { type: 'hp_self_lt' as const, value: 30 },
+          action: { skillId: 0, itemId: 17, targetPos: 'self' as const, targetType: 'self' as const },
+        },
+        {
+          priority: 2,
+          condition: { type: 'always' as const },
+          action: { skillId: 7, targetPos: 'front' as const, targetType: 'weakest' as const },
+        },
+      ],
+      defenseSkills: {},
+    }
+    const persistedHero = {
+      id: 'hero-potion-integration',
+      name: 'Héroe de prueba',
+      level: 1,
+      attrs: { st: 1, co: 1, in: 1, dx: 1, ch: 1, ag: 1, pe: 1, wi: 1 },
+      hpMax: 60,
+      mpMax: 20,
+      hpCurrent: 14,
+      mpCurrent: 10,
+      gold: 0,
+      combatProfiles: [profile],
+      skills: [{
+        rank: 1,
+        skill: {
+          id: 7,
+          type: 'basic',
+          name: 'Golpe de prueba',
+          icon: '⚔️',
+          multiplier: 1,
+          manaCost: 0,
+          effect: 'attack',
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 3 },
+          tags: [],
+        },
+      }],
+      items: [{
+        id: 'earned-potion-row',
+        itemId: 17,
+        equipped: false,
+        item: { id: 17, category: 'consumable', stats: { heal: 50 } },
+      }],
+    }
+
+    const combatHero = await buildHeroData(persistedHero, profile)
+    expect(combatHero.consumables).toEqual([
+      { heroItemId: 'earned-potion-row', itemId: 17, healHp: 50 },
+    ])
+
+    const run = await runDungeon(
+      [combatHero],
+      createAdventureCombatDungeon('La Corrupción Primigenia', [{
+        name: 'Corrupción Primigenia',
+        icon: '👾',
+        hp: 1,
+        mp: 0,
+        atk: 0,
+        def: 0,
+        dx: 1,
+        ag: 1,
+        level: 1,
+      }]),
+      { random: { next: () => 0.5 } },
+    )
+    const mapped = mapAdventureCombatResult(run, 1, { hp: 14, mp: 10 })
+    const actions = mapped.replay?.levelReports.flatMap(level => level.rounds.flatMap(round => round.actions)) ?? []
+    const potionAction = actions.find(action => action.actorId === 'hero-potion-integration' && action.itemName)
+
+    expect(run.victory).toBe(true)
+    expect(run.consumedConsumables).toEqual([
+      { heroId: 'hero-potion-integration', heroItemId: 'earned-potion-row' },
+    ])
+    expect(potionAction).toMatchObject({
+      itemName: 'item_17',
+      healAmount: 46,
+      healType: 'hp',
+      tacticRulePriority: 1,
+      tacticCondition: { type: 'hp_self_lt', value: 30 },
+    })
+    expect(run.heroesFinalState[0].hp).toBe(60)
+    expect(mapped.replay?.levelReports).toHaveLength(1)
+  })
+
 })

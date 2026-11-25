@@ -306,8 +306,12 @@ describe("executeStep adventure combat branch", () => {
         id: "profile-general",
         dungeonLevel: null,
         position: "front",
-        prelimRules: [{ itemId: 17 }],
-        roundRules: [],
+        prelimRules: [],
+        roundRules: [{
+          priority: 1,
+          condition: { type: "hp_self_lt", value: 30 },
+          action: { skillId: 0, itemId: 17, targetPos: "self", targetType: "self" },
+        }],
         defenseSkills: {},
       }],
       items: [...inventory],
@@ -382,7 +386,12 @@ describe("executeStep adventure combat branch", () => {
     expect(combatParty[0].consumables).toEqual([
       { heroItemId: "earned-item-1", itemId: 17, healHp: 50 },
     ])
-    expect(combatParty[0].combatProfile.prelimRules).toEqual([{ itemId: 17 }])
+    expect(combatParty[0].combatProfile.prelimRules).toEqual([])
+    expect(combatParty[0].combatProfile.roundRules).toEqual([{
+      priority: 1,
+      condition: { type: "hp_self_lt", value: 30 },
+      action: { skillId: 0, itemId: 17, targetPos: "self", targetType: "self" },
+    }])
     expect(mocks.tx.heroItem.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ["earned-item-1"] }, heroId: "hero-1" },
     })
