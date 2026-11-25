@@ -282,4 +282,83 @@ describe('adventure energy recharge timing', () => {
 
     expect(getNextEnergyRechargeAt(lastRechargeAt, 2, 10, 10, now)).toEqual(now)
   })
+
+  it('carries the general adventure profile into the shared engine and its replay trace', async () => {
+    const { buildHeroData } = await import('@/lib/dungeon-helpers')
+    const { runDungeon } = await import('@/lib/combat-engine/dungeon-runner')
+    const { createAdventureCombatDungeon, mapAdventureCombatResult } = await import('@/lib/adventures/combat-adapter')
+
+    const generalProfile = {
+      id: 'general-profile',
+      dungeonLevel: null,
+      position: 'rear',
+      prelimRules: [],
+      roundRules: [{
+        priority: 1,
+        condition: { type: 'always' },
+        action: { skillId: 7, targetPos: 'front', targetType: 'weakest' },
+      }],
+      defenseSkills: {},
+    }
+    const persistedHero = {
+      id: 'hero-adventure',
+      name: 'Adventure Hero',
+      level: 3,
+      attrs: { st: 12, co: 12, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
+      hpMax: 200,
+      mpMax: 40,
+      hpCurrent: 200,
+      mpCurrent: 40,
+      gold: 0,
+      combatProfiles: [generalProfile],
+      skills: [{
+        rank: 1,
+        skill: {
+          id: 7,
+          type: 'basic',
+          name: 'Golpe de prueba',
+          icon: '⚔️',
+          multiplier: 1,
+          manaCost: 0,
+          effect: 'attack',
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 3 },
+          tags: [],
+        },
+      }],
+      items: [],
+    }
+
+    const combatHero = await buildHeroData(persistedHero, persistedHero.combatProfiles[0])
+    expect(combatHero.combatProfile).toMatchObject({
+      position: 'rear',
+      roundRules: generalProfile.roundRules,
+    })
+
+    const combatRun = await runDungeon(
+      [combatHero],
+      createAdventureCombatDungeon('Encuentro de integración', [{
+        name: 'Guardia de prueba',
+        icon: '🛡️',
+        hp: 500,
+        mp: 0,
+        atk: 0,
+        def: 0,
+        dx: 1,
+        ag: 1,
+        level: 1,
+      }]),
+      { random: { next: () => 0.5 } },
+    )
+    const mapped = mapAdventureCombatResult(combatRun, 1, { hp: 200, mp: 40 })
+    const actions = mapped.replay?.levelReports[0]?.rounds.flatMap(round => round.actions) ?? []
+    const heroAction = actions.find(action => action.actorId === 'hero-adventure')
+
+    expect(heroAction).toMatchObject({
+      tacticRulePriority: 1,
+      tacticCondition: { type: 'always' },
+      selectedSkillName: 'Golpe de prueba',
+    })
+    expect(mapped.replay?.levelReports).toHaveLength(1)
+  })
+
 })
