@@ -6,23 +6,26 @@ import { createSeededRandom } from '@/engine/core/random/random-source'
 import { createAdventureCombatDungeon } from '@/lib/adventures/combat-adapter'
 import type { AdventureStepEnemy } from '@/lib/adventures/types'
 
+type StarterAttack = {
+  skillId: number
+  name: string
+  icon: string
+  multiplier: number
+  manaCost: number
+  tags: string[]
+  damageType: string
+  diceSides: number
+  diceDivisor: number
+}
+
 type StarterClass = {
   slug: string
   name: string
   position: string
   baseAttrs: Record<string, number>
   equipStats: Record<string, number>
-  attack: {
-    skillId: number
-    name: string
-    icon: string
-    multiplier: number
-    manaCost: number
-    tags: string[]
-    damageType: string
-    diceSides: number
-    diceDivisor: number
-  }
+  attack: StarterAttack
+  fallbackAttacks?: StarterAttack[]
   defense: { skillId: number; name: string; category: 'melee' | 'ranged' | 'magic' }
   heal?: { skillId: number; name: string; icon: string; manaCost: number; healPct: number }
 }
@@ -41,6 +44,10 @@ const STARTER_CLASSES: StarterClass[] = [
     slug: 'mago', name: 'Mago', position: 'rear',
     baseAttrs: { st: 2, co: 4, dx: 4, ag: 3, in: 12, wi: 8, ch: 3, pe: 5 },
     equipStats: { in: 6, atk: 4, armor: 2 },
+    fallbackAttacks: [
+      { skillId: 1021, name: 'Bola de Fuego', icon: '🔥', multiplier: 1.5, manaCost: 10, tags: ['magic', 'fire'], damageType: 'fire', diceSides: 8, diceDivisor: 2 },
+      { skillId: 1022, name: 'Rayo', icon: '⚡', multiplier: 1.4, manaCost: 8, tags: ['magic', 'lightning'], damageType: 'lightning', diceSides: 8, diceDivisor: 2 },
+    ],
     attack: { skillId: 1002, name: 'Misil Arcano', icon: '🔮', multiplier: 1.3, manaCost: 6, tags: ['magic'], damageType: 'arcane', diceSides: 6, diceDivisor: 2 },
     defense: { skillId: 1102, name: 'Escudo Mágico', category: 'magic' },
   },
@@ -84,7 +91,10 @@ const STARTER_CLASSES: StarterClass[] = [
     slug: 'druida', name: 'Druida', position: 'center',
     baseAttrs: { st: 4, co: 6, dx: 5, ag: 4, in: 8, wi: 8, ch: 4, pe: 6 },
     equipStats: { in: 6, atk: 4, armor: 2 },
-    attack: { skillId: 1008, name: 'Zarpa', icon: '🐾', multiplier: 1.2, manaCost: 0, tags: ['melee'], damageType: 'physical', diceSides: 6, diceDivisor: 2 },
+    fallbackAttacks: [
+      { skillId: 1028, name: 'Zarpa', icon: '🐾', multiplier: 1.2, manaCost: 0, tags: ['melee'], damageType: 'physical', diceSides: 6, diceDivisor: 2 },
+    ],
+    attack: { skillId: 1008, name: 'Fragmento de Hielo', icon: '❄️', multiplier: 1.3, manaCost: 8, tags: ['magic', 'ice'], damageType: 'ice', diceSides: 6, diceDivisor: 2 },
     defense: { skillId: 1108, name: 'Piel de Corteza', category: 'magic' },
     heal: { skillId: 1208, name: 'Cura Natural', icon: '🌿', manaCost: 8, healPct: 20 },
   },
@@ -125,29 +135,29 @@ function makeStarterHero(heroClass: StarterClass): HeroData {
   const hpMax = calcHpMax(attrs, 1)
   const mpMax = calcMpMax(attrs)
   const effectiveAttrs = mergeHeroAttrs({ attrs, equipStats: heroClass.equipStats })
-  const attackFormula = normalizeLegacyCombatFormula({
-    attrCoeffs: {},
-    skillRankCoeff: 0,
-    diceSides: heroClass.attack.diceSides,
-    diceCount: 1,
-    diceDivisor: heroClass.attack.diceDivisor,
-    flatBonus: 0,
-    damageType: heroClass.attack.damageType,
-  }, 'attack', heroClass.attack.tags, heroClass.attack.multiplier, effectiveAttrs)
+  const attackSkills: HeroData['skills'] = [...(heroClass.fallbackAttacks ?? []), heroClass.attack].map(attack => ({
+    skillId: attack.skillId,
+    type: 'active',
+    name: attack.name,
+    icon: attack.icon,
+    effect: 'attack',
+    multiplier: attack.multiplier,
+    manaCost: attack.manaCost,
+    rank: 1,
+    cooldownRounds: 0,
+    formula: normalizeLegacyCombatFormula({
+      attrCoeffs: {},
+      skillRankCoeff: 0,
+      diceSides: attack.diceSides,
+      diceCount: 1,
+      diceDivisor: attack.diceDivisor,
+      flatBonus: 0,
+      damageType: attack.damageType,
+    }, 'attack', attack.tags, attack.multiplier, effectiveAttrs),
+    tags: attack.tags,
+  }))
   const skills: HeroData['skills'] = [
-    {
-      skillId: heroClass.attack.skillId,
-      type: 'active',
-      name: heroClass.attack.name,
-      icon: heroClass.attack.icon,
-      effect: 'attack',
-      multiplier: heroClass.attack.multiplier,
-      manaCost: heroClass.attack.manaCost,
-      rank: 1,
-      cooldownRounds: 0,
-      formula: attackFormula,
-      tags: heroClass.attack.tags,
-    },
+    ...attackSkills,
     {
       skillId: heroClass.defense.skillId,
       type: 'passive',
@@ -179,7 +189,7 @@ function makeStarterHero(heroClass: StarterClass): HeroData {
         flatBonus: 0,
         healPct: heroClass.heal.healPct,
         damageType: 'light',
-      } as SkillFormula,
+      } as unknown as SkillFormula,
       tags: ['heal'],
     })
     roundRules.push({
@@ -216,9 +226,9 @@ function makeStarterHero(heroClass: StarterClass): HeroData {
 
 describe('First adventure — seeded starter class combat simulation', () => {
   afterAll(() => {
-    process.stdout.write('\\n--- El Bosque Susurrante: 20 simulaciones por clase y encuentro ---\\n')
-    for (const line of simulationSummary) process.stdout.write(line + '\\n')
-    process.stdout.write('\\n')
+    process.stdout.write('\n--- El Bosque Susurrante: 20 simulaciones por clase y encuentro ---\n')
+    for (const line of simulationSummary) process.stdout.write(line + '\n')
+    process.stdout.write('\n')
   })
 
   for (const [encounterIndex, encounter] of ENCOUNTERS.entries()) {

@@ -23,6 +23,32 @@ export function mergeAttrs(baseAttrs: Record<string, number>, mods: Record<strin
   return result
 }
 
+type DefaultAttackCandidate = {
+  id: number
+  manaCost: number
+  tags?: unknown
+}
+
+/** Prefer the attack family associated with the class's primary attribute, then conserve mana. */
+export function selectDefaultAttackSkill<T extends DefaultAttackCandidate>(
+  skills: readonly T[],
+  primaryAttr: string,
+): T | undefined {
+  const preferredTag = ['in', 'wi'].includes(primaryAttr)
+    ? 'magic'
+    : ['dx', 'pe'].includes(primaryAttr)
+      ? 'ranged'
+      : ['st', 'ag'].includes(primaryAttr)
+        ? 'melee'
+        : undefined
+
+  return [...skills].sort((a, b) => {
+    const aPreferred = preferredTag && Array.isArray(a.tags) && a.tags.includes(preferredTag) ? 0 : 1
+    const bPreferred = preferredTag && Array.isArray(b.tags) && b.tags.includes(preferredTag) ? 0 : 1
+    return aPreferred - bPreferred || a.manaCost - b.manaCost || a.id - b.id
+  })[0]
+}
+
 function buildDefenseDefaults(genericDefense: { id: number; defenseCategory: string | null }[], classDefense: { id: number; defenseCategory: string | null } | null): Record<string, number | null> {
   const slugToId: Record<string, number> = {}
   for (const s of genericDefense) {
@@ -74,9 +100,9 @@ export async function createHero(userId: string, name: string, classId: number, 
     })
 
     const starterSkills = cls.skills.filter(s => s.tier <= 1 || s.goldCost === 0)
-    const defaultAttackSkill = starterSkills
+    const attackCandidates = starterSkills
       .filter(s => s.type === "active" && s.effect === "attack" && s.tier === 1 && s.manaCost <= mpMax)
-      .sort((a, b) => a.manaCost - b.manaCost || a.id - b.id)[0]
+    const defaultAttackSkill = selectDefaultAttackSkill(attackCandidates, cls.primaryAttr)
     if (!defaultAttackSkill) throw new Error("NO_STARTER_ATTACK_SKILL")
 
     const defaultHealSkill = starterSkills.find(
