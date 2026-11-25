@@ -391,6 +391,12 @@ describe("claimRewards transaction", () => {
 
     const result = await claimRewards("hero-1", "run-1")
 
+    const lockStatements = mocks.tx.$queryRaw.mock.calls
+      .slice(0, 2)
+      .map(([query]) => query[0])
+    expect(lockStatements[0]).toContain('FROM "heroes"')
+    expect(lockStatements[1]).toContain('FROM "hero_adventures"')
+
     expect(result).toMatchObject({
       claimed: true, partial: true,
       factionRep: 0,

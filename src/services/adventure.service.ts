@@ -528,8 +528,10 @@ export async function makeChoice(
 
 export async function claimRewards(heroId: string, heroAdventureId: string) {
   const claim = await db.$transaction(async tx => {
-    // Serialize reward claims for this adventure before reading its current state.
-    await tx.$queryRaw`SELECT id FROM hero_adventures WHERE id = ${heroAdventureId} FOR UPDATE`
+    // Keep the hero → adventure lock order shared by step execution and choices.
+    // This prevents a claim racing a stale action from acquiring the same locks in reverse order.
+    await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${heroId} FOR UPDATE`
+    await tx.$queryRaw`SELECT "id" FROM "hero_adventures" WHERE "id" = ${heroAdventureId} FOR UPDATE`
     const ha = await tx.heroAdventure.findUnique({
       where: { id: heroAdventureId },
       include: { adventure: { select: { factionId: true, factionRep: true } } },
