@@ -264,3 +264,63 @@ describe('First adventure — seeded starter class combat simulation', () => {
     }
   }
 })
+
+
+const cumulativeSummary: string[] = []
+
+describe('First adventure — cumulative combat path simulation', () => {
+  afterAll(() => {
+    process.stdout.write('\n--- El Bosque Susurrante: primer combate seguido del jefe ---\n')
+    for (const line of cumulativeSummary) process.stdout.write(line + '\n')
+    process.stdout.write('\n')
+  })
+
+  const finalBoss = ENCOUNTERS[2]
+
+  for (const [pathIndex, firstEncounter] of ENCOUNTERS.slice(0, 2).entries()) {
+    for (const [classIndex, heroClass] of STARTER_CLASSES.entries()) {
+      it(`${heroClass.name} — ${firstEncounter.name} y jefe final`, async () => {
+        const initialHero = makeStarterHero(heroClass)
+        const firstDungeon = createAdventureCombatDungeon(firstEncounter.name, firstEncounter.enemies)
+        const bossDungeon = createAdventureCombatDungeon(finalBoss.name, finalBoss.enemies)
+        let fullAdventureWins = 0
+        let finalHpTotal = 0
+        let totalRounds = 0
+
+        for (let run = 0; run < RUNS_PER_MATCHUP; run += 1) {
+          const seed = 5_000_000 + (pathIndex + 1) * 100_000 + (classIndex + 1) * 1_000 + run + 1
+          const firstResult = await runDungeon(
+            [structuredClone(initialHero)],
+            structuredClone(firstDungeon),
+            { random: createSeededRandom(seed) },
+          )
+          totalRounds += firstResult.totalRounds
+          if (!firstResult.victory) continue
+
+          const firstState = firstResult.heroesFinalState[0]
+          const heroAfterFirstCombat: HeroData = {
+            ...initialHero,
+            hpCurrent: firstState?.hp ?? 0,
+            mpCurrent: firstState?.mp ?? 0,
+          }
+          const bossResult = await runDungeon(
+            [heroAfterFirstCombat],
+            structuredClone(bossDungeon),
+            { random: createSeededRandom(seed + 1_000_000) },
+          )
+          totalRounds += bossResult.totalRounds
+          if (bossResult.victory) fullAdventureWins += 1
+          finalHpTotal += bossResult.heroesFinalState[0]?.hp ?? 0
+        }
+
+        const winRate = Math.round((fullAdventureWins / RUNS_PER_MATCHUP) * 100)
+        const averageFinalHp = Math.round(finalHpTotal / RUNS_PER_MATCHUP)
+        const averageRounds = (totalRounds / RUNS_PER_MATCHUP).toFixed(1)
+        cumulativeSummary.push(
+          `  ${heroClass.name.padEnd(9)} — ${firstEncounter.name} + jefe: ${fullAdventureWins}/${RUNS_PER_MATCHUP} (${winRate}%), HP final medio ${averageFinalHp}, rondas ${averageRounds}`,
+        )
+        expect(fullAdventureWins).toBeGreaterThan(0)
+      })
+    }
+  }
+})
