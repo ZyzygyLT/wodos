@@ -52,6 +52,15 @@ export function hasAdventureRewardPayload(rewards: StepRewards | null | undefine
   return hasItems || hasMaterials
 }
 
+/** Whether a step still has any reward that must be claimed. */
+export function hasClaimableAdventureStepRewards(
+  rewards: StepRewards | null | undefined,
+  itemsGranted = false,
+): boolean {
+  if (!itemsGranted) return hasAdventureRewardPayload(rewards)
+  return hasAdventureRewardPayload({ ...rewards, items: [] })
+}
+
 /** Defeat preserves only rewards explicitly earned in completed reward steps. */
 export function canClaimAdventureRewards(status: string, result: unknown): boolean {
   if (status === 'completed') return true
@@ -62,7 +71,7 @@ export function canClaimAdventureRewards(status: string, result: unknown): boole
       if (step === null || typeof step !== 'object' || Array.isArray(step)) return false
       const entry = step as { type?: unknown; rewards?: StepRewards | null }
       return (entry.type === 'reward' || entry.type === 'choice') &&
-        hasAdventureRewardPayload(entry.rewards)
+        hasClaimableAdventureStepRewards(entry.rewards, entry.type === 'reward' && (entry as { itemsGranted?: unknown }).itemsGranted === true)
     })
 }
 import type {
@@ -249,10 +258,15 @@ export function combineAdventureRewards(
     value !== null && typeof value === 'object' && !Array.isArray(value)
   const stepRewards = steps.flatMap(step => {
     if (!isRecord(step) || (step.type !== 'reward' && step.type !== 'choice')) return []
-    return [step.rewards]
+    return [{ rewards: step.rewards, itemsGranted: step.type === 'reward' && step.itemsGranted === true }]
   })
 
-  for (const source of [globalRewards, ...stepRewards]) {
+  const rewardSources = [
+    { rewards: globalRewards, itemsGranted: false },
+    ...stepRewards,
+  ]
+  for (const entry of rewardSources) {
+    const source = entry.rewards
     if (!isRecord(source)) continue
 
     for (const currency of ['gold', 'ep', 'fame'] as const) {
@@ -275,7 +289,7 @@ export function combineAdventureRewards(
         typeof material.qty === 'number' && Number.isSafeInteger(material.qty) && material.qty > 0,
     )
 
-    if (validItems.length) combined.items = [...(combined.items ?? []), ...validItems]
+    if (!entry.itemsGranted && validItems.length) combined.items = [...(combined.items ?? []), ...validItems]
     if (validMaterials.length) combined.materials = [...(combined.materials ?? []), ...validMaterials]
   }
 

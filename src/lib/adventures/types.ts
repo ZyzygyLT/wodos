@@ -92,6 +92,8 @@ export interface ChoiceStepResult {
 export interface RewardStepResult {
   type: 'reward'
   rewards: StepRewards
+  /** Item rewards were added to inventory when this step was resolved. */
+  itemsGranted?: boolean
 }
 
 export type StepResult = (CombatStepResult | NarrativeStepResult | ChoiceStepResult | RewardStepResult) & { stepName?: string }

@@ -2,7 +2,8 @@
 
 import logger from "@/lib/logger"
 import {
-  combineAdventureRewards, hasAdventureRewardPayload, getAdventureChoiceCosts, canAffordAdventureChoice,
+  combineAdventureRewards, hasClaimableAdventureStepRewards,
+  getAdventureChoiceCosts, canAffordAdventureChoice,
 } from "@/lib/adventures/adventure-helpers"
 import type { StepResult, StepRewards, AdventureStepEnemy, AdventureChoice } from "@/lib/adventures/types"
 import type { LevelUpResult } from "@/lib/level-up"
@@ -218,7 +219,7 @@ export default function ActiveAdventurePage() {
   const isChoice = stepType === 'choice'
   const rewardSteps = ((active?.result?.steps ?? []) as StepResult[])
     .filter((entry): entry is (Extract<StepResult, { type: 'reward' }> | Extract<StepResult, { type: 'choice' }>) & { rewards: StepRewards } =>
-      (entry.type === 'reward' || entry.type === 'choice') && hasAdventureRewardPayload(entry.rewards))
+      (entry.type === 'reward' || entry.type === 'choice') && hasClaimableAdventureStepRewards(entry.rewards, entry.type === 'reward' && entry.itemsGranted === true))
   const hasRecoverableRewards = isDefeated && rewardSteps.length > 0
   const globalRewards: StepRewards = active?.result?.rewards ?? {}
   // Use the same normalization as the claim transaction so the preview never
@@ -433,7 +434,10 @@ export default function ActiveAdventurePage() {
                     {entry.rewards?.ep && <p className="text-sm text-gray-300">⭐ +{entry.rewards.ep} EP</p>}
                     {entry.rewards?.fame ? <p className="text-sm text-gray-300">🏆 +{entry.rewards.fame} fama</p> : null}
                     {entry.rewards?.items?.map((it: any, j: number) => (
-                      <p key={j} className="text-sm text-gray-300">{active?.rewardCatalog?.items?.[it.itemId]?.icon ?? "📦"} {active?.rewardCatalog?.items?.[it.itemId]?.name ?? `Objeto #${it.itemId}`} x{it.qty}</p>
+                      <p key={j} className="text-sm text-gray-300">
+                        {active?.rewardCatalog?.items?.[it.itemId]?.icon ?? "📦"} {active?.rewardCatalog?.items?.[it.itemId]?.name ?? `Objeto #${it.itemId}`} x{it.qty}
+                        {entry.itemsGranted ? <span className="ml-2 text-emerald-400">✓ En inventario</span> : null}
+                      </p>
                     ))}
                     {entry.rewards?.materials?.map((mat: { materialId: number; qty: number }, j: number) => (
                       <p key={j} className="text-sm text-gray-300">{active?.rewardCatalog?.materials?.[mat.materialId]?.icon ?? "🧱"} {active?.rewardCatalog?.materials?.[mat.materialId]?.name ?? `Material #${mat.materialId}`} x{mat.qty}</p>

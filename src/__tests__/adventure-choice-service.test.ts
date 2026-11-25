@@ -106,6 +106,44 @@ describe("executeStep terminal adventure rewards", () => {
     mocks.tx.heroAdventure.updateMany.mockResolvedValue({ count: 1 } as never)
   })
 
+  it("grants reward-step items immediately so they are available before the next encounter", async () => {
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      ...makeRun(1),
+      currentStep: 1,
+      totalSteps: 3,
+      adventure: {
+        steps: [
+          { type: "narrative", name: "El altar", description: "Un altar." },
+          {
+            type: "reward",
+            name: "Tesoro del Explorador",
+            rewards: { gold: 30, ep: 10, items: [{ itemId: 17, qty: 1 }] },
+          },
+          { type: "combat", name: "La Corrupción Primigenia", enemies: [] },
+        ],
+        rewards: { goldMin: 30, goldMax: 30, ep: 10, fame: 2 },
+      },
+    } as never)
+
+    const result = await executeStep("hero-1", "run-1", 1)
+
+    expect(result.stepResult).toMatchObject({
+      type: "reward",
+      itemsGranted: true,
+      rewards: { items: [{ itemId: 17, qty: 1 }] },
+    })
+    expect(mocks.tx.heroItem.createMany).toHaveBeenCalledWith({
+      data: [{ heroId: "hero-1", itemId: 17, equipped: false }],
+    })
+    expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        result: expect.objectContaining({
+          steps: [expect.objectContaining({ type: "reward", itemsGranted: true })],
+        }),
+      }),
+    }))
+  })
+
   it("completes an explicitly terminal reward step without entering the next branch", async () => {
     mocks.tx.heroAdventure.findUnique.mockResolvedValue({
       ...makeRun(1),
@@ -466,6 +504,45 @@ describe("claimRewards transaction", () => {
       data: { status: "claimed" },
     })
     expect(applyLevelUpInTransaction).toHaveBeenCalledWith(mocks.tx, "hero-1")
+  })
+
+  it("does not grant reward-step items twice after they were delivered immediately", async () => {
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      id: "run-1", heroId: "hero-1", status: "completed",
+      result: {
+        rewards: { gold: 30, ep: 10, fame: 2, items: [] },
+        steps: [{
+          type: "reward",
+          itemsGranted: true,
+          rewards: { gold: 12, ep: 3, items: [{ itemId: 17, qty: 1 }] },
+        }],
+      },
+      adventure: { factionId: null, factionRep: 0 },
+    } as never)
+
+    const result = await claimRewards("hero-1", "run-1")
+
+    expect(result.rewards).toMatchObject({ gold: 42, ep: 13 })
+    expect(result.rewards.items).toBeUndefined()
+    expect(mocks.tx.heroItem.createMany).not.toHaveBeenCalled()
+  })
+
+  it("does not offer a failed run whose only step loot was already delivered", async () => {
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      id: "run-1", heroId: "hero-1", status: "failed",
+      result: {
+        outcome: "defeated",
+        steps: [{
+          type: "reward",
+          itemsGranted: true,
+          rewards: { items: [{ itemId: 17, qty: 1 }] },
+        }],
+      },
+      adventure: { factionId: null, factionRep: 0 },
+    } as never)
+
+    await expect(claimRewards("hero-1", "run-1")).rejects.toThrow("Solo se pueden reclamar")
+    expect(mocks.tx.heroItem.createMany).not.toHaveBeenCalled()
   })
 
   it("rejects a second claim before crediting any reward", async () => {

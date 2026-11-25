@@ -422,7 +422,27 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
         break
       }
       case "reward": {
-        stepResult = { type: "reward", rewards: currentStep.rewards ?? {}, stepName: currentStep.name }
+        const stepRewards = currentStep.rewards ?? {}
+        const rewardItems = (stepRewards.items ?? []).filter(item =>
+          item !== null && typeof item === 'object' &&
+          Number.isSafeInteger(item.itemId) && item.itemId > 0 &&
+          Number.isSafeInteger(item.qty) && item.qty > 0,
+        )
+        if (rewardItems.length > 0) {
+          await tx.heroItem.createMany({
+            data: rewardItems.flatMap(item => Array.from({ length: item.qty }, () => ({
+              heroId,
+              itemId: item.itemId,
+              equipped: false,
+            }))),
+          })
+        }
+        stepResult = {
+          type: "reward",
+          rewards: stepRewards,
+          stepName: currentStep.name,
+          ...(rewardItems.length > 0 ? { itemsGranted: true } : {}),
+        }
         break
       }
       default: {
