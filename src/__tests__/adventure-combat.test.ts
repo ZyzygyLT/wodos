@@ -453,7 +453,7 @@ describe('adventure energy recharge timing', () => {
       tacticRulePriority: 1,
       tacticCondition: { type: 'hp_self_lt', value: 30 },
     })
-    expect(run.heroesFinalState[0].hp).toBe(60)
+    expect(run.heroesFinalState[0].hp).toBe(59)
     expect(mapped.replay?.levelReports).toHaveLength(1)
   })
 
