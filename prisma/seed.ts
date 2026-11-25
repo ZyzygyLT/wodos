@@ -53,7 +53,7 @@ async function main() {
   await seedForumCategories()
   await seedFactions()
   await seedFactionShops()
-  await seedAdventures()
+  await seedAdventures(itemSlugMap)
   await seedTestDungeon(itemSlugMap)
 console.log('✅ Seed completado')
 }
@@ -847,7 +847,7 @@ async function seedFactionShops() {
   }
 }
 
-async function seedAdventures() {
+async function seedAdventures(itemSlugMap: Record<string, number>) {
   const factions = await db.faction.findMany()
   const fm: Record<string, number> = {}
   for (const f of factions) fm[f.slug] = f.id
@@ -918,7 +918,7 @@ async function seedAdventures() {
         {
           type: 'reward', name: 'Tesoro del Explorador',
           description: 'Siguiendo el mapa llegas a un viejo roble con una cavidad en su tronco. Dentro encuentras una bolsa con monedas y una poción guardada para emergencias.',
-          rewards: { gold: 30, ep: 10 },
+          rewards: { gold: 30, ep: 10, items: [{ itemId: itemSlugMap['pocion-vida'], qty: 1 }] },
         },
         {
           type: 'choice', name: 'La Ruta hacia el Altar',

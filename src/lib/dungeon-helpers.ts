@@ -71,6 +71,23 @@ export function normalizeLegacyCombatFormula(
   } as unknown as SkillFormula
 }
 
+/** Maps both current and legacy item-stat names into combat-engine consumable fields. */
+export function normalizeConsumableStats(
+  stats: unknown,
+): { healHp?: number; healMp?: number } | null {
+  if (!stats || typeof stats !== 'object' || Array.isArray(stats)) return null
+  const raw = stats as Record<string, unknown>
+  const hpValue = typeof raw.healHp === 'number' ? raw.healHp : raw.heal
+  const mpValue = typeof raw.healMp === 'number' ? raw.healMp : raw.mana
+  const healHp = typeof hpValue === 'number' && Number.isFinite(hpValue) && hpValue > 0
+    ? hpValue
+    : undefined
+  const healMp = typeof mpValue === 'number' && Number.isFinite(mpValue) && mpValue > 0
+    ? mpValue
+    : undefined
+  return healHp === undefined && healMp === undefined ? null : { healHp, healMp }
+}
+
 async function loadHeroWithCombatData(heroId: string): Promise<any> {
   return db.hero.findFirst({
     where: { id: heroId },
@@ -325,12 +342,12 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
       ...(hs.skill.effect === 'heal' ? { healPct: hs.skill.formula?.healPct ?? 20 } : {}),
     })),
     equipStats,
-    consumables: (hero.items ?? [])
-      .filter((hi: any) => hi.item.category === 'consumable' && ((hi.item.stats as Record<string, number>)?.healHp != null || (hi.item.stats as Record<string, number>)?.healMp != null))
-      .map((hi: any) => {
-        const stats = hi.item.stats as Record<string, number> ?? {}
-        return { heroItemId: hi.id, itemId: hi.item.id, healHp: stats.healHp, healMp: stats.healMp }
-      }),
+    consumables: (hero.items ?? []).flatMap((hi: any) => {
+      if (hi.item.category !== 'consumable') return []
+      const healing = normalizeConsumableStats(hi.item.stats)
+      if (!healing) return []
+      return [{ heroItemId: hi.id, itemId: hi.item.id, ...healing }]
+    }),
   }
 }
 

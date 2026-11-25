@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeLegacyCombatFormula } from '@/lib/dungeon-helpers'
+import { normalizeConsumableStats, normalizeLegacyCombatFormula } from '@/lib/dungeon-helpers'
 
 const legacyFormula = {
   damageType: 'physical',
@@ -79,5 +79,20 @@ describe('normalizeLegacyCombatFormula', () => {
     expect(
       normalizeLegacyCombatFormula(healFormula, 'heal', ['heal'], 1, { in: 10, wi: 10 }),
     ).toBe(healFormula)
+  })
+})
+
+describe('normalizeConsumableStats', () => {
+  it('maps the seeded health potion field to combat healing', () => {
+    expect(normalizeConsumableStats({ heal: 50 })).toEqual({ healHp: 50 })
+  })
+
+  it('maps the seeded mana potion field to combat mana recovery', () => {
+    expect(normalizeConsumableStats({ mana: 30 })).toEqual({ healMp: 30 })
+  })
+
+  it('preserves current fields and rejects non-consumable stats', () => {
+    expect(normalizeConsumableStats({ healHp: 25, healMp: 10 })).toEqual({ healHp: 25, healMp: 10 })
+    expect(normalizeConsumableStats({ armor: 4 })).toBeNull()
   })
 })
