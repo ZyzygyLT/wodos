@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest'
-import { calcHpMax, calcMpMax } from '@/lib/combat-engine/formulas'
+import { calcHpMax, calcMpMax, type HeroAttrs, type SkillFormula } from '@/lib/combat-engine/formulas'
+import { mergeHeroAttrs, normalizeLegacyCombatFormula } from '@/lib/dungeon-helpers'
 import { runDungeon, type HeroData } from '@/lib/combat-engine/dungeon-runner'
 import { createSeededRandom } from '@/engine/core/random/random-source'
 import { createAdventureCombatDungeon } from '@/lib/adventures/combat-adapter'
@@ -120,10 +121,11 @@ function makeStarterHero(heroClass: StarterClass): HeroData {
       key,
       value + HUMAN_MODIFIERS[key as keyof typeof HUMAN_MODIFIERS],
     ]),
-  ) as Record<string, number>
-  const hpMax = calcHpMax(attrs as any, 1)
-  const mpMax = calcMpMax(attrs as any)
-  const attackFormula = {
+  ) as HeroAttrs & Record<string, number>
+  const hpMax = calcHpMax(attrs, 1)
+  const mpMax = calcMpMax(attrs)
+  const effectiveAttrs = mergeHeroAttrs({ attrs, equipStats: heroClass.equipStats })
+  const attackFormula = normalizeLegacyCombatFormula({
     attrCoeffs: {},
     skillRankCoeff: 0,
     diceSides: heroClass.attack.diceSides,
@@ -131,7 +133,7 @@ function makeStarterHero(heroClass: StarterClass): HeroData {
     diceDivisor: heroClass.attack.diceDivisor,
     flatBonus: 0,
     damageType: heroClass.attack.damageType,
-  }
+  }, 'attack', heroClass.attack.tags, heroClass.attack.multiplier, effectiveAttrs)
   const skills: HeroData['skills'] = [
     {
       skillId: heroClass.attack.skillId,
@@ -143,7 +145,7 @@ function makeStarterHero(heroClass: StarterClass): HeroData {
       manaCost: heroClass.attack.manaCost,
       rank: 1,
       cooldownRounds: 0,
-      formula: attackFormula as any,
+      formula: attackFormula,
       tags: heroClass.attack.tags,
     },
     {
@@ -177,7 +179,7 @@ function makeStarterHero(heroClass: StarterClass): HeroData {
         flatBonus: 0,
         healPct: heroClass.heal.healPct,
         damageType: 'light',
-      } as any,
+      } as SkillFormula,
       tags: ['heal'],
     })
     roundRules.push({

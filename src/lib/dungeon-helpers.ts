@@ -9,6 +9,7 @@ import {
 } from '@/engine/adapters'
 import { HeroData, DungeonData, EnemySkillRef } from '@/lib/combat-engine/dungeon-runner'
 import { getDefaultCombatSkillId } from '@/engine/core/skills/skill-availability'
+import type { SkillFormula } from '@/lib/combat-engine/formulas'
 
 export function mergeHeroAttrs(heroData: Pick<HeroData, 'attrs' | 'equipStats'>): Record<string, number> {
   const merged: Record<string, number> = {}
@@ -17,6 +18,57 @@ export function mergeHeroAttrs(heroData: Pick<HeroData, 'attrs' | 'equipStats'>)
     merged[k] = (heroData.attrs[k] ?? 0) + (heroData.equipStats?.[k] ?? 0)
   }
   return merged
+}
+
+const LEGACY_ATTACK_EFFECTS = new Set(['attack', 'aoe_attack', 'critical_attack', 'armor_penetration'])
+
+/**
+ * Converts older seeded attack formulas into the attribute-based formula consumed by the current engine.
+ * Explicit modern formulas remain untouched; only legacy formulas with no effective base are inferred.
+ */
+export function normalizeLegacyCombatFormula(
+  formula: unknown,
+  effect: string,
+  tags: readonly string[] | null | undefined,
+  multiplier: number,
+  attributes: Record<string, number>,
+): SkillFormula | undefined {
+  if (!formula || typeof formula !== 'object' || Array.isArray(formula)) return undefined
+  if (!LEGACY_ATTACK_EFFECTS.has(effect)) return formula as SkillFormula
+
+  const raw = formula as Record<string, unknown>
+  const rawCoefficients = raw.attrCoeffs
+  const hasCoefficients = rawCoefficients !== null
+    && typeof rawCoefficients === 'object'
+    && !Array.isArray(rawCoefficients)
+    && Object.keys(rawCoefficients).length > 0
+  const hasExplicitBase = (typeof raw.flatBonus === 'number' && raw.flatBonus !== 0)
+    || (typeof raw.skillRankCoeff === 'number' && raw.skillRankCoeff !== 0)
+  if (hasCoefficients || hasExplicitBase) return formula as SkillFormula
+
+  const tagSet = new Set(tags ?? [])
+  let baseCoefficients: Record<string, number>
+  if (tagSet.has('melee')) {
+    const primaryAttribute = (attributes.ag ?? 0) > (attributes.st ?? 0) ? 'ag' : 'st'
+    baseCoefficients = { [primaryAttribute]: 1.2, dx: 0.6 }
+  } else if (tagSet.has('ranged')) {
+    baseCoefficients = { dx: 1.2, pe: 0.6 }
+  } else if (tagSet.has('magic')) {
+    baseCoefficients = { in: 1.2, wi: 0.6 }
+  } else {
+    baseCoefficients = { st: 1, dx: 0.5 }
+  }
+
+  const scale = Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1
+  const attrCoeffs = Object.fromEntries(
+    Object.entries(baseCoefficients).map(([attribute, coefficient]) => [attribute, coefficient * scale]),
+  )
+  return {
+    ...raw,
+    attrCoeffs,
+    skillRankCoeff: typeof raw.skillRankCoeff === 'number' ? raw.skillRankCoeff : 0,
+    flatBonus: typeof raw.flatBonus === 'number' ? raw.flatBonus : 0,
+  } as unknown as SkillFormula
 }
 
 async function loadHeroWithCombatData(heroId: string): Promise<any> {
@@ -228,6 +280,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
       resolveRunes: createWodosRuneResolver(runeStatsByItemId),
     },
   }).values
+  const effectiveAttrs = mergeHeroAttrs({ attrs, equipStats })
 
   return {
     id: hero.id,
@@ -260,7 +313,13 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
       manaCost: hs.skill.manaCost,
       effect: hs.skill.effect,
       rank: hs.rank,
-      formula: hs.skill.formula ?? undefined,
+      formula: normalizeLegacyCombatFormula(
+        hs.skill.formula,
+        hs.skill.effect,
+        Array.isArray(hs.skill.tags) ? hs.skill.tags.filter((tag: unknown): tag is string => typeof tag === 'string') : [],
+        hs.skill.multiplier,
+        effectiveAttrs,
+      ),
       tags: hs.skill.tags,
       cooldownRounds: hs.skill.cooldownRounds ?? 0,
       ...(hs.skill.effect === 'heal' ? { healPct: hs.skill.formula?.healPct ?? 20 } : {}),
