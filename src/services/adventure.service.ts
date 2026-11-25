@@ -15,6 +15,25 @@ import {
   ENERGY_RECHARGE_COST_GOLD, ENERGY_RECHARGE_AMOUNT_GOLD,
 } from '@/lib/adventures/types'
 
+function resolveAdventureExpeditionHp(resultData: unknown, maxHp: number, legacyHp?: number): number {
+  const safeMax = Number.isFinite(maxHp) ? Math.max(0, maxHp) : 0
+  if (!resultData || typeof resultData !== 'object' || Array.isArray(resultData)) return safeMax
+
+  const data = resultData as { expeditionHp?: unknown; steps?: unknown }
+  const clamp = (value: number) => Math.max(0, Math.min(safeMax, value))
+  if (typeof data.expeditionHp === 'number' && Number.isFinite(data.expeditionHp)) {
+    return clamp(data.expeditionHp)
+  }
+
+  // Older active adventures persisted their current HP on Hero. Keep that state
+  // when restoring a run that already has history; new runs write expeditionHp
+  // on their first resolved step and never need this compatibility path again.
+  const hasHistory = Array.isArray(data.steps) && data.steps.length > 0
+  return hasHistory && typeof legacyHp === 'number' && Number.isFinite(legacyHp)
+    ? clamp(legacyHp)
+    : safeMax
+}
+
 function getEffectiveHeroResourceMaxima(
   hero: { level: number; hpMax: number; mpMax: number; attrs: unknown },
   combatHero: Awaited<ReturnType<typeof buildHeroData>>,
@@ -275,7 +294,7 @@ export async function getActiveAdventure(heroId: string) {
       const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
       heroAttributes = mergeHeroAttrs(combatHero)
       heroResources = {
-        hpCurrent: typeof result.expeditionHp === 'number' ? result.expeditionHp : effectiveMaxima.hpMax,
+        hpCurrent: resolveAdventureExpeditionHp(result, effectiveMaxima.hpMax, hero.hpCurrent),
         hpMax: effectiveMaxima.hpMax,
         mpCurrent: hero.mpCurrent,
         mpMax: effectiveMaxima.mpMax,
@@ -283,7 +302,7 @@ export async function getActiveAdventure(heroId: string) {
     } else {
       heroAttributes = hero.attrs as Record<string, number> | undefined
       heroResources = {
-        hpCurrent: hero.hpMax,
+        hpCurrent: resolveAdventureExpeditionHp(result, hero.hpMax, hero.hpCurrent),
         hpMax: hero.hpMax,
         mpCurrent: hero.mpCurrent,
         mpMax: hero.mpMax,
@@ -344,9 +363,8 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
     const resultData = (ha.result as any) ?? { steps: [], rewards: null }
     if (!Array.isArray(resultData.steps)) resultData.steps = []
-    const expeditionHp = typeof resultData.expeditionHp === 'number'
-      ? Math.max(0, Math.min(effectiveMaxima.hpMax, resultData.expeditionHp))
-      : effectiveMaxima.hpMax
+    const expeditionHp = resolveAdventureExpeditionHp(resultData, effectiveMaxima.hpMax, hero.hpCurrent)
+    resultData.expeditionHp = expeditionHp
     combatHero.hpCurrent = expeditionHp
     let heroResources = {
       hpCurrent: expeditionHp,
@@ -532,9 +550,7 @@ export async function makeChoice(
     const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
     const resultData = (ha.result as any) ?? { steps: [], rewards: null }
     if (!Array.isArray(resultData.steps)) resultData.steps = []
-    const expeditionHp = typeof resultData.expeditionHp === 'number'
-      ? Math.max(0, Math.min(effectiveMaxima.hpMax, resultData.expeditionHp))
-      : effectiveMaxima.hpMax
+    const expeditionHp = resolveAdventureExpeditionHp(resultData, effectiveMaxima.hpMax, hero.hpCurrent)
     const costs = getAdventureChoiceCosts(chosen)
     if (!canAffordAdventureChoice(costs, { hpCurrent: expeditionHp, mpCurrent: hero.mpCurrent })) {
       throw new Error("No tienes suficiente salud o maná para elegir esta opción")

@@ -322,7 +322,7 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
     ))
     return { ok: true, heroesData, totalHeroes: heroesData.length, isGroup: heroesData.length > 1 }
   }
-  const heroesData = [await buildHeroData(hero, profile, { fullHealth: true })
+  const heroesData = [await buildHeroData(hero, profile, { fullHealth: true })]
   return { ok: true, heroesData, totalHeroes: 1, isGroup: false }
 }
 

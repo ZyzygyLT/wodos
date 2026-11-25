@@ -225,13 +225,10 @@ describe("makeChoice resource costs", () => {
     mocks.tx.hero.updateMany.mockResolvedValue({ count: 1 } as never)
   })
 
-  it("charges the selected HP cost and persists it in the choice history", async () => {
+  it("charges the selected HP cost only to the expedition and persists it in the choice history", async () => {
     const result = await makeChoice("hero-1", "run-1", 1, 0)
 
-    expect(mocks.tx.hero.updateMany).toHaveBeenCalledWith({
-      where: { id: "hero-1", hpCurrent: { gt: 6 }, mpCurrent: { gte: 0 } },
-      data: { hpCurrent: { decrement: 6 }, mpCurrent: { decrement: 0 } },
-    })
+    expect(mocks.tx.hero.updateMany).not.toHaveBeenCalled()
     expect(mocks.tx.heroAdventure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "run-1", heroId: "hero-1", status: "active", currentStep: 0 },
       data: expect.objectContaining({
@@ -243,15 +240,20 @@ describe("makeChoice resource costs", () => {
             costs: { hp: 6, mp: 0 },
             nextStep: 2,
           })],
+          expeditionHp: 54,
         }),
       }),
     }))
-    expect(result.heroResources).toEqual({ hpCurrent: 14, hpMax: 60, mpCurrent: 12, mpMax: 32 })
+    expect(result.heroResources).toEqual({ hpCurrent: 54, hpMax: 60, mpCurrent: 12, mpMax: 32 })
     expect(result.stepResult.costs).toEqual({ hp: 6, mp: 0 })
   })
 
   it("rejects a choice that would defeat the hero without attempting to charge it", async () => {
     mocks.tx.hero.findUnique.mockResolvedValue(makeHero(6) as never)
+    mocks.tx.heroAdventure.findUnique.mockResolvedValue({
+      ...makeRun(),
+      result: { steps: [], rewards: null, expeditionHp: 6 },
+    } as never)
 
     await expect(makeChoice("hero-1", "run-1", 1, 0))
       .rejects.toThrow("No tienes suficiente salud o maná")
@@ -269,7 +271,7 @@ describe("makeChoice resource costs", () => {
     await expect(makeChoice("hero-1", "run-1", 1, 0))
       .rejects.toThrow("AVENTURA_CHOICE_STALE")
 
-    expect(mocks.tx.hero.updateMany).toHaveBeenCalledTimes(1)
+    expect(mocks.tx.hero.updateMany).not.toHaveBeenCalled()
   })
 })
 
@@ -336,12 +338,14 @@ describe("executeStep adventure combat branch", () => {
     mocks.tx.heroAdventure.findUnique
       .mockResolvedValueOnce({
         ...makeRun(1),
+        result: { steps: [], rewards: null, expeditionHp: 14 },
         currentStep: 1,
         totalSteps: steps.length,
         adventure: { steps, rewards: { goldMin: 30, goldMax: 30, ep: 10, fame: 2 } },
       } as never)
       .mockResolvedValueOnce({
         ...makeRun(2),
+        result: { steps: [], rewards: null, expeditionHp: 14 },
         currentStep: 2,
         totalSteps: steps.length,
         adventure: { steps, rewards: { goldMin: 30, goldMax: 30, ep: 10, fame: 2 } },
@@ -457,7 +461,7 @@ describe("executeStep adventure combat branch", () => {
 
     expect(mocks.tx.hero.update).toHaveBeenCalledWith({
       where: { id: "hero-1" },
-      data: { hpCurrent: 0, mpCurrent: 3 },
+      data: { hpCurrent: 60, mpCurrent: 3 },
     })
     expect(result).toMatchObject({
       completed: true,
@@ -524,7 +528,7 @@ describe("executeStep adventure combat branch", () => {
     expect(runDungeon).toHaveBeenCalledTimes(1)
     expect(mocks.tx.hero.update).toHaveBeenCalledWith({
       where: { id: "hero-1" },
-      data: { hpCurrent: 9, mpCurrent: 7 },
+      data: { hpCurrent: 60, mpCurrent: 7 },
     })
     expect(result).toMatchObject({
       completed: false,
