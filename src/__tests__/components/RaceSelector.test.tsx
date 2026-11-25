@@ -78,6 +78,20 @@ describe('RaceSelector', () => {
     expect(detailPanel?.textContent).toContain('-1')
   })
 
+  it('restores the previously selected race when the selector is mounted again', () => {
+    render(
+      <RaceSelector
+        races={mockRaces}
+        classAttrs={classAttrs}
+        defaultSelectedRaceId={2}
+        onSelect={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /Elfo/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Stats finales (clase + raza)')).toBeTruthy()
+    expect(screen.getByText('Agilidad felina')).toBeTruthy()
+  })
+
   it('handles empty races list', () => {
     render(<RaceSelector races={[]} classAttrs={classAttrs} onSelect={vi.fn()} />)
     expect(screen.queryByText('Humano')).toBeNull()

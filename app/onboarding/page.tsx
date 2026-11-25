@@ -178,6 +178,7 @@ export default function Onboarding() {
                 <RaceSelector
                   races={races as any[]}
                   classAttrs={selectedClass?.baseAttrs ?? {}}
+                  defaultSelectedRaceId={selectedRace?.id}
                   onSelect={(raceId) => setSelectedRace(races.find(r => r.id === raceId) ?? null)}
                 />
                 <div className="flex gap-3 mt-4">
