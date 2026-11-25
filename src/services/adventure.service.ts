@@ -105,10 +105,8 @@ export async function listAdventures(heroId: string) {
         lore: a.lore, levelReq: a.levelReq, maxLevel: a.maxLevel, duration: a.duration, energyCost: a.energyCost,
         faction: a.faction, canAfford: hero.adventureEnergy >= a.energyCost,
         requiresCombat: adventureRequiresCombat(a.steps as unknown as AdventureStep[]),
-        canStart: !adventureRequiresCombat(a.steps as unknown as AdventureStep[]) || hero.hpCurrent > 0,
-        startBlockReason: adventureRequiresCombat(a.steps as unknown as AdventureStep[]) && hero.hpCurrent <= 0
-          ? 'Tu héroe no tiene salud. Recupera HP antes de iniciar una aventura con combates.'
-          : null,
+        canStart: true,
+        startBlockReason: null,
         completionRewards: rewardTable ? {
           goldMin: rewardTable.goldMin,
           goldMax: rewardTable.goldMax,
@@ -119,7 +117,7 @@ export async function listAdventures(heroId: string) {
     }),
     energy: hero.adventureEnergy,
     energyMax: hero.adventureEnergyMax,
-    heroResources: { hpCurrent: hero.hpCurrent, hpMax: effectiveMaxima.hpMax, mpCurrent: hero.mpCurrent, mpMax: effectiveMaxima.mpMax },
+    heroResources: { hpCurrent: effectiveMaxima.hpMax, hpMax: effectiveMaxima.hpMax, mpCurrent: hero.mpCurrent, mpMax: effectiveMaxima.mpMax },
     hasActiveAdventure: !!activeAdventure,
     blockingAdventureStatus: activeAdventure?.status ?? null,
   }
@@ -134,7 +132,7 @@ export async function startAdventure(heroId: string, adventureId: number) {
 
     const hero = await tx.hero.findUnique({
       where: { id: heroId },
-      select: { id: true, level: true, adventureEnergy: true, hpCurrent: true },
+      select: { id: true, level: true, adventureEnergy: true },
     })
     const adventure = await tx.adventure.findUnique({ where: { id: adventureId } })
     const existingCandidates = await tx.heroAdventure.findMany({
@@ -162,9 +160,6 @@ export async function startAdventure(heroId: string, adventureId: number) {
 
     const steps = adventure.steps as unknown as AdventureStep[]
     if (steps.length === 0) throw new Error("La aventura no tiene pasos configurados")
-    if (adventureRequiresCombat(steps) && hero.hpCurrent <= 0) {
-      throw new Error("Tu héroe no tiene salud. Recupera HP antes de iniciar una aventura con combates.")
-    }
 
     const energyUpdate = await tx.hero.updateMany({
       where: { id: heroId, adventureEnergy: { gte: adventure.energyCost } },
@@ -280,7 +275,7 @@ export async function getActiveAdventure(heroId: string) {
       const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
       heroAttributes = mergeHeroAttrs(combatHero)
       heroResources = {
-        hpCurrent: hero.hpCurrent,
+        hpCurrent: typeof result.expeditionHp === 'number' ? result.expeditionHp : effectiveMaxima.hpMax,
         hpMax: effectiveMaxima.hpMax,
         mpCurrent: hero.mpCurrent,
         mpMax: effectiveMaxima.mpMax,
@@ -288,7 +283,7 @@ export async function getActiveAdventure(heroId: string) {
     } else {
       heroAttributes = hero.attrs as Record<string, number> | undefined
       heroResources = {
-        hpCurrent: hero.hpCurrent,
+        hpCurrent: hero.hpMax,
         hpMax: hero.hpMax,
         mpCurrent: hero.mpCurrent,
         mpMax: hero.mpMax,
@@ -347,8 +342,14 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
 
     const combatHero = await buildHeroData(hero, hero.combatProfiles[0] ?? null)
     const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
+    const resultData = (ha.result as any) ?? { steps: [], rewards: null }
+    if (!Array.isArray(resultData.steps)) resultData.steps = []
+    const expeditionHp = typeof resultData.expeditionHp === 'number'
+      ? Math.max(0, Math.min(effectiveMaxima.hpMax, resultData.expeditionHp))
+      : effectiveMaxima.hpMax
+    combatHero.hpCurrent = expeditionHp
     let heroResources = {
-      hpCurrent: hero.hpCurrent,
+      hpCurrent: expeditionHp,
       hpMax: effectiveMaxima.hpMax,
       mpCurrent: hero.mpCurrent,
       mpMax: effectiveMaxima.mpMax,
@@ -357,8 +358,6 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
     const currentStep = steps[ha.currentStep]
     if (!currentStep) throw new Error("Paso de aventura no encontrado")
 
-    const resultData = (ha.result as any) ?? { steps: [], rewards: null }
-    if (!Array.isArray(resultData.steps)) resultData.steps = []
     const nextStepIndex = ha.currentStep + 1
 
     let stepResult: StepResult
@@ -379,15 +378,16 @@ export async function executeStep(heroId: string, heroAdventureId: string, expec
 
         stepResult = {
           ...mapAdventureCombatResult(combatRun, enemies.length, {
-            hp: hero.hpCurrent,
+            hp: expeditionHp,
             mp: hero.mpCurrent,
           }),
           stepName: currentStep.name,
         }
+        resultData.expeditionHp = finalHeroState.hp
         await tx.hero.update({
           where: { id: heroId },
           data: {
-            hpCurrent: finalHeroState.hp,
+            hpCurrent: effectiveMaxima.hpMax,
             mpCurrent: finalHeroState.mp,
           },
         })
@@ -529,36 +529,33 @@ export async function makeChoice(
       mergeHeroAttrs(combatHero),
       steps.length,
     )
+    const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
+    const resultData = (ha.result as any) ?? { steps: [], rewards: null }
+    if (!Array.isArray(resultData.steps)) resultData.steps = []
+    const expeditionHp = typeof resultData.expeditionHp === 'number'
+      ? Math.max(0, Math.min(effectiveMaxima.hpMax, resultData.expeditionHp))
+      : effectiveMaxima.hpMax
     const costs = getAdventureChoiceCosts(chosen)
-    if (!canAffordAdventureChoice(costs, hero)) {
+    if (!canAffordAdventureChoice(costs, { hpCurrent: expeditionHp, mpCurrent: hero.mpCurrent })) {
       throw new Error("No tienes suficiente salud o maná para elegir esta opción")
     }
-    if (costs.hp > 0 || costs.mp > 0) {
+    if (costs.mp > 0) {
       const resourceUpdate = await tx.hero.updateMany({
-        where: {
-          id: heroId,
-          ...(costs.hp > 0 ? { hpCurrent: { gt: costs.hp } } : {}),
-          mpCurrent: { gte: costs.mp },
-        },
-        data: {
-          hpCurrent: { decrement: costs.hp },
-          mpCurrent: { decrement: costs.mp },
-        },
+        where: { id: heroId, mpCurrent: { gte: costs.mp } },
+        data: { mpCurrent: { decrement: costs.mp } },
       })
       if (resourceUpdate.count !== 1) {
         throw new Error("No tienes suficiente salud o maná para elegir esta opción")
       }
     }
-    const effectiveMaxima = getEffectiveHeroResourceMaxima(hero, combatHero)
+    const nextExpeditionHp = expeditionHp - costs.hp
+    resultData.expeditionHp = nextExpeditionHp
     const heroResources = {
-      hpCurrent: hero.hpCurrent - costs.hp,
+      hpCurrent: nextExpeditionHp,
       hpMax: effectiveMaxima.hpMax,
       mpCurrent: hero.mpCurrent - costs.mp,
       mpMax: effectiveMaxima.mpMax,
     }
-
-    const resultData = (ha.result as any) ?? { steps: [], rewards: null }
-    if (!Array.isArray(resultData.steps)) resultData.steps = []
     const stepResult = {
       type: "choice" as const,
       stepName: currentStep.name,

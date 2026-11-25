@@ -86,7 +86,7 @@ const state = vi.hoisted(() => {
     currentStep: 1,
     totalSteps: steps.length,
     status: 'active',
-    result: { steps: [], rewards: null },
+    result: { steps: [], rewards: null, expeditionHp: 14 },
     adventure: { steps, rewards: { goldMin: 30, goldMax: 30, ep: 10, fame: 2 } },
   }
   const tx = {
@@ -167,7 +167,7 @@ describe('adventure potion end-to-end service integration', () => {
     state.hero.mpCurrent = 10
     state.adventureRun.currentStep = 1
     state.adventureRun.status = 'active'
-    state.adventureRun.result = { steps: [], rewards: null }
+    state.adventureRun.result = { steps: [], rewards: null, expeditionHp: 14 }
     vi.clearAllMocks()
   })
 

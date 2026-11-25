@@ -52,8 +52,6 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
     },
   })
   if (!hero) return { ok: false, error: 'No tenés un héroe', status: 404 }
-  if (hero.hpCurrent <= 0) return { ok: false, error: 'Tu héroe está derribado. Esperá a que se recupere.', status: 400 }
-
   const dungeon = await db.dungeon.findUnique({ where: { id: params.dungeonId } })
   if (!dungeon) return { ok: false, error: 'Mazmorra no encontrada', status: 404 }
   if (dungeon.levelReq > hero.level) return { ok: false, error: 'Nivel insuficiente para esta mazmorra', status: 400 }
@@ -151,8 +149,6 @@ export async function registerScheduledDungeon(params: InstantRunParams): Promis
     },
   })
   if (!hero) return { ok: false, error: 'No tenés un héroe', status: 404 }
-  if (hero.hpCurrent <= 0) return { ok: false, error: 'Tu héroe está derribado. Esperá a que se recupere.', status: 400 }
-
   const dungeon = await db.dungeon.findUnique({ where: { id: params.dungeonId } })
   if (!dungeon) return { ok: false, error: 'Mazmorra no encontrada', status: 404 }
   if (dungeon.levelReq > hero.level) return { ok: false, error: 'Nivel insuficiente para esta mazmorra', status: 400 }
@@ -310,11 +306,10 @@ interface CombatGroupResult {
 
 async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero: CombatHero, profile: CombatProfile | null, levelReq: number): Promise<CombatGroupResult> {
   if (effectiveGroupId) {
-    const groupResult = await loadGroupParticipants(effectiveGroupId)
+    const groupResult = await loadGroupParticipants(effectiveGroupId, { fullHealth: true })
     if (groupResult.heroesData.length === 0) return { ok: false, error: 'Grupo vacío o no encontrado', status: 404, heroesData: [], totalHeroes: 0, isGroup: false }
     if (!groupResult.heroIds.includes(hero.id)) return { ok: false, error: 'Tu héroe no pertenece a este grupo', status: 403, heroesData: [], totalHeroes: 0, isGroup: false }
     for (const h of groupResult.heroesData) {
-      if (h.hpCurrent !== undefined && h.hpCurrent <= 0) return { ok: false, error: `${h.name} está derribado y no puede participar`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
       if (h.level < levelReq) return { ok: false, error: `${h.name} no tiene nivel suficiente (min ${levelReq})`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
     }
     // The initiating hero may explicitly choose a combat profile. Group loading
@@ -322,12 +317,12 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
     // with the already-authorized selection before freezing the party.
     const heroesData = await Promise.all(groupResult.heroesData.map(participant =>
       participant.id === hero.id
-        ? buildHeroData(hero, profile ?? hero.combatProfiles?.find(p => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null)
+        ? buildHeroData(hero, profile ?? hero.combatProfiles?.find(p => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null, { fullHealth: true })
         : Promise.resolve(participant)
     ))
     return { ok: true, heroesData, totalHeroes: heroesData.length, isGroup: heroesData.length > 1 }
   }
-  const heroesData = [await buildHeroData(hero, profile)]
+  const heroesData = [await buildHeroData(hero, profile, { fullHealth: true })
   return { ok: true, heroesData, totalHeroes: 1, isGroup: false }
 }
 

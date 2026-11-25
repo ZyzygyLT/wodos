@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeConsumableStats, normalizeLegacyCombatFormula } from '@/lib/dungeon-helpers'
+import { buildHeroData, normalizeConsumableStats, normalizeLegacyCombatFormula } from '@/lib/dungeon-helpers'
 
 const legacyFormula = {
   damageType: 'physical',
@@ -94,5 +94,34 @@ describe('normalizeConsumableStats', () => {
   it('preserves current fields and rejects non-consumable stats', () => {
     expect(normalizeConsumableStats({ healHp: 25, healMp: 10 })).toEqual({ healHp: 25, healMp: 10 })
     expect(normalizeConsumableStats({ armor: 4 })).toBeNull()
+  })
+})
+
+
+describe('buildHeroData expedition HP', () => {
+  const hero = {
+    id: 'hero-expedition-hp',
+    name: 'Expedition Hero',
+    level: 1,
+    attrs: { st: 10, co: 10, in: 10, dx: 10, ch: 10, ag: 10, pe: 10, wi: 10 },
+    hpMax: 100,
+    mpMax: 40,
+    hpCurrent: 0,
+    mpCurrent: 20,
+    gold: 0,
+    skills: [],
+    items: [],
+    combatProfiles: [],
+  }
+
+  it('starts a new expedition at effective maximum HP even if outside HP is depleted', async () => {
+    const combatHero = await buildHeroData(hero, null, { fullHealth: true })
+    expect(combatHero.hpCurrent).toBe(100)
+  })
+
+  it('restores carried expedition HP without changing the outside hero record', async () => {
+    const combatHero = await buildHeroData(hero, null, { hpCurrent: 37 })
+    expect(combatHero.hpCurrent).toBe(37)
+    expect(hero.hpCurrent).toBe(0)
   })
 })

@@ -60,7 +60,6 @@ describe("persistRunResult", () => {
         epTotal: { increment: 4 },
         gold: { increment: 2 },
         fame: { increment: 1 },
-        hpCurrent: 10,
         mpCurrent: 4,
         dungeonRegisteredId: null,
       },
@@ -68,7 +67,6 @@ describe("persistRunResult", () => {
         epTotal: { increment: 3 },
         gold: { increment: 2 },
         fame: { increment: 1 },
-        hpCurrent: 8,
         mpCurrent: 3,
         dungeonRegisteredId: null,
       },
@@ -76,7 +74,6 @@ describe("persistRunResult", () => {
         epTotal: { increment: 3 },
         gold: { increment: 1 },
         fame: { increment: 0 },
-        hpCurrent: 6,
         mpCurrent: 2,
         dungeonRegisteredId: null,
       },
@@ -148,7 +145,6 @@ describe("persistRunResult", () => {
           epTotal: { increment: 8 },
           gold: { increment: 5 },
           fame: { increment: 2 },
-          hpCurrent: 0,
           mpCurrent: 3,
           dungeonRegisteredId: null,
         },
@@ -159,7 +155,6 @@ describe("persistRunResult", () => {
           epTotal: { increment: 7 },
           gold: { increment: 4 },
           fame: { increment: 1 },
-          hpCurrent: 12,
           mpCurrent: 7,
           dungeonRegisteredId: null,
         },
@@ -321,8 +316,9 @@ describe("persistRunResult", () => {
     expect(heroUpdates).toHaveLength(2)
     for (const finalState of result.heroesFinalState) {
       const persisted = heroUpdates.find(update => update.where.id === finalState.id)
+      const initialHero = heroes.find(hero => hero.id === finalState.id)
       expect(persisted?.data).toEqual(expect.objectContaining({
-        hpCurrent: finalState.hp,
+        hpCurrent: initialHero?.hpCurrent,
         mpCurrent: finalState.mp,
         dungeonRegisteredId: null,
       }))

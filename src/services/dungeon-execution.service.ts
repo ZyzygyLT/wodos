@@ -67,7 +67,7 @@ export async function persistRunResult(tx: Parameters<Parameters<typeof db.$tran
         epTotal: { increment: epShares[index] },
         gold: { increment: goldShares[index] },
         fame: { increment: fameShares[index] },
-        hpCurrent: fs.hp,
+        ...(typeof hData.hpCurrent === 'number' ? { hpCurrent: hData.hpCurrent } : {}),
         mpCurrent: fs.mp,
         dungeonRegisteredId: null,
       },

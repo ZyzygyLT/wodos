@@ -9,6 +9,7 @@ import {
 } from '@/engine/adapters'
 import { HeroData, DungeonData, EnemySkillRef } from '@/lib/combat-engine/dungeon-runner'
 import { getDefaultCombatSkillId } from '@/engine/core/skills/skill-availability'
+import { calculateEffectiveResourceMaxima } from '@/engine/core/stats/derived-stats'
 import type { SkillFormula } from '@/lib/combat-engine/formulas'
 
 export function mergeHeroAttrs(heroData: Pick<HeroData, 'attrs' | 'equipStats'>): Record<string, number> {
@@ -132,7 +133,7 @@ export async function hasGroupRunDungeonToday(heroIds: string[]): Promise<boolea
   return count > 0
 }
 
-export async function loadGroupParticipants(groupId: string): Promise<{ heroesData: HeroData[]; heroIds: string[] }> {
+export async function loadGroupParticipants(groupId: string, options: BuildHeroDataOptions = {}): Promise<{ heroesData: HeroData[]; heroIds: string[] }> {
   // Try independent groups first (GroupMember)
   const groupMembers = await db.groupMember.findMany({
     where: { groupId },
@@ -151,7 +152,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
   if (groupMembers.length > 0) {
     let heroesData = await Promise.all(groupMembers.map(async (m) => {
       const p = m.hero.combatProfiles?.find(candidate => candidate.dungeonLevel === null) ?? m.hero.combatProfiles?.[0] ?? null
-      return buildHeroData(m.hero, p)
+      return buildHeroData(m.hero, p, options)
     }))
     // Deduplicar por ID por si hay miembros repetidos
     const seen = new Set<string>()
@@ -181,7 +182,7 @@ export async function loadGroupParticipants(groupId: string): Promise<{ heroesDa
   if (clanGroup && clanGroup.members.length > 0) {
     let heroesData = await Promise.all(clanGroup.members.map(async (m) => {
       const p = m.hero.combatProfiles?.find(candidate => candidate.dungeonLevel === null) ?? m.hero.combatProfiles?.[0] ?? null
-      return buildHeroData(m.hero, p)
+      return buildHeroData(m.hero, p, options)
     }))
     const seen = new Set<string>()
     heroesData = heroesData.filter(h => { const key = h.id; if (seen.has(key)) { return false; } seen.add(key); return true })
@@ -243,7 +244,14 @@ export async function reconcileDungeonParticipantConsumables(heroesData: HeroDat
   }
 }
 
-export async function buildHeroData(hero: any, profile: any): Promise<HeroData> {
+export interface BuildHeroDataOptions {
+  /** Starts a new expedition at its effective maximum HP instead of persisted outside HP. */
+  fullHealth?: boolean
+  /** Restores the temporary HP carried by an ongoing expedition. */
+  hpCurrent?: number
+}
+
+export async function buildHeroData(hero: any, profile: any, options: BuildHeroDataOptions = {}): Promise<HeroData> {
   const combatProfiles = (hero.combatProfiles ?? []) as Array<{
     id: string
     dungeonLevel: number | null
@@ -298,6 +306,21 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     },
   }).values
   const effectiveAttrs = mergeHeroAttrs({ attrs, equipStats })
+  const effectiveResources = calculateEffectiveResourceMaxima({
+    baseHpMax: hpMax,
+    baseMpMax: mpMax,
+    level: hero.level,
+    baseAttributes: attrs,
+    effectiveAttributes: effectiveAttrs,
+    equipmentHp: equipStats.hp,
+    equipmentMp: equipStats.mp,
+    skillEffects: hero.skills.map((hs: any) => hs.skill.effect),
+  })
+  const expeditionHp = Number.isFinite(options.hpCurrent)
+    ? Math.max(0, Math.min(effectiveResources.hpMax, options.hpCurrent!))
+    : options.fullHealth
+      ? effectiveResources.hpMax
+      : hero.hpCurrent
 
   return {
     id: hero.id,
@@ -307,7 +330,7 @@ export async function buildHeroData(hero: any, profile: any): Promise<HeroData> 
     attrs,
     hpMax,
     mpMax,
-    hpCurrent: hero.hpCurrent,
+    hpCurrent: expeditionHp,
     mpCurrent: hero.mpCurrent,
     gold: hero.gold,
     manaShield,
