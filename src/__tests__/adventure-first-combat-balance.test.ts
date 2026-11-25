@@ -111,13 +111,13 @@ const ENCOUNTERS: Array<{ name: string; enemies: AdventureStepEnemy[] }> = [
   {
     name: 'Emboscada en el Camino Ancho',
     enemies: [
-      { name: 'Oso de Sombra', icon: '🐻', hp: 70, mp: 10, atk: 15, def: 8, dx: 6, ag: 6, level: 3, damageType: 'dark' },
+      { name: 'Oso de Sombra', icon: '🐻', hp: 70, mp: 10, atk: 12, def: 8, dx: 6, ag: 6, level: 3, damageType: 'dark' },
     ],
   },
   {
     name: 'La Corrupción Primigenia',
     enemies: [
-      { name: 'Corrupción Primigenia', icon: '👾', hp: 90, mp: 40, atk: 18, def: 6, dx: 8, ag: 6, level: 4, damageType: 'dark' },
+      { name: 'Corrupción Primigenia', icon: '👾', hp: 80, mp: 40, atk: 14, def: 5, dx: 8, ag: 6, level: 4, damageType: 'dark' },
     ],
   },
 ]
@@ -259,7 +259,7 @@ describe('First adventure — seeded starter class combat simulation', () => {
         simulationSummary.push(
           `  ${heroClass.name.padEnd(9)} vs ${encounter.name}: ${wins}/${RUNS_PER_MATCHUP} (${winRate}%), HP medio ${averageHp}/${startingHp}, rondas ${averageRounds}`,
         )
-        expect(wins).toBeGreaterThan(0)
+        expect(wins).toBeGreaterThanOrEqual(16)
       })
     }
   }
@@ -319,7 +319,7 @@ describe('First adventure — cumulative combat path simulation', () => {
         cumulativeSummary.push(
           `  ${heroClass.name.padEnd(9)} — ${firstEncounter.name} + jefe: ${fullAdventureWins}/${RUNS_PER_MATCHUP} (${winRate}%), HP final medio ${averageFinalHp}, rondas ${averageRounds}`,
         )
-        expect(fullAdventureWins).toBeGreaterThan(0)
+        expect(fullAdventureWins).toBeGreaterThanOrEqual(16)
       })
     }
   }

@@ -904,7 +904,7 @@ async function seedAdventures() {
           type: 'combat', name: 'Emboscada en el Camino Ancho',
           description: 'Las huellas te llevan directamente a una madriguera. Un oso de sombra emerge rugiendo, sus ojos son pozos de oscuridad.',
           enemies: [
-            { name: 'Oso de Sombra', icon: '🐻', hp: 70, mp: 10, atk: 15, def: 8, dx: 6, ag: 6, level: 3, damageType: 'dark' },
+            { name: 'Oso de Sombra', icon: '🐻', hp: 70, mp: 10, atk: 12, def: 8, dx: 6, ag: 6, level: 3, damageType: 'dark' },
           ],
         },
         {
@@ -935,7 +935,7 @@ async function seedAdventures() {
           type: 'combat', name: 'La Corrupción Primigenia',
           description: 'Del altar emerge una figura de sombra y maleza: el último vestigio de la maldición del Rey Brujo. "No puedes purificar lo que ya está podrido", ruge mientras las raíces del gran árbol se retuercen para atacarte.',
           enemies: [
-            { name: 'Corrupción Primigenia', icon: '👾', hp: 90, mp: 40, atk: 18, def: 6, dx: 8, ag: 6, level: 4, damageType: 'dark' },
+            { name: 'Corrupción Primigenia', icon: '👾', hp: 80, mp: 40, atk: 14, def: 5, dx: 8, ag: 6, level: 4, damageType: 'dark' },
           ],
         },
         {
