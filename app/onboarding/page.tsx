@@ -11,6 +11,16 @@ interface ClassData {
   primaryAttr: string; secondaryAttr: string
 }
 
+const ATTRIBUTE_LABELS: Record<string, string> = {
+  st: "FUE", co: "CON", in: "INT", dx: "DES",
+  ch: "CAR", ag: "AGI", pe: "PER", wi: "VOL",
+}
+
+const ATTRIBUTE_NAMES: Record<string, string> = {
+  st: "Fuerza", co: "Constitución", in: "Inteligencia", dx: "Destreza",
+  ch: "Carisma", ag: "Agilidad", pe: "Percepción", wi: "Voluntad",
+}
+
 interface RaceData {
   id: number; name: string; slug: string; icon: string
   flavor: string; attrMods: Record<string, number>
@@ -127,10 +137,33 @@ export default function Onboarding() {
                       className={`text-left p-4 rounded-lg border-2 transition ${selectedClass?.id === c.id ? 'border-yellow-400 bg-gray-800' : 'border-gray-700 bg-gray-900 hover:border-gray-500'}`}>
                       <div className="text-2xl mb-1">{c.icon} {c.name}</div>
                       <div className="text-sm text-gray-400">{c.description}</div>
-                      <div className="flex gap-2 mt-2 text-xs">
+                      <div className="flex flex-wrap gap-2 mt-2 text-xs">
                         <span className="px-2 py-0.5 bg-gray-800 rounded">{c.role}</span>
                         <span className="px-2 py-0.5 bg-gray-800 rounded">{c.position}</span>
                         <span className="px-2 py-0.5 bg-gray-800 rounded">{c.difficulty}</span>
+                      </div>
+                      <div className="mt-3 rounded-lg border border-gray-700/70 bg-gray-950/60 p-3">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                            Atributos iniciales
+                          </span>
+                          <span className="text-[11px] text-amber-300">
+                            Especialidades: {ATTRIBUTE_NAMES[c.primaryAttr] ?? c.primaryAttr} · {ATTRIBUTE_NAMES[c.secondaryAttr] ?? c.secondaryAttr}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                          {Object.entries(ATTRIBUTE_LABELS).map(([attr, label]) => {
+                            const isSpecialty = attr === c.primaryAttr || attr === c.secondaryAttr
+                            return (
+                              <div key={attr} className="rounded bg-gray-800 px-1 py-1.5 text-center">
+                                <div className="text-[10px] text-gray-500">{label}</div>
+                                <div className={`text-sm font-bold tabular-nums ${isSpecialty ? "text-amber-300" : "text-gray-200"}`}>
+                                  {c.baseAttrs?.[attr] ?? 0}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
                     </button>
                   ))}
