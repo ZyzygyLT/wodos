@@ -68,6 +68,15 @@ describe('evalCondition', () => {
     expect(evalCondition({ type: 'hp_enemy_lt', value: 5 }, state)).toBe(false)
   })
 
+  it('hp_ally_lt triggers when an ally is injured even if the acting hero is healthy', () => {
+    const state = makeState({
+      hero: makeHero({ hp: 80, maxHp: 100 }),
+      allies: [makeHero({ id: 'ally-1', hp: 20, maxHp: 100 })],
+    })
+    expect(evalCondition({ type: 'hp_ally_lt', value: 30 }, state)).toBe(true)
+    expect(evalCondition({ type: 'hp_ally_lt', value: 15 }, state)).toBe(false)
+  })
+
   it('round_gt triggers after threshold', () => {
     expect(evalCondition({ type: 'round_gt', value: 3 }, makeState({ round: 1 }))).toBe(false)
     expect(evalCondition({ type: 'round_gt', value: 3 }, makeState({ round: 4 }))).toBe(true)

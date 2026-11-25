@@ -85,7 +85,7 @@ export async function createHero(userId: string, name: string, classId: number, 
     const roundRules = [
       ...(defaultHealSkill ? [{
         priority: 1,
-        condition: { type: "hp_self_lt", value: 30 },
+        condition: { type: "hp_ally_lt", value: 30 },
         action: { skillId: defaultHealSkill.id, targetPos: "auto", targetType: "most_injured_ally" as const },
       }] : []),
       {
