@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => {
       updateMany: vi.fn(),
       update: vi.fn(),
     },
-    heroItem: { createMany: vi.fn() },
+    heroItem: { createMany: vi.fn(), deleteMany: vi.fn() },
     heroMaterial: { upsert: vi.fn() },
     heroFactionRep: { upsert: vi.fn() },
   }
@@ -35,10 +35,33 @@ vi.mock("@/lib/level-up", () => ({
 }))
 
 vi.mock("@/lib/dungeon-helpers", () => ({
-  buildHeroData: vi.fn(async (hero: { attrs: Record<string, number>; equipStats?: Record<string, number> }) => ({
+  buildHeroData: vi.fn(async (hero: {
+    id: string
+    attrs: Record<string, number>
+    equipStats?: Record<string, number>
+    items?: Array<{ id: string; item: { id: number; category: string; stats?: Record<string, number> } }>
+  }, profile?: { position?: string; prelimRules?: unknown[]; roundRules?: unknown[]; defenseSkills?: Record<string, number | null> } | null) => ({
     attrs: hero.attrs,
     equipStats: hero.equipStats ?? {},
     skills: [],
+    combatProfile: {
+      position: profile?.position ?? 'front',
+      prelimRules: profile?.prelimRules ?? [],
+      roundRules: profile?.roundRules ?? [],
+      defenseSkills: profile?.defenseSkills ?? {},
+    },
+    consumables: (hero.items ?? []).flatMap(entry => {
+      if (entry.item.category !== 'consumable') return []
+      const stats = entry.item.stats ?? {}
+      const healHp = stats.healHp ?? stats.heal
+      const healMp = stats.healMp ?? stats.mana
+      return [{
+        heroItemId: entry.id,
+        itemId: entry.item.id,
+        ...(typeof healHp === 'number' && healHp > 0 ? { healHp } : {}),
+        ...(typeof healMp === 'number' && healMp > 0 ? { healMp } : {}),
+      }]
+    }),
   })),
   mergeHeroAttrs: vi.fn((hero: { attrs: Record<string, number>; equipStats?: Record<string, number> }) =>
     Object.fromEntries(Object.entries({ ...hero.attrs }).map(([key, value]) => [key, value + (hero.equipStats?.[key] ?? 0)])),
@@ -259,6 +282,104 @@ describe("executeStep adventure combat branch", () => {
     mocks.tx.heroAdventure.updateMany.mockResolvedValue({ count: 1 } as never)
     mocks.tx.hero.findUnique.mockResolvedValue(makeHero(14) as never)
     mocks.tx.hero.update.mockResolvedValue({} as never)
+  })
+
+  it("passes a newly earned adventure potion into the next boss fight and removes the consumed inventory row", async () => {
+    const steps = [
+      { type: "narrative", name: "El sendero", description: "Un sendero." },
+      {
+        type: "reward",
+        name: "Tesoro del Explorador",
+        rewards: { gold: 30, ep: 10, items: [{ itemId: 17, qty: 1 }] },
+      },
+      {
+        type: "combat",
+        name: "La Corrupción Primigenia",
+        enemies: [{ name: "Corrupción Primigenia", icon: "👾", hp: 80, mp: 40, atk: 14, def: 5, dx: 8, ag: 6, level: 4 }],
+      },
+    ]
+    const inventory: Array<{ id: string; itemId: number; equipped: boolean; item: { id: number; category: string; stats: Record<string, number> } }> = []
+
+    mocks.tx.hero.findUnique.mockImplementation(async () => ({
+      ...makeHero(14),
+      combatProfiles: [{
+        id: "profile-general",
+        dungeonLevel: null,
+        position: "front",
+        prelimRules: [{ itemId: 17 }],
+        roundRules: [],
+        defenseSkills: {},
+      }],
+      items: [...inventory],
+    }) as never)
+    mocks.tx.heroItem.createMany.mockImplementation(async ({ data }: { data: Array<{ heroId: string; itemId: number; equipped: boolean }> }) => {
+      data.forEach((entry, index) => inventory.push({
+        id: `earned-item-${inventory.length + index + 1}`,
+        itemId: entry.itemId,
+        equipped: entry.equipped,
+        item: { id: entry.itemId, category: "consumable", stats: { heal: 50 } },
+      }))
+      return { count: data.length } as never
+    })
+    mocks.tx.heroItem.deleteMany.mockImplementation(async ({ where }: { where: { id: { in: string[] }; heroId: string } }) => {
+      const before = inventory.length
+      for (let index = inventory.length - 1; index >= 0; index--) {
+        if (where.id.in.includes(inventory[index].id)) inventory.splice(index, 1)
+      }
+      return { count: before - inventory.length } as never
+    })
+
+    mocks.tx.heroAdventure.findUnique
+      .mockResolvedValueOnce({
+        ...makeRun(1),
+        currentStep: 1,
+        totalSteps: steps.length,
+        adventure: { steps, rewards: { goldMin: 30, goldMax: 30, ep: 10, fame: 2 } },
+      } as never)
+      .mockResolvedValueOnce({
+        ...makeRun(2),
+        currentStep: 2,
+        totalSteps: steps.length,
+        adventure: { steps, rewards: { goldMin: 30, goldMax: 30, ep: 10, fame: 2 } },
+      } as never)
+
+    const reward = await executeStep("hero-1", "run-1", 1)
+    expect(reward.stepResult).toMatchObject({ type: "reward", itemsGranted: true })
+    expect(inventory).toHaveLength(1)
+
+    vi.mocked(runDungeon).mockResolvedValueOnce({
+      victory: true,
+      heroesFinalState: [{ id: "hero-1", hp: 28, mp: 8 }],
+      levelReports: [{
+        rounds: [{
+          actions: [{
+            actorId: "hero-1",
+            itemName: "Poción de Vida",
+            healAmount: 50,
+            healType: "hp",
+            message: "El héroe usa Poción de Vida y recupera 50 HP.",
+          }],
+        }],
+      }],
+      log: [{ message: "El héroe usa Poción de Vida y recupera 50 HP." }],
+      totalRounds: 1,
+      epGained: 0,
+      goldGained: 0,
+      loot: [],
+      consumedConsumables: [{ heroId: "hero-1", heroItemId: "earned-item-1" }],
+    } as never)
+
+    const combat = await executeStep("hero-1", "run-1", 2)
+    const [combatParty] = vi.mocked(runDungeon).mock.calls[0]
+    expect(combatParty[0].consumables).toEqual([
+      { heroItemId: "earned-item-1", itemId: 17, healHp: 50 },
+    ])
+    expect(combatParty[0].combatProfile.prelimRules).toEqual([{ itemId: 17 }])
+    expect(mocks.tx.heroItem.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["earned-item-1"] }, heroId: "hero-1" },
+    })
+    expect(inventory).toHaveLength(0)
+    expect(combat.stepResult).toMatchObject({ type: "combat", victory: true })
   })
 
 
