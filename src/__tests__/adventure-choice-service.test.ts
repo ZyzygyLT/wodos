@@ -339,7 +339,7 @@ describe("executeStep adventure combat branch", () => {
       completed: false,
       currentStep: 2,
       nextStep: { type: "narrative", name: "El Precio de la Curiosidad" },
-      heroResources: { hpCurrent: 9, hpMax: 40, mpCurrent: 7, mpMax: 20 },
+      heroResources: { hpCurrent: 9, hpMax: 60, mpCurrent: 7, mpMax: 32 },
       stepResult: {
         type: "combat",
         victory: true,

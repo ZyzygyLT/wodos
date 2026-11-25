@@ -28,7 +28,7 @@ function getEffectiveHeroResourceMaxima(
     effectiveAttributes: mergeHeroAttrs(combatHero),
     equipmentHp: equipment.hp,
     equipmentMp: equipment.mp,
-    skillEffects: combatHero.skills.map(skill => skill.effect),
+    skillEffects: (combatHero.skills ?? []).map(skill => skill.effect),
   })
 }
 
