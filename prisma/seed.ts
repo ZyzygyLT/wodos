@@ -328,7 +328,8 @@ async function seedSkills(): Promise<Record<string, number>> {
     })
     skillMap[s.slug] = created.id
   }
-  const potionSkill = {
+  const potionSkill: Prisma.SkillUncheckedCreateInput = {
+    classId: null,
     slug: 'tomar-pocion',
     name: 'Tomar poción',
     icon: '🧪',
@@ -350,8 +351,8 @@ async function seedSkills(): Promise<Record<string, number>> {
   }
   const existingPotionSkill = await db.skill.findFirst({ where: { classId: null, slug: potionSkill.slug } })
   const savedPotionSkill = existingPotionSkill
-    ? await db.skill.update({ where: { id: existingPotionSkill.id }, data: potionSkill as any })
-    : await db.skill.create({ data: potionSkill as any })
+    ? await db.skill.update({ where: { id: existingPotionSkill.id }, data: potionSkill })
+    : await db.skill.create({ data: potionSkill })
   skillMap[potionSkill.slug] = savedPotionSkill.id
 
   return classMap

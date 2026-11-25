@@ -227,7 +227,7 @@ describe("persistRunResult", () => {
         rank: 1,
         formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 50 },
       }, {
-        skillId: 99, name: "Tomar poción", effect: "use_potion", rank: 1,
+        skillId: 99, name: "Tomar poción", type: "active", multiplier: 1, manaCost: 0, effect: "use_potion", rank: 1,
         formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 },
       }],
       consumables,
@@ -267,7 +267,7 @@ describe("persistRunResult", () => {
       { heroId: "hero-1", heroItemId: "hero-item-potion-1" },
     ])
     expect(result.heroesFinalState).toHaveLength(2)
-    expect(result.heroesFinalState.find(hero => hero.id === "hero-1")?.hp).toBe(45)
+    expect(result.heroesFinalState.find(hero => hero.id === "hero-1")?.hp).toBe(57)
 
     const heroUpdates: Array<{ where: { id: string }; data: Record<string, unknown> }> = []
     const deleteMany = vi.fn(async () => ({ count: 1 }))

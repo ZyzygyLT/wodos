@@ -369,7 +369,7 @@ describe('runDungeon', () => {
     const hero = makeHero({
       skills: [
         { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
-        { skillId: 99, name: 'Tomar poción', effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
+        { skillId: 99, name: 'Tomar poción', type: 'active', multiplier: 1, manaCost: 0, effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
       ],
       consumables: [{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }],
       combatProfile: {
@@ -417,7 +417,7 @@ describe('runDungeon', () => {
     const hero = makeHero({
       skills: [
         { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
-        { skillId: 99, name: 'Tomar poción', effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
+        { skillId: 99, name: 'Tomar poción', type: 'active', multiplier: 1, manaCost: 0, effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
       ],
       hpMax: 100,
       mpMax: 100,
@@ -450,7 +450,7 @@ describe('runDungeon', () => {
     expect(result.consumedConsumables).toEqual([
       { heroId: 'hero-1', heroItemId: 'hero-item-dual-potion' },
     ])
-    expect(result.log.some(entry => entry.message.includes('recupera 25 HP'))).toBe(true)
+    expect(result.log.some(entry => entry.message.includes('recupera 37 HP'))).toBe(true)
     expect(result.log.some(entry => entry.message.includes('recupera 30 MP'))).toBe(true)
   })
 
