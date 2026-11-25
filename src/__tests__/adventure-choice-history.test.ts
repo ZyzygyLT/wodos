@@ -64,7 +64,8 @@ describe("adventure choice history restoration", () => {
       },
     }])
     mocks.findHero.mockResolvedValue({
-      attrs: { pe: 10 },
+      level: 1,
+      attrs: { st: 0, co: 0, in: 0, dx: 0, ch: 0, ag: 0, pe: 10, wi: 0 },
       skills: [],
       items: [],
       combatProfiles: [],
