@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import RaceSelector from "@/components/game/RaceSelector"
+import HeroCreationSummary from "@/components/game/HeroCreationSummary"
 
 interface ClassData {
   id: number; name: string; slug: string; icon: string
@@ -195,10 +196,10 @@ export default function Onboarding() {
               <>
                 <h1 className="text-2xl font-bold text-center mb-6">Nombre de tu héroe</h1>
                 <div className="bg-gray-900 p-6 rounded-lg border border-gray-700">
-                  <div className="text-center mb-4">
-                    <span className="text-3xl">{selectedClass?.icon} {selectedRace?.icon}</span>
-                    <p className="text-lg font-semibold mt-1">{selectedClass?.name} · {selectedRace?.name}</p>
-                  </div>
+                  <HeroCreationSummary
+                    heroClass={selectedClass}
+                    race={selectedRace}
+                  />
                   <input
                     value={name} onChange={e => setName(e.target.value)}
                     placeholder="Nombre del héroe"
