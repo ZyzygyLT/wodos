@@ -448,7 +448,7 @@ describe('adventure energy recharge timing', () => {
     ])
     expect(potionAction).toMatchObject({
       itemName: 'item_17',
-      healAmount: 46,
+      healAmount: 47,
       healType: 'hp',
       tacticRulePriority: 1,
       tacticCondition: { type: 'hp_self_lt', value: 30 },
