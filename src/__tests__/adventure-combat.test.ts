@@ -356,7 +356,7 @@ describe('adventure energy recharge timing', () => {
     expect(heroAction).toMatchObject({
       tacticRulePriority: 1,
       tacticCondition: { type: 'always' },
-      selectedSkillName: 'Golpe de prueba',
+      skillName: 'Golpe de prueba',
     })
     expect(mapped.replay?.levelReports).toHaveLength(1)
   })
