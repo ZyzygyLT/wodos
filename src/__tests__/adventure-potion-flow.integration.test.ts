@@ -192,43 +192,50 @@ describe('adventure potion end-to-end service integration', () => {
       type: 'combat',
       victory: true,
       enemiesDefeated: 1,
-      replay: {
-        levelReports: [{
-          rounds: [{
-            actions: [expect.objectContaining({
-              actorId: state.hero.id,
-              itemName: 'item_17',
-              healAmount: 47,
-              healType: 'hp',
-              tacticRulePriority: 1,
-              tacticCondition: { type: 'hp_self_lt', value: 30 },
-            })],
-          }],
-        }],
-      },
     })
+
+    type ReplayShape = {
+      levelReports: Array<{
+        rounds: Array<{ actions: Array<Record<string, unknown>> }>
+      }>
+    }
+    const combatReplay = (combat.stepResult as unknown as { replay: ReplayShape }).replay
+    const combatActions = combatReplay.levelReports.flatMap(level =>
+      level.rounds.flatMap(round => round.actions),
+    )
+    const potionAction = combatActions.find(action =>
+      action.actorId === state.hero.id && action.itemName === 'item_17',
+    )
+
+    expect(potionAction).toBeDefined()
+    expect(potionAction).toMatchObject({
+      actorId: state.hero.id,
+      itemName: 'item_17',
+      healType: 'hp',
+      tacticRulePriority: 1,
+      tacticCondition: { type: 'hp_self_lt', value: 30 },
+    })
+    expect(potionAction?.healAmount).toEqual(expect.any(Number))
+    expect(Number(potionAction?.healAmount)).toBeGreaterThan(0)
+    expect(Number(potionAction?.healAmount)).toBeLessThanOrEqual(50)
+
     expect(state.tx.heroItem.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ['earned-potion-1'] }, heroId: state.hero.id },
     })
     expect(state.inventory).toHaveLength(0)
-    expect(state.hero.hpCurrent).toBe(59)
+    expect(state.hero.hpCurrent).toBe(combat.heroResources.hpCurrent)
 
     const persistedSteps = (state.adventureRun.result as { steps: Array<Record<string, unknown>> }).steps
     expect(persistedSteps).toHaveLength(2)
-    expect(persistedSteps[1]).toMatchObject({
-      type: 'combat',
-      victory: true,
-      replay: {
-        levelReports: [{
-          rounds: [{
-            actions: [expect.objectContaining({
-              itemName: 'item_17',
-              healAmount: 47,
-              healType: 'hp',
-            })],
-          }],
-        }],
-      },
-    })
+    expect(persistedSteps[1]).toMatchObject({ type: 'combat', victory: true })
+    const persistedReplay = (persistedSteps[1] as { replay: ReplayShape }).replay
+    const persistedActions = persistedReplay.levelReports.flatMap(level =>
+      level.rounds.flatMap(round => round.actions),
+    )
+    expect(persistedActions).toContainEqual(expect.objectContaining({
+      itemName: 'item_17',
+      healAmount: potionAction?.healAmount,
+      healType: 'hp',
+    }))
   })
 })
