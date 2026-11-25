@@ -367,6 +367,10 @@ describe('runDungeon', () => {
 
   it('tracks the exact inventory row when a preliminary consumable is used', async () => {
     const hero = makeHero({
+      skills: [
+        { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
+        { skillId: 99, name: 'Tomar poción', effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
+      ],
       consumables: [{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }],
       combatProfile: {
         position: 'front',
@@ -384,9 +388,37 @@ describe('runDungeon', () => {
     ])
   })
 
+  it('does not consume or apply a potion when the hero has not learned the skill', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 100,
+      hpCurrent: 20,
+      consumables: [{ heroItemId: 'hero-item-untrained-potion', itemId: 44, healHp: 25 }],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, itemId: 44, targetPos: 'front', targetType: 'self' } }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+      lootTable: [],
+    }))
+
+    expect(result.consumedConsumables).toEqual([])
+    expect(hero.consumables).toEqual([{ heroItemId: 'hero-item-untrained-potion', itemId: 44, healHp: 25 }])
+    expect(result.heroesFinalState[0].hp).toBe(20)
+    expect(result.levelReports[0]?.rounds.flatMap(round => round.actions).some(action => action.skillFallback === 'forced')).toBe(true)
+  })
+
   it('applies both HP and MP restoration from a dual-effect consumable during combat', async () => {
     setupRand(...Array(100).fill(0.5))
     const hero = makeHero({
+      skills: [
+        { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
+        { skillId: 99, name: 'Tomar poción', effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
+      ],
       hpMax: 100,
       mpMax: 100,
       hpCurrent: 20,

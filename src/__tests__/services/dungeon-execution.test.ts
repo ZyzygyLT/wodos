@@ -226,6 +226,9 @@ describe("persistRunResult", () => {
         effect: "attack",
         rank: 1,
         formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 50 },
+      }, {
+        skillId: 99, name: "Tomar poción", effect: "use_potion", rank: 1,
+        formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 },
       }],
       consumables,
     })

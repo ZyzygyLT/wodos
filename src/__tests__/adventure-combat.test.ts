@@ -409,7 +409,7 @@ describe('adventure energy recharge timing', () => {
           formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 3 },
           tags: [],
         },
-      }],
+      }, { rank: 1, skill: { id: 99, type: 'active', name: 'Tomar poción', icon: '🧪', multiplier: 1, manaCost: 0, effect: 'use_potion', formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 }, tags: [] } }],
       items: [{
         id: 'earned-potion-row',
         itemId: 17,
