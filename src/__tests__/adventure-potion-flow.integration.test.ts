@@ -223,7 +223,8 @@ describe('adventure potion end-to-end service integration', () => {
       where: { id: { in: ['earned-potion-1'] }, heroId: state.hero.id },
     })
     expect(state.inventory).toHaveLength(0)
-    expect(state.hero.hpCurrent).toBe(combat.heroResources.hpCurrent)
+    expect(state.hero.hpCurrent).toBe(60)
+    expect((state.adventureRun.result as { expeditionHp?: number }).expeditionHp).toBe(combat.heroResources.hpCurrent)
 
     const persistedSteps = (state.adventureRun.result as { steps: Array<Record<string, unknown>> }).steps
     expect(persistedSteps).toHaveLength(2)
