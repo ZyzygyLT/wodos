@@ -43,7 +43,7 @@ import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/atta
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
 import { advanceSkillCooldowns, getDefaultCombatSkillId, isBasicSkill, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
-import { calculatePartyBuffBonus, resolveSkillExecution } from '../../engine/core/skills/skill-execution'
+import { calculatePartyBuffBonus, isSupportedSkillEffect, resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { dispatchSkillExecutionPlan } from '../../engine/core/skills/skill-plan-dispatch'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
 import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
@@ -1403,6 +1403,13 @@ function executeHeroAction(
   }
 
   let skill = getSkill(hero, action.skillId)
+  if (!isSupportedSkillEffect(skill.effect)) {
+    const skillName = skill.name ?? `skill_${skill.skillId}`
+    addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} no puede ejecutar ${skillName}: el efecto "${skill.effect}" todavía no está implementado. No consume maná ni aplica un ataque alternativo.`,
+      { actor: heroUnit.name, skill: skillName })
+    return null
+  }
   const { skill: resolvedSkill, mpCost, fallback, selectedSkillName } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
   skill = resolvedSkill
 
@@ -1452,6 +1459,7 @@ function executeHeroAction(
       const atkValues: AttackValues = { fResult: resolvedFormula, adjAttack, isArmorPen: armorPenetration, isCritAuto: critical }
       return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, target, extraUnits)
     },
+    unsupported: () => null,
   })
   if (detailedAction && fallback) {
     detailedAction.skillFallback = fallback
@@ -1771,7 +1779,13 @@ function executeEnemyAction(
     ...(enemy.attrs ?? {}),
   }
 
-  const chosenSkill = pickEnemySkill(enemy, enemyUnit, state, ctx.round)
+  let chosenSkill = pickEnemySkill(enemy, enemyUnit, state, ctx.round)
+  if (chosenSkill && !isSupportedSkillEffect(chosenSkill.effect)) {
+    addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+      `${enemyUnit.name} omite ${chosenSkill.name ?? 'una habilidad'}: efecto "${chosenSkill.effect}" no implementado; ejecuta su ataque básico.`,
+      { actor: enemyUnit.name, skill: chosenSkill.name ?? `skill_${chosenSkill.skillId}` })
+    chosenSkill = null
+  }
   const skillName = chosenSkill?.name ?? enemy.skillName ?? 'Ataque'
   const damageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
 
@@ -1845,6 +1859,7 @@ function executeEnemyAction(
       const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
       return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, armorPenetration, target, state, ctx, initiative, actionNum, totalActions, aCat)
     },
+    unsupported: () => null,
   })
 }
 

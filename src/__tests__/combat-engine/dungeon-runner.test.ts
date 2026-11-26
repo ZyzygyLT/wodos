@@ -279,6 +279,45 @@ describe('runDungeon', () => {
     ])
   })
 
+  it('does not execute an unimplemented hero skill effect or spend its mana', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      mpCurrent: 17,
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 999, targetPos: 'front', targetType: 'weakest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        {
+          skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 },
+        },
+        {
+          skillId: 999, name: 'Liderazgo', type: 'active', multiplier: 1.5, manaCost: 15, effect: 'buff', rank: 1,
+          formula: null as unknown as HeroData['skills'][number]['formula'],
+        },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+
+    const firstRound = result.levelReports[0]?.rounds[0]
+    expect(result.log.some(entry => entry.message.includes('Liderazgo') && entry.message.includes('todavía no está implementado'))).toBe(true)
+    expect(firstRound?.actions.some(action => action.actorId === hero.id)).toBe(false)
+    expect(firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.mp).toBe(17)
+  })
   it('reports when an already-active party buff replaces the selected skill', async () => {
     setupRand(...Array(100).fill(0.5))
     const hero = makeHero({
