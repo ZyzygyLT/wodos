@@ -316,7 +316,7 @@ describe('runDungeon', () => {
     const firstRound = result.levelReports[0]?.rounds[0]
     expect(result.log.some(entry => entry.message.includes('Liderazgo') && entry.message.includes('todavía no está implementado'))).toBe(true)
     expect(firstRound?.actions.some(action => action.actorId === hero.id)).toBe(false)
-    expect(firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.mp).toBe(17)
+    expect(firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.mp).toBe(24)
   })
   it('reports when an already-active party buff replaces the selected skill', async () => {
     setupRand(...Array(100).fill(0.5))

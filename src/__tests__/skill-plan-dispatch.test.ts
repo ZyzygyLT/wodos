@@ -11,6 +11,7 @@ describe('skill execution plan dispatch', () => {
       party_buff: () => ({ kind: 'buff' }),
       area_attack: () => ({ kind: 'area' }),
       single_attack: () => ({ kind: 'single' }),
+      unsupported: () => ({ kind: 'unsupported' }),
     })
     expect(result).toEqual({ kind: 'healed', unit: target, pct: 35 })
   })
@@ -22,6 +23,7 @@ describe('skill execution plan dispatch', () => {
       party_buff: (buff, bonus) => `${buff}:${bonus}`,
       area_attack: () => 'area',
       single_attack: () => 'single',
+      unsupported: () => 'unsupported',
     })
     expect(result).toBe('def:18')
   })
@@ -36,6 +38,7 @@ describe('skill execution plan dispatch', () => {
       party_buff: () => 'buff',
       area_attack: (units, penetration, critical) => ({ units, penetration, critical }),
       single_attack: () => 'single',
+      unsupported: () => 'unsupported',
     })
     expect(result).toEqual({ units: targets, penetration: true, critical: false })
   })
@@ -50,17 +53,19 @@ describe('skill execution plan dispatch', () => {
       party_buff: () => 'buff',
       area_attack: () => 'area',
       single_attack: (unit, penetration, critical) => ({ unit, penetration, critical }),
+      unsupported: () => undefined,
     })
     expect(result).toEqual({ unit: target, penetration: false, critical: true })
   })
 
   it('preserves null targets for handlers to decide legacy no-op behavior', () => {
     const plan: SkillExecutionPlan<never> = { kind: 'heal', target: null, healPct: 20 }
-    const result = dispatchSkillExecutionPlan(plan, {
+    const result = dispatchSkillExecutionPlan<never, string | null>(plan, {
       heal: target => target,
       party_buff: () => 'buff',
       area_attack: () => 'area',
       single_attack: () => 'single',
+      unsupported: () => null,
     })
     expect(result).toBeNull()
   })
