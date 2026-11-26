@@ -8,7 +8,8 @@ const CONDITION_TYPES = [
   { value: 'hp_self_lt', label: 'HP propio < %' },
   { value: 'hp_self_gt', label: 'HP propio > %' },
   { value: 'hp_enemy_lt', label: 'HP enemigo < %' },
-  { value: 'round_gt', label: 'Ronda > N' },
+  { value: 'hp_ally_lt', label: 'HP aliado < %' },
+  { value: 'round_gt', label: 'Ronda > N' }, 
   { value: 'mana_lt', label: 'MP propio < %' },
   { value: 'ally_down', label: 'Aliado caído' },
   { value: 'damaged_this_round', label: 'Recibió daño esta ronda' },
@@ -17,14 +18,18 @@ const CONDITION_TYPES = [
 const TARGET_TYPES = [
   { value: 'weakest', label: 'Más débil' },
   { value: 'strongest', label: 'Más fuerte' },
-  { value: 'most_injured_ally', label: 'Alíado más herido' },
+  { value: 'most_injured_ally', label: 'Aliado más herido' },
   { value: 'random', label: 'Aleatorio' },
+  { value: 'auto', label: 'Automático según habilidad' },
+  { value: 'self', label: 'A sí mismo' },
 ]
 
 const TARGET_POSITIONS = [
   { value: 'front', label: 'Frontal' },
   { value: 'center', label: 'Centro' },
   { value: 'rear', label: 'Trasera' },
+  { value: 'left_flank', label: 'Flanco izquierdo' },
+  { value: 'right_flank', label: 'Flanco derecho' },
   { value: 'auto', label: 'Automático' },
 ]
 
