@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
     // Consumables must use the same equipment/passive bonuses as combat and the
     // hero status UI, rather than capping at the persisted base maxima.
     const combatHero = await buildHeroData(currentHero, null)
+    const equipStats = combatHero.equipStats ?? {}
     const effectiveResources = calculateEffectiveResourceMaxima({
       baseHpMax: currentHero.hpMax,
       baseMpMax: currentHero.mpMax,
@@ -97,10 +98,10 @@ export async function POST(req: NextRequest) {
       baseAttributes: currentHero.attrs as Record<string, number>,
       effectiveAttributes: mergeHeroAttrs({
         attrs: currentHero.attrs as Record<string, number>,
-        equipStats: combatHero.equipStats,
+        equipStats,
       }),
-      equipmentHp: combatHero.equipStats.hp,
-      equipmentMp: combatHero.equipStats.mp,
+      equipmentHp: equipStats.hp ?? 0,
+      equipmentMp: equipStats.mp ?? 0,
       skillEffects: combatHero.skills.map(skill => skill.effect),
     })
     const updateData: Record<string, number> = {}

@@ -12,6 +12,7 @@ const createMock = () => ({
   createMany: vi.fn(),
   upsert: vi.fn(),
   delete: vi.fn(),
+  deleteMany: vi.fn(),
 })
 
 const mockDb = {
