@@ -8,6 +8,7 @@ import {
 
 export interface SkillExecutionDefinition {
   readonly skillId: number
+  readonly slug?: string
   readonly name?: string
   readonly effect?: string
   readonly multiplier?: number
@@ -37,6 +38,7 @@ export type SkillExecutionPlan<T> =
   | { readonly kind: 'unsupported'; readonly effect: string }
   | { readonly kind: 'heal'; readonly target: T | null; readonly healPct: number }
   | { readonly kind: 'party_buff'; readonly buff: 'atk' | 'def'; readonly bonus: number }
+  | { readonly kind: 'self_buff'; readonly buff: 'atk'; readonly bonus: number }
   | { readonly kind: 'area_attack'; readonly targets: readonly T[]; readonly armorPenetration: boolean; readonly critical: boolean }
   | { readonly kind: 'single_attack'; readonly target: T | null; readonly armorPenetration: boolean; readonly critical: boolean }
 
@@ -57,9 +59,10 @@ export function calculatePartyBuffBonus(
 const SUPPORTED_SINGLE_TARGET_EFFECTS = new Set(['attack', 'armor_penetration', 'critical_attack'])
 
 /** Returns whether the combat runtime has a concrete handler for an active skill effect. */
-export function isSupportedSkillEffect(effect?: string): boolean {
+export function isSupportedSkillEffect(effect?: string, slug?: string): boolean {
   return SUPPORTED_SINGLE_TARGET_EFFECTS.has(effect ?? 'attack') ||
-    effect === 'heal' || effect === 'party_attack_up' || effect === 'defense_up' || effect === 'aoe_attack'
+    effect === 'heal' || effect === 'party_attack_up' || effect === 'defense_up' || effect === 'aoe_attack' ||
+    (effect === 'buff' && slug === 'venganza')
 }
 
 /**
@@ -92,6 +95,11 @@ export function resolveSkillExecution<T extends TargetableUnit>(
   if (effect === 'party_attack_up' || effect === 'defense_up') {
     const bonus = calculatePartyBuffBonus(effect, skill.multiplier, rank)
     return { kind: 'party_buff', buff: effect === 'party_attack_up' ? 'atk' : 'def', bonus }
+  }
+
+  if (effect === 'buff' && skill.slug === 'venganza') {
+    const bonus = calculatePartyBuffBonus('party_attack_up', skill.multiplier, rank)
+    return { kind: 'self_buff', buff: 'atk', bonus }
   }
 
   if (effect === 'aoe_attack') {

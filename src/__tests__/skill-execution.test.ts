@@ -85,6 +85,15 @@ describe('central skill execution planning', () => {
       .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 17 })
   })
 
+  it('resolves Venganza as a rank-scaled self attack buff and keeps other generic buffs unsupported', () => {
+    expect(resolve({ skillId: 98, slug: 'venganza', effect: 'buff', multiplier: 1, rank: 3 }))
+      .toEqual({ kind: 'self_buff', buff: 'atk', bonus: 16 })
+    expect(isSupportedSkillEffect('buff', 'venganza')).toBe(true)
+    expect(resolve({ skillId: 97, slug: 'forma-salvaje', effect: 'buff', multiplier: 1, rank: 3 }))
+      .toEqual({ kind: 'unsupported', effect: 'buff' })
+    expect(isSupportedSkillEffect('buff', 'forma-salvaje')).toBe(false)
+  })
+
   it('marks unimplemented combat effects as unsupported instead of treating them as attacks', () => {
     for (const effect of ['buff', 'debuff', 'taunt', 'mana_drain', 'unknown_effect']) {
       expect(resolve({ skillId: 99, effect })).toEqual({ kind: 'unsupported', effect })

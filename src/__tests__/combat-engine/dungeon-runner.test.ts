@@ -123,6 +123,32 @@ describe('runDungeon', () => {
     })
   })
 
+  it('applies Venganza to the hero personally for the following turn and reports the bonus', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 100,
+      mpMax: 100,
+      skills: [
+        { skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack', multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 } },
+        { skillId: 2, slug: 'venganza', name: 'Venganza', type: 'active', effect: 'buff', multiplier: 1, manaCost: 8, rank: 3, cooldownRounds: 3 },
+      ],
+      combatProfile: {
+        position: 'front', prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'self' } }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 1000, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    }))
+    const firstRound = result.levelReports[0]?.rounds[0]
+    expect(result.log.some(entry => entry.type === 'buff' && entry.message.includes('+16% ATK propio durante su próximo turno'))).toBe(true)
+    expect(firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects)
+      .toContainEqual({ type: 'atk_up', remainingRounds: 1 })
+    expect(firstRound?.actions.some(action => action.actorId === hero.id && action.skillName === 'Venganza')).toBe(true)
+  })
+
   it('applies per-floor tactical overrides to actions and formation', async () => {
     setupRand(...Array(200).fill(0.5))
     const hero = makeHero({

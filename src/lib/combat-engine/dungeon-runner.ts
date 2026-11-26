@@ -1213,6 +1213,36 @@ function executeHeroBuffAction(
   return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: label, buffV: bonus, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg, mpCost: meta.mpCost })
 }
 
+function executeHeroSelfBuffAction(
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: HeroSkill,
+  skillName: string,
+  ctx: CombatCtx,
+  meta: ActionMeta,
+  buff: 'atk',
+  bonus: number,
+): DetailedAction {
+  // Two round ticks include the application round and preserve one complete
+  // following hero turn, matching Venganza's one-turn design.
+  const remainingRounds = 2
+  heroUnit.statusEffects = [...applyLegacyStatusEffect(heroUnit.statusEffects ?? [], {
+    type: 'atk_up',
+    remainingRounds,
+    value: bonus,
+    source: skillName,
+    sourceName: skillName,
+  })]
+  emitUnitStateChanged(ctx, heroUnit, { statusEffects: heroUnit.statusEffects.map(effect => ({ ...effect })) })
+  const msg = `${heroUnit.name} usa ${skillName} → +${bonus}% ATK propio durante su próximo turno`
+  addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', msg,
+    { actor: heroUnit.name, skill: skillName, value: bonus })
+  return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative,
+    actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+    healA: null, healT: null, buffN: 'ATK propio', buffV: bonus, itemN: null,
+    defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined,
+    defEquip: undefined, msg, mpCost: meta.mpCost })
+}
+
 function processAoeTarget(
   enemy: CombatUnit,
   heroUnit: CombatUnit & { attrs: Record<string, number> },
@@ -1404,7 +1434,7 @@ function executeHeroAction(
   }
 
   let skill = getSkill(hero, action.skillId)
-  if (!isSupportedSkillEffect(skill.effect)) {
+  if (!isSupportedSkillEffect(skill.effect, skill.slug)) {
     const skillName = skill.name ?? `skill_${skill.skillId}`
     addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
       `${heroUnit.name} no puede ejecutar ${skillName}: el efecto "${skill.effect}" todavía no está implementado. No consume maná ni aplica un ataque alternativo.`,
@@ -1425,11 +1455,13 @@ function executeHeroAction(
   const isSupportSkill = (skill.effect === 'heal' && !!skill.healPct)
     || skill.effect === 'party_attack_up'
     || skill.effect === 'defense_up'
+    || (skill.effect === 'buff' && skill.slug === 'venganza')
   const fResult = isSupportSkill ? null : evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
 
   const plan = resolveSkillExecution({
     skill: {
       skillId: skill.skillId,
+      slug: skill.slug,
       name: skill.name,
       effect: skill.effect,
       multiplier: skill.multiplier,
@@ -1448,6 +1480,7 @@ function executeHeroAction(
   const detailedAction = dispatchSkillExecutionPlan(plan, {
     heal: target => executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target),
     party_buff: (buff, bonus) => executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
+    self_buff: (buff, bonus) => executeHeroSelfBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
     area_attack: (targets, armorPenetration, critical) => {
       const resolvedFormula = fResult!
       const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)

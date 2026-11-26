@@ -3,6 +3,7 @@ import type { SkillExecutionPlan } from '../skills/skill-execution'
 export interface SkillExecutionPlanHandlers<TUnit, TResult> {
   readonly heal: (target: TUnit | null, healPct: number) => TResult
   readonly party_buff: (buff: 'atk' | 'def', bonus: number) => TResult
+  readonly self_buff: (buff: 'atk', bonus: number) => TResult
   readonly area_attack: (targets: readonly TUnit[], armorPenetration: boolean, critical: boolean) => TResult
   readonly single_attack: (target: TUnit | null, armorPenetration: boolean, critical: boolean) => TResult
   readonly unsupported: (effect: string) => TResult
@@ -22,6 +23,8 @@ export function dispatchSkillExecutionPlan<TUnit, TResult>(
       return handlers.heal(plan.target, plan.healPct)
     case 'party_buff':
       return handlers.party_buff(plan.buff, plan.bonus)
+    case 'self_buff':
+      return handlers.self_buff(plan.buff, plan.bonus)
     case 'area_attack':
       return handlers.area_attack(plan.targets, plan.armorPenetration, plan.critical)
     case 'single_attack':
