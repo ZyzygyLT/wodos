@@ -2590,7 +2590,7 @@ export async function runDungeon(
       const hero = heroes[hi]
       const hu = heroUnits[hi]
       if (hu.hp <= 0) continue
-      if (lvl.number === 1 && hero.combatProfile.prelimRules.length > 0) {
+      if (hero.combatProfile.prelimRules.length > 0) {
         runPrelimRound(hu, hero, hero.combatProfile.prelimRules, state, log, lvl.number)
       }
     }

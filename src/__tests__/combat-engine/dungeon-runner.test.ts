@@ -176,6 +176,41 @@ describe('runDungeon', () => {
     expect(thirdRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('front')
   })
 
+  it('executes floor-specific preliminary tactics at the start of that floor', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+        levelOverrides: {
+          2: {
+            prelimRules: [{ skillId: 999 }],
+          },
+        },
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 999, name: 'War Chant', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as any },
+      ],
+    })
+    const floor = (number: number) => ({
+      number,
+      enemies: [{ id: number, name: `Training Golem ${number}`, icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+      epReward: 0,
+      goldReward: 0,
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [floor(1), floor(2)],
+      lootTable: [],
+    }))
+
+    expect(result.log.some(entry => entry.type === 'buff' && entry.phase === 'prelim' && entry.message.includes('War Chant'))).toBe(true)
+    expect(result.levelReports[1]?.rounds[0]?.stateBefore.heroes[0]?.activeBuffs?.some(buff => buff.sourceName === 'War Chant')).toBe(true)
+  })
+
   it('returns victory after clearing all levels', async () => {
     // High random = all hits connect, no misses
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
