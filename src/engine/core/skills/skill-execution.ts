@@ -67,7 +67,7 @@ export function resolveSkillExecution<T extends TargetableUnit>(
 
   if (effect === 'heal') {
     const healPct = Number.isFinite(skill.healPct) ? Math.max(0, skill.healPct!) : 0
-    const candidates = (skill.healTarget === 'self' ? [actor] : [actor, ...allies]).filter(unit =>
+    const candidates = (skill.healTarget === 'self' || action.targetType === 'self' ? [actor] : [actor, ...allies]).filter(unit =>
       Number.isFinite(unit.hp) && Number.isFinite(unit.maxHp) &&
       unit.hp > 0 && unit.maxHp > 0 && unit.hp < unit.maxHp
     )

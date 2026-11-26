@@ -138,12 +138,26 @@ describe('pure combat target selection', () => {
     expect(result.target?.id).toBe('ally-valid')
   })
 
-  it('preserves the legacy fallback for target type self', () => {
+  it('selects the acting unit for a self target instead of an enemy', () => {
     const enemy = unit('enemy', 10, 'front')
     const result = selectCombatTarget({
       actor, allies: [], enemies: [enemy],
       targetPosition: 'auto', targetType: 'self',
     })
-    expect(result.target).toBe(enemy)
+    expect(result.target).toBe(actor)
+    expect(result.candidates).toEqual([actor])
+    expect(result.reason).toBe('self')
+  })
+
+  it('does not fall back to an enemy when the acting unit is defeated', () => {
+    const defeatedActor = unit('defeated-hero', 0, 'center')
+    const enemy = unit('enemy', 10, 'front')
+    const result = selectCombatTarget({
+      actor: defeatedActor, allies: [], enemies: [enemy],
+      targetPosition: 'auto', targetType: 'self',
+    })
+    expect(result.target).toBeNull()
+    expect(result.candidates).toEqual([])
+    expect(result.reason).toBe('no_valid_target')
   })
 })

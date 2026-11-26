@@ -24,6 +24,14 @@ describe('central skill execution planning', () => {
     expect(plan).toEqual({ kind: 'heal', target: base.allies[0], healPct: 35 })
   })
 
+  it('respects an explicit self target for a healing action', () => {
+    const plan = resolve(
+      { skillId: 16, effect: 'heal', healPct: 20 },
+      { action: { ...base.action, targetType: 'self' } },
+    )
+    expect(plan).toEqual({ kind: 'heal', target: base.actor, healPct: 20 })
+  })
+
   it('supports self-only healing for enemy skills', () => {
     const enemy = unit('enemy', 40)
     const ally = unit('enemy-ally', 5)
@@ -96,6 +104,19 @@ describe('central skill execution planning', () => {
     })
     expect(plan.kind).toBe('single_attack')
     if (plan.kind === 'single_attack') expect(plan.target?.id).toBe('hero-weak')
+  })
+
+  it('resolves an explicit self target to the acting unit for single-target skills', () => {
+    const plan = resolve(
+      { skillId: 17, effect: 'attack' },
+      { action: { ...base.action, targetType: 'self' } },
+    )
+    expect(plan).toEqual({
+      kind: 'single_attack',
+      target: base.actor,
+      armorPenetration: false,
+      critical: false,
+    })
   })
 
   it('resolves a single target and preserves armor penetration / automatic critical flags', () => {
