@@ -119,7 +119,11 @@ describe('reproducible combat randomness', () => {
       log: result.log.map(({ timestamp: _timestamp, ...entry }) => entry),
       levelReports: result.levelReports.map(level => ({
         ...level,
-        preliminaryLog: level.preliminaryLog?.map(({ timestamp: _timestamp, ...entry }) => entry),
+        preliminaryLog: level.preliminaryLog?.map(entry => {
+          const { timestamp, ...withoutTimestamp } = entry
+          void timestamp
+          return withoutTimestamp
+        }),
       })),
     })
 
