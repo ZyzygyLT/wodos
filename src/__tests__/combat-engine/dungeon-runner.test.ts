@@ -409,7 +409,8 @@ describe('runDungeon', () => {
     expect(result.consumedConsumables).toEqual([])
     expect(hero.consumables).toEqual([{ heroItemId: 'hero-item-untrained-potion', itemId: 44, healHp: 25 }])
     expect(result.heroesFinalState[0].hp).toBe(20)
-    expect(result.levelReports[0]?.rounds.flatMap(round => round.actions).some(action => action.skillFallback === 'forced')).toBe(true)
+    const fallbackAttack = result.levelReports[0]?.rounds.flatMap(round => round.actions).find(action => action.skillFallback === 'forced')
+    expect(fallbackAttack).toMatchObject({ targetName: 'Training Golem', skillFallback: 'forced' })
   })
 
   it('applies both HP and MP restoration from a dual-effect consumable during combat', async () => {

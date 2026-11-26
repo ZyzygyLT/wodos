@@ -1379,7 +1379,15 @@ function executeHeroAction(
       addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
         `${heroUnit.name} no puede usar item_${action.itemId}: ${reason}. Ejecuta un ataque básico`,
         { actor: heroUnit.name, skill: 'Tomar poción' })
-      const fallbackAction = { ...action, itemId: undefined, skillId: getDefaultCombatSkillId(hero.skills) }
+      // A failed consumable action becomes a normal basic attack; never carry the
+      // consumable's self-target setting into that offensive fallback.
+      const fallbackAction = {
+        ...action,
+        itemId: undefined,
+        skillId: getDefaultCombatSkillId(hero.skills),
+        targetPos: 'auto' as const,
+        targetType: 'weakest' as const,
+      }
       const fallbackResult = executeHeroAction(
         heroUnit, hero, { ...meta, action: fallbackAction }, ctx, extraUnits,
       )
