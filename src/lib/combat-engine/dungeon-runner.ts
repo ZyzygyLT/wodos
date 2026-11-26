@@ -1882,7 +1882,7 @@ function executeEnemyAction(
         skill: { ...executionSkill, effect: 'attack' },
       })
     : plan
-  return dispatchSkillExecutionPlan(singlePlan, {
+  return dispatchSkillExecutionPlan<CombatUnit, DetailedAction | null>(singlePlan, {
     heal: () => null,
     party_buff: () => null,
     area_attack: targets => fResult
