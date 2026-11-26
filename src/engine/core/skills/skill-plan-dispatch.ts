@@ -5,7 +5,6 @@ export interface SkillExecutionPlanHandlers<TUnit, TResult> {
   readonly party_buff: (buff: 'atk' | 'def', bonus: number) => TResult
   readonly area_attack: (targets: readonly TUnit[], armorPenetration: boolean, critical: boolean) => TResult
   readonly single_attack: (target: TUnit | null, armorPenetration: boolean, critical: boolean) => TResult
-  readonly unsupported: (effect: string) => TResult
 }
 
 /**
@@ -26,8 +25,6 @@ export function dispatchSkillExecutionPlan<TUnit, TResult>(
       return handlers.area_attack(plan.targets, plan.armorPenetration, plan.critical)
     case 'single_attack':
       return handlers.single_attack(plan.target, plan.armorPenetration, plan.critical)
-    case 'unsupported':
-      return handlers.unsupported(plan.effect)
     default: {
       const exhaustive: never = plan
       return exhaustive

@@ -346,6 +346,7 @@ export async function buildHeroData(hero: any, profile: any, options: BuildHeroD
     },
     skills: hero.skills.map((hs: any) => ({
       skillId: hs.skill.id,
+      slug: hs.skill.slug,
       type: hs.skill.type,
       name: hs.skill.name,
       icon: hs.skill.icon,

@@ -81,7 +81,7 @@ export interface HeroData {
       defenseSkills: Record<string, number | null>
     }>>
   }
-  skills: Array<{ skillId: number; type?: 'basic' | 'active' | 'passive'; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
+  skills: Array<{ skillId: number; slug?: string; type?: 'basic' | 'active' | 'passive'; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
   equipStats?: Record<string, number>
   consumables?: Array<{ heroItemId: string; itemId: number; healHp?: number; healMp?: number }>
   /** Inventory row IDs removed by this in-memory simulation. */
@@ -329,6 +329,7 @@ export interface RunResult {
 
 type HeroSkill = {
   skillId: number
+  slug?: string
   multiplier: number
   manaCost: number
   healPct?: number

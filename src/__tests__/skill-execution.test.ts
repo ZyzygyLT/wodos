@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isSupportedSkillEffect, resolveSkillExecution, type SkillExecutionInput } from '@/engine/core/skills/skill-execution'
+import { resolveSkillExecution, type SkillExecutionInput } from '@/engine/core/skills/skill-execution'
 import { createSeededRandom } from '@/engine/core/random/random-source'
 import type { TargetableUnit } from '@/engine/core/skills/target-selection'
 
@@ -85,15 +85,6 @@ describe('central skill execution planning', () => {
       .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 17 })
   })
 
-  it('marks unimplemented combat effects as unsupported instead of treating them as attacks', () => {
-    for (const effect of ['buff', 'debuff', 'taunt', 'mana_drain', 'unknown_effect']) {
-      expect(resolve({ skillId: 99, effect })).toEqual({ kind: 'unsupported', effect })
-      expect(isSupportedSkillEffect(effect)).toBe(false)
-    }
-    for (const effect of ['attack', 'armor_penetration', 'critical_attack', 'aoe_attack', 'heal', 'party_attack_up', 'defense_up']) {
-      expect(isSupportedSkillEffect(effect)).toBe(true)
-    }
-  })
   it('returns all living enemies for area attacks', () => {
     const plan = resolve({ skillId: 4, effect: 'aoe_attack' }, { enemies: [...base.enemies, unit('defeated', 0)] })
     expect(plan.kind).toBe('area_attack')
