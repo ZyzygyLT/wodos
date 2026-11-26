@@ -450,7 +450,7 @@ describe('runDungeon', () => {
     expect(result.consumedConsumables).toEqual([
       { heroId: 'hero-1', heroItemId: 'hero-item-dual-potion' },
     ])
-    expect(result.log.some(entry => entry.message.includes('recupera 37 HP'))).toBe(true)
+    expect(result.log.some(entry => entry.message.includes('25 + 12 = 37 HP'))).toBe(true)
     expect(result.log.some(entry => entry.message.includes('recupera 30 MP'))).toBe(true)
   })
 
