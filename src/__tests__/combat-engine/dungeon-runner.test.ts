@@ -207,7 +207,7 @@ describe('runDungeon', () => {
       lootTable: [],
     }))
 
-    expect(result.log.some(entry => entry.type === 'buff' && entry.phase === 'prelim' && entry.message.includes('War Chant'))).toBe(true)
+    expect(result.log.some(entry => entry.type === 'buff' && entry.phase === 'prelim' && entry.skill === 'skill_999')).toBe(true)
     expect(result.levelReports[1]?.rounds[0]?.stateBefore.heroes[0]?.activeBuffs?.some(buff => buff.sourceName === 'War Chant')).toBe(true)
   })
 
