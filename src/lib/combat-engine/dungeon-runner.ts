@@ -1885,6 +1885,8 @@ function executeEnemyAction(
   return dispatchSkillExecutionPlan<CombatUnit, DetailedAction | null>(singlePlan, {
     heal: () => null,
     party_buff: () => null,
+    // Enemy self-buffs are not part of the supported enemy skill set yet.
+    self_buff: () => null,
     area_attack: targets => fResult
       ? executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen: false }, ctx, { initiative, actionNum, totalActions }, targets)
       : null,
