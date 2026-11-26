@@ -306,7 +306,7 @@ interface CombatGroupResult {
 
 async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero: CombatHero, profile: CombatProfile | null, levelReq: number): Promise<CombatGroupResult> {
   if (effectiveGroupId) {
-    const groupResult = await loadGroupParticipants(effectiveGroupId, { fullHealth: true })
+    const groupResult = await loadGroupParticipants(effectiveGroupId)
     if (groupResult.heroesData.length === 0) return { ok: false, error: 'Grupo vacío o no encontrado', status: 404, heroesData: [], totalHeroes: 0, isGroup: false }
     if (!groupResult.heroIds.includes(hero.id)) return { ok: false, error: 'Tu héroe no pertenece a este grupo', status: 403, heroesData: [], totalHeroes: 0, isGroup: false }
     for (const h of groupResult.heroesData) {
@@ -317,12 +317,15 @@ async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero
     // with the already-authorized selection before freezing the party.
     const heroesData = await Promise.all(groupResult.heroesData.map(participant =>
       participant.id === hero.id
-        ? buildHeroData(hero, profile ?? hero.combatProfiles?.find(p => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null, { fullHealth: true })
+        ? buildHeroData(hero, profile ?? hero.combatProfiles?.find(p => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null)
         : Promise.resolve(participant)
     ))
+    const downedHero = heroesData.find(participant => (participant.hpCurrent ?? 0) <= 0)
+    if (downedHero) return { ok: false, error: `${downedHero.name} no tiene vida suficiente para iniciar otra expedición`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
     return { ok: true, heroesData, totalHeroes: heroesData.length, isGroup: heroesData.length > 1 }
   }
-  const heroesData = [await buildHeroData(hero, profile, { fullHealth: true })]
+  const heroesData = [await buildHeroData(hero, profile)]
+  if ((heroesData[0].hpCurrent ?? 0) <= 0) return { ok: false, error: `${heroesData[0].name} no tiene vida suficiente para iniciar otra expedición`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
   return { ok: true, heroesData, totalHeroes: 1, isGroup: false }
 }
 

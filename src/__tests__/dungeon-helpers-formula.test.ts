@@ -114,9 +114,16 @@ describe('buildHeroData expedition HP', () => {
     combatProfiles: [],
   }
 
-  it('starts a new expedition at effective maximum HP even if outside HP is depleted', async () => {
-    const combatHero = await buildHeroData(hero, null, { fullHealth: true })
-    expect(combatHero.hpCurrent).toBe(100)
+  it('preserves persisted HP and MP when preparing a new expedition', async () => {
+    const partiallyRecoveredHero = { ...hero, hpCurrent: 55, mpCurrent: 13 }
+    const combatHero = await buildHeroData(partiallyRecoveredHero, null)
+    expect(combatHero.hpCurrent).toBe(55)
+    expect(combatHero.mpCurrent).toBe(13)
+  })
+
+  it('keeps depleted HP at zero so expedition registration can reject a downed hero', async () => {
+    const combatHero = await buildHeroData(hero, null)
+    expect(combatHero.hpCurrent).toBe(0)
   })
 
   it('restores carried expedition HP without changing the outside hero record', async () => {
