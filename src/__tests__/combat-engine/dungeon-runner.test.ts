@@ -217,6 +217,109 @@ describe('runDungeon', () => {
     expect(withVenganza.secondRoundStatus).not.toContainEqual(expect.objectContaining({ type: 'atk_up' }))
   })
 
+  it('applies Piel de Corteza as a personal defense buff that reduces incoming damage', async () => {
+    const run = async (withPielDeCorteza: boolean) => {
+      setupRand(...Array(300).fill(0.5))
+      const hero = makeHero({
+        hpMax: 500,
+        mpMax: 100,
+        skills: [
+          {
+            skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+            multiplier: 1, manaCost: 0, rank: 1,
+            formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 },
+          },
+          ...(withPielDeCorteza ? [{
+            skillId: 2, slug: 'piel-corteza-activa', name: 'Piel de Corteza',
+            type: 'active' as const, effect: 'defense_up', multiplier: 1.3,
+            manaCost: 6, rank: 3, cooldownRounds: 2,
+          }] : []),
+        ],
+        combatProfile: {
+          position: 'front',
+          prelimRules: [],
+          roundRules: [{
+            priority: 1,
+            condition: { type: 'always' },
+            action: {
+              skillId: withPielDeCorteza ? 2 : 1,
+              targetPos: 'auto',
+              targetType: withPielDeCorteza ? 'self' : 'weakest',
+            },
+          }],
+          defenseSkills: {},
+        },
+      })
+      const result = await runDungeon([hero], makeDungeon({
+        levels: [{
+          number: 1,
+          enemies: [{ id: 1, name: 'Training Ogre', icon: '👹', hp: 9999, mp: 0, atk: 40, def: 1, dx: 1, ag: 1, level: 1, position: 'front' }],
+          epReward: 0,
+          goldReward: 0,
+        }],
+      }))
+      const firstRound = result.levelReports[0]?.rounds[0]
+      const enemyAttack = firstRound?.actions.find(action =>
+        action.actorName === 'Training Ogre' && action.targetName === hero.name
+      )
+      return {
+        damage: enemyAttack?.damageBreakdown?.reduce((total, entry) => total + entry.value, 0) ?? 0,
+        statuses: firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects ?? [],
+        log: result.log,
+      }
+    }
+
+    const withoutBuff = await run(false)
+    const withBuff = await run(true)
+    expect(withBuff.statuses).toContainEqual(expect.objectContaining({ type: 'def_up', remainingRounds: 1, value: 19 }))
+    expect(withBuff.damage).toBeGreaterThan(0)
+    expect(withBuff.damage).toBeLessThan(withoutBuff.damage)
+    expect(withBuff.log.some(entry => entry.type === 'buff' && entry.message.includes('+19% DEF propia'))).toBe(true)
+  })
+
+  it('applies Forma Salvaje as simultaneous personal attack and defense buffs', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 500,
+      mpMax: 100,
+      skills: [
+        {
+          skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+          multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 },
+        },
+        {
+          skillId: 2, slug: 'forma-salvaje', name: 'Forma Salvaje',
+          type: 'active', effect: 'buff', multiplier: 1, manaCost: 18, rank: 3, cooldownRounds: 4,
+        },
+      ],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{
+          priority: 1,
+          condition: { type: 'always' },
+          action: { skillId: 2, targetPos: 'auto', targetType: 'self' },
+        }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Ogre', icon: '👹', hp: 9999, mp: 0, atk: 40, def: 1, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+    }))
+    const firstRound = result.levelReports[0]?.rounds[0]
+    const statuses = firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects ?? []
+    expect(statuses).toContainEqual(expect.objectContaining({ type: 'atk_up', remainingRounds: 1, value: 16 }))
+    expect(statuses).toContainEqual(expect.objectContaining({ type: 'def_up', remainingRounds: 1, value: 16 }))
+    expect(result.log.some(entry => entry.type === 'buff'
+      && entry.message.includes('+16% ATK propio y +16% DEF propia'))).toBe(true)
+  })
+
   it('applies per-floor tactical overrides to actions and formation', async () => {
     setupRand(...Array(200).fill(0.5))
     const hero = makeHero({

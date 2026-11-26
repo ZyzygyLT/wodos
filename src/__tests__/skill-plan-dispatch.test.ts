@@ -22,12 +22,26 @@ describe('skill execution plan dispatch', () => {
     const result = dispatchSkillExecutionPlan(plan, {
       heal: () => 'heal',
       party_buff: (buff, bonus) => `${buff}:${bonus}`,
-      self_buff: (buff, bonus) => `self:${buff}:${bonus}`,
+      self_buff: buffs => `self:${buffs.map(buff => `${buff.buff}:${buff.bonus}`).join(',')}`,
       area_attack: () => 'area',
       single_attack: () => 'single',
       unsupported: () => 'unsupported',
     })
     expect(result).toBe('def:18')
+  })
+
+  it('routes personal buffs and forwards every stat bonus', () => {
+    const buffs = [{ buff: 'atk' as const, bonus: 16 }, { buff: 'def' as const, bonus: 16 }]
+    const plan: SkillExecutionPlan<never> = { kind: 'self_buff', buffs }
+    const result = dispatchSkillExecutionPlan(plan, {
+      heal: () => 'heal',
+      party_buff: () => 'party',
+      self_buff: values => values.map(value => `${value.buff}:${value.bonus}`).join(','),
+      area_attack: () => 'area',
+      single_attack: () => 'single',
+      unsupported: () => 'unsupported',
+    })
+    expect(result).toBe('atk:16,def:16')
   })
 
   it('routes area attacks with their targets and flags', () => {

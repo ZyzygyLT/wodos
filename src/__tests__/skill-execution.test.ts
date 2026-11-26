@@ -81,17 +81,21 @@ describe('central skill execution planning', () => {
       .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 21 })
     expect(resolve({ skillId: 3, effect: 'defense_up', multiplier: 1, rank: 2 }))
       .toEqual({ kind: 'party_buff', buff: 'def', bonus: 14 })
+    for (const slug of ['postura-defensiva', 'resistencia', 'inquebrantable', 'piel-corteza-activa']) {
+      expect(resolve({ skillId: 30, slug, effect: 'defense_up', multiplier: 1.3, rank: 3 }))
+        .toEqual({ kind: 'self_buff', buffs: [{ buff: 'def', bonus: 19 }] })
+    }
     expect(resolve({ skillId: 9, effect: 'party_attack_up', multiplier: 1.5, rank: 0 }))
       .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 17 })
   })
 
   it('resolves Venganza as a rank-scaled self attack buff and keeps other generic buffs unsupported', () => {
     expect(resolve({ skillId: 98, slug: 'venganza', effect: 'buff', multiplier: 1, rank: 3 }))
-      .toEqual({ kind: 'self_buff', buff: 'atk', bonus: 16 })
+      .toEqual({ kind: 'self_buff', buffs: [{ buff: 'atk', bonus: 16 }] })
     expect(isSupportedSkillEffect('buff', 'venganza')).toBe(true)
     expect(resolve({ skillId: 97, slug: 'forma-salvaje', effect: 'buff', multiplier: 1, rank: 3 }))
-      .toEqual({ kind: 'unsupported', effect: 'buff' })
-    expect(isSupportedSkillEffect('buff', 'forma-salvaje')).toBe(false)
+      .toEqual({ kind: 'self_buff', buffs: [{ buff: 'atk', bonus: 16 }, { buff: 'def', bonus: 16 }] })
+    expect(isSupportedSkillEffect('buff', 'forma-salvaje')).toBe(true)
   })
 
   it('marks unimplemented combat effects as unsupported instead of treating them as attacks', () => {

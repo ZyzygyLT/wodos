@@ -38,7 +38,7 @@ export type SkillExecutionPlan<T> =
   | { readonly kind: 'unsupported'; readonly effect: string }
   | { readonly kind: 'heal'; readonly target: T | null; readonly healPct: number }
   | { readonly kind: 'party_buff'; readonly buff: 'atk' | 'def'; readonly bonus: number }
-  | { readonly kind: 'self_buff'; readonly buff: 'atk'; readonly bonus: number }
+  | { readonly kind: 'self_buff'; readonly buffs: readonly { readonly buff: 'atk' | 'def'; readonly bonus: number }[] }
   | { readonly kind: 'area_attack'; readonly targets: readonly T[]; readonly armorPenetration: boolean; readonly critical: boolean }
   | { readonly kind: 'single_attack'; readonly target: T | null; readonly armorPenetration: boolean; readonly critical: boolean }
 
@@ -62,7 +62,7 @@ const SUPPORTED_SINGLE_TARGET_EFFECTS = new Set(['attack', 'armor_penetration', 
 export function isSupportedSkillEffect(effect?: string, slug?: string): boolean {
   return SUPPORTED_SINGLE_TARGET_EFFECTS.has(effect ?? 'attack') ||
     effect === 'heal' || effect === 'party_attack_up' || effect === 'defense_up' || effect === 'aoe_attack' ||
-    (effect === 'buff' && slug === 'venganza')
+    (effect === 'buff' && (slug === 'venganza' || slug === 'forma-salvaje'))
 }
 
 /**
@@ -92,14 +92,28 @@ export function resolveSkillExecution<T extends TargetableUnit>(
     return { kind: 'heal', target, healPct }
   }
 
-  if (effect === 'party_attack_up' || effect === 'defense_up') {
+  if (effect === 'party_attack_up') {
     const bonus = calculatePartyBuffBonus(effect, skill.multiplier, rank)
-    return { kind: 'party_buff', buff: effect === 'party_attack_up' ? 'atk' : 'def', bonus }
+    return { kind: 'party_buff', buff: 'atk', bonus }
+  }
+
+  if (effect === 'defense_up') {
+    const bonus = calculatePartyBuffBonus(effect, skill.multiplier, rank)
+    if (['postura-defensiva', 'resistencia', 'inquebrantable', 'piel-corteza-activa'].includes(skill.slug ?? '')) {
+      return { kind: 'self_buff', buffs: [{ buff: 'def', bonus }] }
+    }
+    return { kind: 'party_buff', buff: 'def', bonus }
   }
 
   if (effect === 'buff' && skill.slug === 'venganza') {
     const bonus = calculatePartyBuffBonus('party_attack_up', skill.multiplier, rank)
-    return { kind: 'self_buff', buff: 'atk', bonus }
+    return { kind: 'self_buff', buffs: [{ buff: 'atk', bonus }] }
+  }
+
+  if (effect === 'buff' && skill.slug === 'forma-salvaje') {
+    const atkBonus = calculatePartyBuffBonus('party_attack_up', skill.multiplier, rank)
+    const defBonus = calculatePartyBuffBonus('defense_up', skill.multiplier, rank)
+    return { kind: 'self_buff', buffs: [{ buff: 'atk', bonus: atkBonus }, { buff: 'def', bonus: defBonus }] }
   }
 
   if (effect === 'aoe_attack') {

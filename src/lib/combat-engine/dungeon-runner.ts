@@ -1455,7 +1455,7 @@ function executeHeroAction(
   const isSupportSkill = (skill.effect === 'heal' && !!skill.healPct)
     || skill.effect === 'party_attack_up'
     || skill.effect === 'defense_up'
-    || (skill.effect === 'buff' && skill.slug === 'venganza')
+    || (skill.effect === 'buff' && (skill.slug === 'venganza' || skill.slug === 'forma-salvaje'))
   const fResult = isSupportSkill ? null : evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
 
   const plan = resolveSkillExecution({
@@ -1480,7 +1480,7 @@ function executeHeroAction(
   const detailedAction = dispatchSkillExecutionPlan(plan, {
     heal: target => executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target),
     party_buff: (buff, bonus) => executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
-    self_buff: (buff, bonus) => executeHeroSelfBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
+    self_buff: buffs => executeHeroSelfBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buffs),
     area_attack: (targets, armorPenetration, critical) => {
       const resolvedFormula = fResult!
       const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
