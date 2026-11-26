@@ -149,6 +149,72 @@ describe('runDungeon', () => {
     expect(firstRound?.actions.some(action => action.actorId === hero.id && action.skillName === 'Venganza')).toBe(true)
   })
 
+  it('makes Venganza increase the damage of the hero next-turn attack', async () => {
+    const getSecondRoundDamage = async (withVenganza: boolean) => {
+      setupRand(...Array(200).fill(0.5))
+      const hero = makeHero({
+        hpMax: 500,
+        mpMax: 100,
+        skills: withVenganza
+          ? [
+              {
+                skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+                multiplier: 1, manaCost: 0, rank: 1,
+                formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+              },
+              {
+                skillId: 2, slug: 'venganza', name: 'Venganza', type: 'active', effect: 'buff',
+                multiplier: 1, manaCost: 8, rank: 3, cooldownRounds: 3,
+              },
+            ]
+          : [
+              {
+                skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+                multiplier: 1, manaCost: 0, rank: 1,
+                formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+              },
+            ],
+        combatProfile: {
+          position: 'front',
+          prelimRules: [],
+          roundRules: [{
+            priority: 1,
+            condition: { type: 'always' },
+            action: {
+              skillId: withVenganza ? 2 : 1,
+              targetPos: withVenganza ? 'auto' : 'front',
+              targetType: withVenganza ? 'self' : 'weakest',
+            },
+          }],
+          defenseSkills: {},
+        },
+      })
+      const result = await runDungeon([hero], makeDungeon({
+        levels: [{
+          number: 1,
+          enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+          epReward: 0,
+          goldReward: 0,
+        }],
+      }))
+      const secondRound = result.levelReports[0]?.rounds.find(round => round.roundNumber === 2)
+      const attack = secondRound?.actions.find(action => action.actorId === hero.id)
+      return {
+        damage: attack?.damageBreakdown?.reduce((total, entry) => total + entry.value, 0) ?? 0,
+        skillName: attack?.skillName,
+        firstRoundStatus: result.levelReports[0]?.rounds[0]?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects,
+        secondRoundStatus: secondRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects,
+      }
+    }
+
+    const withoutVenganza = await getSecondRoundDamage(false)
+    const withVenganza = await getSecondRoundDamage(true)
+    expect(withVenganza.skillName).toBe('Ataque básico')
+    expect(withVenganza.firstRoundStatus).toContainEqual({ type: 'atk_up', remainingRounds: 1 })
+    expect(withVenganza.damage).toBeGreaterThan(withoutVenganza.damage)
+    expect(withVenganza.secondRoundStatus).not.toContainEqual(expect.objectContaining({ type: 'atk_up' }))
+  })
+
   it('applies per-floor tactical overrides to actions and formation', async () => {
     setupRand(...Array(200).fill(0.5))
     const hero = makeHero({
