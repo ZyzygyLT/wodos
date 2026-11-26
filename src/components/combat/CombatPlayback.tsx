@@ -114,6 +114,23 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
             </span>
           </div>
         )}
+        {current.round.roundNumber === 1 && current.level.preliminaryLog && current.level.preliminaryLog.length > 0 && (
+          <section aria-label="Acciones de preparación previa" className="space-y-2 rounded-lg border border-blue-900/30 bg-blue-950/10 p-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-blue-300">Preparación previa</h2>
+            <ol className="space-y-1.5">
+              {current.level.preliminaryLog.map((entry, index) => {
+                const label = entry.type === "buff" ? "Mejora" : entry.type === "heal" ? "Recuperación" : entry.type === "tactic_eval" ? "Táctica" : "Acción"
+                const color = entry.type === "buff" ? "text-blue-300" : entry.type === "heal" ? "text-emerald-300" : "text-gray-300"
+                return (
+                  <li key={`${entry.timestamp}-${index}`} className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-xs">
+                    <span className={`shrink-0 font-semibold ${color}`}>{label}</span>
+                    <span className="text-gray-300">{entry.message}</span>
+                  </li>
+                )
+              })}
+            </ol>
+          </section>
+        )}
         <RoundView round={current.round} />
       </div>
 
