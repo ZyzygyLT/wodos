@@ -34,6 +34,7 @@ export interface SkillExecutionInput<T extends TargetableUnit> {
 }
 
 export type SkillExecutionPlan<T> =
+  | { readonly kind: 'unsupported'; readonly effect: string }
   | { readonly kind: 'heal'; readonly target: T | null; readonly healPct: number }
   | { readonly kind: 'party_buff'; readonly buff: 'atk' | 'def'; readonly bonus: number }
   | { readonly kind: 'area_attack'; readonly targets: readonly T[]; readonly armorPenetration: boolean; readonly critical: boolean }
@@ -51,6 +52,14 @@ export function calculatePartyBuffBonus(
     ? multiplier!
     : fallbackMultiplier
   return Math.round(normalizedMultiplier * 10) + normalizedRank * 2
+}
+
+const SUPPORTED_SINGLE_TARGET_EFFECTS = new Set(['attack', 'armor_penetration', 'critical_attack'])
+
+/** Returns whether the combat runtime has a concrete handler for an active skill effect. */
+export function isSupportedSkillEffect(effect?: string): boolean {
+  return SUPPORTED_SINGLE_TARGET_EFFECTS.has(effect ?? 'attack') ||
+    effect === 'heal' || effect === 'party_attack_up' || effect === 'defense_up' || effect === 'aoe_attack'
 }
 
 /**
@@ -93,6 +102,8 @@ export function resolveSkillExecution<T extends TargetableUnit>(
       critical: false,
     }
   }
+
+  if (!SUPPORTED_SINGLE_TARGET_EFFECTS.has(effect)) return { kind: 'unsupported', effect }
 
   const selection = selectCombatTarget({
     actor,

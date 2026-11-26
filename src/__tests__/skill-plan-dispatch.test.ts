@@ -6,7 +6,7 @@ describe('skill execution plan dispatch', () => {
   it('routes healing plans and forwards target and percentage', () => {
     const target = { id: 'ally' }
     const plan: SkillExecutionPlan<typeof target> = { kind: 'heal', target, healPct: 35 }
-    const result = dispatchSkillExecutionPlan(plan, {
+    const result = dispatchSkillExecutionPlan<never, string | null>(plan, {
       heal: (unit, pct) => ({ kind: 'healed', unit, pct }),
       party_buff: () => ({ kind: 'buff' }),
       area_attack: () => ({ kind: 'area' }),
@@ -38,7 +38,7 @@ describe('skill execution plan dispatch', () => {
       party_buff: () => 'buff',
       area_attack: (units, penetration, critical) => ({ units, penetration, critical }),
       single_attack: () => 'single',
-      unsupported: () => 'unsupported',
+      unsupported: () => undefined,
     })
     expect(result).toEqual({ units: targets, penetration: true, critical: false })
   })
@@ -53,14 +53,14 @@ describe('skill execution plan dispatch', () => {
       party_buff: () => 'buff',
       area_attack: () => 'area',
       single_attack: (unit, penetration, critical) => ({ unit, penetration, critical }),
-      unsupported: () => undefined,
+      unsupported: () => 'unsupported',
     })
     expect(result).toEqual({ unit: target, penetration: false, critical: true })
   })
 
   it('preserves null targets for handlers to decide legacy no-op behavior', () => {
     const plan: SkillExecutionPlan<never> = { kind: 'heal', target: null, healPct: 20 }
-    const result = dispatchSkillExecutionPlan<never, string | null>(plan, {
+    const result = dispatchSkillExecutionPlan(plan, {
       heal: target => target,
       party_buff: () => 'buff',
       area_attack: () => 'area',
