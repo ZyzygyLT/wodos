@@ -11,11 +11,19 @@ interface CombatPlaybackProps {
   showRewards?: boolean
 }
 
-interface FlattenedRound {
-  levelIndex: number
-  round: LevelReport["rounds"][number]
-  level: LevelReport
-}
+type PlaybackStep =
+  | {
+      kind: "preliminary"
+      levelIndex: number
+      level: LevelReport
+      entries: NonNullable<LevelReport["preliminaryLog"]>
+    }
+  | {
+      kind: "round"
+      levelIndex: number
+      level: LevelReport
+      round: LevelReport["rounds"][number]
+    }
 
 export function CombatPlayback({ result, dungeonName, onFinish, showRewards = true }: Readonly<CombatPlaybackProps>) {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -24,15 +32,25 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const levels = result.levelReports ?? []
+  const steps: PlaybackStep[] = levels.flatMap((level, levelIndex): PlaybackStep[] => {
+    const preliminaryStep: PlaybackStep[] = level.preliminaryLog?.length
+      ? [{ kind: "preliminary", levelIndex, level, entries: level.preliminaryLog }]
+      : []
+    const roundSteps: PlaybackStep[] = level.rounds.map(round => ({
+      kind: "round",
+      levelIndex,
+      level,
+      round,
+    }))
+    return [...preliminaryStep, ...roundSteps]
+  })
 
-  const rounds: FlattenedRound[] = levels.flatMap((l, li) =>
-    l.rounds.map(r => ({ levelIndex: li, round: r, level: l }))
-  )
-
-  const totalRounds = rounds.length
-  const current = rounds[currentIndex]
-  const isLast = currentIndex >= totalRounds - 1
-  const percent = totalRounds > 0 ? ((currentIndex + 1) / totalRounds) * 100 : 0
+  const totalSteps = steps.length
+  const totalRounds = result.totalRounds
+  const current = steps[currentIndex]
+  const isLast = currentIndex >= totalSteps - 1
+  const percent = totalSteps > 0 ? ((currentIndex + 1) / totalSteps) * 100 : 0
+  const isFirstStepInLevel = currentIndex === 0 || steps[currentIndex - 1]?.levelIndex !== current?.levelIndex
 
   const advance = useCallback(() => {
     if (isLast) {
@@ -43,8 +61,8 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
   }, [isLast])
 
   const goTo = useCallback((idx: number) => {
-    setCurrentIndex(Math.max(0, Math.min(idx, totalRounds - 1)))
-  }, [totalRounds])
+    setCurrentIndex(Math.max(0, Math.min(idx, totalSteps - 1)))
+  }, [totalSteps])
 
   useEffect(() => {
     if (!playing) {
@@ -56,7 +74,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [playing, currentIndex, speed, advance])
 
-  if (totalRounds === 0) {
+  if (totalSteps === 0) {
     return (
       <div className="max-w-3xl mx-auto p-4 sm:p-6 min-h-[60vh] flex items-center justify-center">
         <div className="w-full rounded-xl border border-gray-800 bg-gray-900 p-8 text-center space-y-4">
@@ -65,7 +83,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
             {result.victory ? "¡Victoria!" : "Derrota"}
           </h1>
           <p className="text-sm text-gray-400">
-            No hay rondas detalladas disponibles para reproducir. El resultado de la expedición se ha guardado.
+            No hay fases ni rondas detalladas disponibles para reproducir. El resultado de la expedición se ha guardado.
           </p>
           {showRewards && (
             <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
@@ -86,16 +104,17 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="break-words text-xl font-bold text-gray-200">⚔️ {dungeonName}</h1>
           <p className="text-sm text-gray-500">
-            Nivel {current.level.levelNumber} · Ronda {current.round.roundNumber} ({currentIndex + 1}/{totalRounds})
+            {current.kind === "preliminary"
+              ? `Nivel ${current.level.levelNumber} · Preparación previa`
+              : `Nivel ${current.level.levelNumber} · Ronda ${current.round.roundNumber}`}
+            {" "}({currentIndex + 1}/{totalSteps})
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Progress bar */}
           <div className="w-28 sm:w-32 h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-amber-500 rounded-full transition-all duration-300"
@@ -105,24 +124,27 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
         </div>
       </div>
 
-      {/* Current round */}
       <div className="space-y-4">
-        {current.levelIndex > 0 && current.round.roundNumber === 1 && (
+        {current.levelIndex > 0 && isFirstStepInLevel && (
           <div className="text-center py-4">
             <span className="px-4 py-2 bg-amber-900/30 text-amber-400 rounded-lg text-sm font-bold">
               🗺️ Nivel {current.level.levelNumber}
             </span>
           </div>
         )}
-        {current.round.roundNumber === 1 && current.level.preliminaryLog && current.level.preliminaryLog.length > 0 && (
-          <section aria-label="Acciones de preparación previa" className="space-y-2 rounded-lg border border-blue-900/30 bg-blue-950/10 p-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-blue-300">Preparación previa</h2>
-            <ol className="space-y-1.5">
-              {current.level.preliminaryLog.map((entry, index) => {
+
+        {current.kind === "preliminary" ? (
+          <section aria-label="Acciones de preparación previa" className="space-y-3 rounded-lg border border-blue-900/30 bg-blue-950/10 p-4">
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-blue-300">Preparación previa</h2>
+              <p className="mt-1 text-xs text-gray-500">Acciones ejecutadas antes de comenzar las rondas de combate</p>
+            </div>
+            <ol className="space-y-2">
+              {current.entries.map((entry, index) => {
                 const label = entry.type === "buff" ? "Mejora" : entry.type === "heal" ? "Recuperación" : entry.type === "tactic_eval" ? "Táctica" : "Acción"
                 const color = entry.type === "buff" ? "text-blue-300" : entry.type === "heal" ? "text-emerald-300" : "text-gray-300"
                 return (
-                  <li key={`${entry.timestamp}-${index}`} className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-xs">
+                  <li key={`${entry.timestamp}-${index}`} className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-sm">
                     <span className={`shrink-0 font-semibold ${color}`}>{label}</span>
                     <span className="text-gray-300">{entry.message}</span>
                   </li>
@@ -130,11 +152,11 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
               })}
             </ol>
           </section>
+        ) : (
+          <RoundView round={current.round} />
         )}
-        <RoundView round={current.round} />
       </div>
 
-      {/* Controls */}
       <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-4 border-t border-gray-800">
         <button
           onClick={() => { goTo(0); setPlaying(true) }}
@@ -166,7 +188,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
           Siguiente ▶
         </button>
         <button
-          onClick={() => goTo(totalRounds - 1)}
+          onClick={() => goTo(totalSteps - 1)}
           className="px-3 py-1.5 rounded bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 transition disabled:opacity-30"
           disabled={isLast}
         >
@@ -189,7 +211,6 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
         </div>
       </div>
 
-      {/* Finished overlay */}
       {isLast && !playing && (
         <div className="text-center py-8 space-y-4">
           <div className="text-5xl">{result.victory ? "🏆" : "💀"}</div>
@@ -197,7 +218,7 @@ export function CombatPlayback({ result, dungeonName, onFinish, showRewards = tr
             {result.victory ? "¡Victoria!" : "Derrota"}
           </h2>
           <div className="flex items-center justify-center gap-6 text-sm text-gray-400">
-            <span>⚔️ {result.totalRounds} rondas</span>
+            <span>⚔️ {totalRounds} rondas</span>
             {showRewards && (
               <>
                 <span>⭐ +{result.epGained} EP</span>
