@@ -324,7 +324,6 @@ describe("persistRunResult", () => {
     expect(heroUpdates).toHaveLength(2)
     for (const finalState of result.heroesFinalState) {
       const persisted = heroUpdates.find(update => update.where.id === finalState.id)
-      const initialHero = heroes.find(hero => hero.id === finalState.id)
       expect(persisted?.data).toEqual(expect.objectContaining({
         hpCurrent: finalState.hp,
         mpCurrent: finalState.mp,
