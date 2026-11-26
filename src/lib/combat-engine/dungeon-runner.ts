@@ -2324,7 +2324,21 @@ function resolveCooldownOverride(hero: HeroData, action: TacticAction, state: Co
   if (!isSkillOnCooldown(state.skillCooldowns, actorUnit.id, action.skillId)) return action
   const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (isBasicSkill(s)))
   if (!available) return action
-  const override: TacticAction = { ...action, skillId: available.skillId, fallbackReason: 'cooldown', selectedSkillId: action.skillId }
+  const selectedSkill = hero.skills.find(s => s.skillId === action.skillId)
+  const isSupportSkill = selectedSkill?.effect === 'heal'
+    || selectedSkill?.effect === 'buff'
+    || selectedSkill?.effect === 'party_attack_up'
+    || selectedSkill?.effect === 'defense_up'
+  const fallbackTarget = isSupportSkill
+    ? { targetPos: 'auto' as const, targetType: 'weakest' as const }
+    : {}
+  const override: TacticAction = {
+    ...action,
+    ...fallbackTarget,
+    skillId: available.skillId,
+    fallbackReason: 'cooldown',
+    selectedSkillId: action.skillId,
+  }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
     `⏳ ${actorUnit.name} — skill_${action.skillId} en cooldown, usando skill_${available.skillId}`,
     { actor: actorUnit.name, skill: `skill_${available.skillId}` })

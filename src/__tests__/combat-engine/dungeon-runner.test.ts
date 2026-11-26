@@ -202,6 +202,7 @@ describe('runDungeon', () => {
       return {
         damage: attack?.damageBreakdown?.reduce((total, entry) => total + entry.value, 0) ?? 0,
         skillName: attack?.skillName,
+        targetName: attack?.targetName,
         firstRoundStatus: result.levelReports[0]?.rounds[0]?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects,
         secondRoundStatus: secondRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects,
       }
@@ -210,6 +211,7 @@ describe('runDungeon', () => {
     const withoutVenganza = await getSecondRoundDamage(false)
     const withVenganza = await getSecondRoundDamage(true)
     expect(withVenganza.skillName).toBe('Ataque básico')
+    expect(withVenganza.targetName).toBe('Training Golem')
     expect(withVenganza.firstRoundStatus).toContainEqual({ type: 'atk_up', remainingRounds: 1 })
     expect(withVenganza.damage).toBeGreaterThan(withoutVenganza.damage)
     expect(withVenganza.secondRoundStatus).not.toContainEqual(expect.objectContaining({ type: 'atk_up' }))
