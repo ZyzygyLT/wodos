@@ -117,6 +117,10 @@ describe('reproducible combat randomness', () => {
     const withoutTimestamps = (result: Awaited<ReturnType<typeof runDungeon>>) => ({
       ...result,
       log: result.log.map(({ timestamp: _timestamp, ...entry }) => entry),
+      levelReports: result.levelReports.map(level => ({
+        ...level,
+        preliminaryLog: level.preliminaryLog?.map(({ timestamp: _timestamp, ...entry }) => entry),
+      })),
     })
 
     expect(withoutTimestamps(first)).toEqual(withoutTimestamps(second))
