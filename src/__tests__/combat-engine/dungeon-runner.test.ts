@@ -106,7 +106,7 @@ describe('runDungeon', () => {
     const result = await runDungeon([firstHero, secondHero], makeDungeon({
       levels: [{
         number: 1,
-        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 5, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
         epReward: 0,
         goldReward: 0,
       }],
@@ -193,7 +193,7 @@ describe('runDungeon', () => {
       },
       skills: [
         ...makeHero().skills,
-        { skillId: 999, name: 'War Chant', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as any },
+        { skillId: 999, name: 'War Chant', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1 },
       ],
     })
     const floor = (number: number) => ({
