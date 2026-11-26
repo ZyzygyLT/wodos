@@ -198,7 +198,7 @@ describe('runDungeon', () => {
     })
     const floor = (number: number) => ({
       number,
-      enemies: [{ id: number, name: `Training Golem ${number}`, icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+      enemies: [{ id: number, name: `Training Golem ${number}`, icon: '🗿', hp: 5, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
       epReward: 0,
       goldReward: 0,
     })
