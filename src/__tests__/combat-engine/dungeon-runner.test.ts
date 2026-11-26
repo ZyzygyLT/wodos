@@ -208,6 +208,10 @@ describe('runDungeon', () => {
     }))
 
     expect(result.log.some(entry => entry.type === 'buff' && entry.phase === 'prelim' && entry.skill === 'skill_999')).toBe(true)
+    expect(result.levelReports[0]?.preliminaryLog ?? []).toHaveLength(0)
+    expect(result.levelReports[1]?.preliminaryLog).toEqual([
+      expect.objectContaining({ type: 'buff', phase: 'prelim', level: 2, skill: 'skill_999' }),
+    ])
     expect(result.levelReports[1]?.rounds[0]?.stateBefore.heroes[0]?.activeBuffs?.some(buff => buff.sourceName === 'War Chant')).toBe(true)
   })
 

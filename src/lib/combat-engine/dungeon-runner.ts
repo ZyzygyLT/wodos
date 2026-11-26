@@ -274,6 +274,8 @@ export interface LevelReport {
   levelNumber: number
   victory: boolean
   rounds: RoundReport[]
+  /** Actual preliminary-phase log entries for this floor, in execution order. */
+  preliminaryLog?: LogEntry[]
   epGained: number
   goldGained: number
   narrative?: string
@@ -2772,6 +2774,10 @@ export async function runDungeon(
       levelNumber: lvl.number,
       victory: levelVictory,
       rounds: roundReports,
+      preliminaryLog: log.filter(entry =>
+        entry.level === lvl.number && entry.phase === 'prelim' &&
+        entry.type !== 'level_start' && entry.type !== 'prelim_start'
+      ),
       epGained: lvlEp,
       goldGained: lvlGold,
       locationName: lvl.locationName,

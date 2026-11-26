@@ -34,6 +34,23 @@ export function LevelAccordion({ level, defaultOpen }: Readonly<{ level: LevelRe
               <p className="text-xs text-amber-300/80 italic leading-relaxed">"{level.narrative}"</p>
             </div>
           )}
+          {level.preliminaryLog && level.preliminaryLog.length > 0 && (
+            <section aria-label="Acciones preliminares" className="space-y-2 rounded-lg border border-blue-900/30 bg-blue-950/10 p-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-300">Preparación previa</h3>
+              <ol className="space-y-1.5">
+                {level.preliminaryLog.map((entry, index) => {
+                  const label = entry.type === 'buff' ? 'Mejora' : entry.type === 'heal' ? 'Recuperación' : entry.type === 'tactic_eval' ? 'Táctica' : 'Acción'
+                  const color = entry.type === 'buff' ? 'text-blue-300' : entry.type === 'heal' ? 'text-emerald-300' : 'text-gray-300'
+                  return (
+                    <li key={`${entry.timestamp}-${index}`} className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-xs">
+                      <span className={`shrink-0 font-semibold ${color}`}>{label}</span>
+                      <span className="text-gray-300">{entry.message}</span>
+                    </li>
+                  )
+                })}
+              </ol>
+            </section>
+          )}
           {level.specialEvents && level.specialEvents.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {level.specialEvents.map((ev, i) => (
