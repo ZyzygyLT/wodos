@@ -72,12 +72,14 @@ export interface HeroData {
   groupAtkBonus?: number
   combatProfile: {
     position: string
+    initiativeSkill?: string
     prelimRules: any[]
     roundRules: RoundRule[]
     defenseSkills: Record<string, number | null>
     /** Per-dungeon-floor settings override the selected base profile when present. */
     levelOverrides?: Record<number, Partial<{
       position: string
+      initiativeSkill: string
       prelimRules: Array<{ skillId?: number; itemId?: number }>
       roundRules: RoundRule[]
       defenseSkills: Record<string, number | null>
@@ -337,6 +339,7 @@ export interface RunResult {
 type HeroSkill = {
   skillId: number
   slug?: string
+  type?: 'basic' | 'active' | 'passive'
   multiplier: number
   manaCost: number
   healPct?: number
@@ -575,7 +578,7 @@ function mergeHeroAttrs(hero: HeroData, equip: Record<string, number>): Record<s
   return applyStatModifiersToRecord(hero.attrs, equipmentModifiers)
 }
 
-function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; defenseBonus: number; thornsPct: number; vampirePct: number; counterPct: number } {
+function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number, initiativeSkill = 'organization'): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; defenseBonus: number; thornsPct: number; vampirePct: number; counterPct: number } {
   let finalHp = baseHp
   let finalMp = baseMp
   const baseDefense = calcDefenseBase(merged as any) + level * 2
@@ -601,7 +604,7 @@ function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, num
 
   const modifiedAttrs = applyInitiativeSkillModifiers(
     applyStatModifiersToRecord(merged, skillModifiers),
-    skills.map(skill => skill.effect)
+    skills.filter(skill => skill.type === 'passive' && skill.slug === initiativeSkill).map(skill => skill.effect)
   )
   const heroDef = applyStatModifiers(baseDefense, defenseModifiers)
   return { finalHp, finalMp, merged: modifiedAttrs, heroDef, defenseBonus: heroDef - baseDefense, thornsPct, vampirePct, counterPct }
@@ -661,7 +664,8 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
     merged,
     resources.hpMax,
     resources.mpMax,
-    hero.level
+    hero.level,
+    hero.combatProfile.initiativeSkill ?? 'organization'
   )
   const equipmentDefense = Number.isFinite(equip.def) ? equip.def! : 0
   const { defenseValues, defenseSkillNames, defenseEffects } = buildHeroDefenseValues(
@@ -702,15 +706,22 @@ function applyLevelCombatProfile(
     prelimRules: override?.prelimRules ?? baseProfile.prelimRules,
     roundRules: override?.roundRules ?? baseProfile.roundRules,
     defenseSkills: override?.defenseSkills ?? baseProfile.defenseSkills,
+    initiativeSkill: override?.initiativeSkill ?? baseProfile.initiativeSkill ?? 'organization',
     levelOverrides: baseProfile.levelOverrides,
   }
   unit.position = hero.combatProfile.position
+  const equip = hero.equipStats ?? {}
+  const merged = mergeHeroAttrs(hero, equip)
+  const initiativeStats = applyHeroSkillModifiers(
+    hero.skills, merged, hero.hpMax, hero.mpMax, hero.level, hero.combatProfile.initiativeSkill
+  )
+  unit.attrs = initiativeStats.merged
 
-  if (override?.defenseSkills) {
+  if (override?.defenseSkills || override?.initiativeSkill !== undefined) {
     const equip = hero.equipStats ?? {}
     const merged = mergeHeroAttrs(hero, equip)
     const { merged: mergedMod, defenseBonus } = applyHeroSkillModifiers(
-      hero.skills, merged, hero.hpMax, hero.mpMax, hero.level
+      hero.skills, merged, hero.hpMax, hero.mpMax, hero.level, hero.combatProfile.initiativeSkill
     )
     const equipmentDefense = Number.isFinite(equip.def) ? equip.def! : 0
     const defense = buildHeroDefenseValues(

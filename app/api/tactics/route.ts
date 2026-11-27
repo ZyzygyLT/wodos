@@ -52,6 +52,7 @@ const roundRuleSchema = z.object({
 const putSchema = z.object({
   dungeonLevel: z.number().int().positive().nullable().optional(),
   position: z.enum(POSITIONS).optional(),
+  initiativeSkill: z.string().max(80).optional(),
   defenseSkills: z.object({
     melee: z.number().int().positive().nullable().optional(),
     ranged: z.number().int().positive().nullable().optional(),
@@ -112,6 +113,11 @@ export async function PUT(req: NextRequest) {
   const ownedItems = hero.items.map(hi => hi.item)
   const consumableIds = new Set(ownedItems.filter(item => item.category === 'consumable').map(item => item.id))
   const skillsById = new Map(hero.skills.map(entry => [entry.skillId, entry.skill]))
+  if (parsed.data.initiativeSkill && !hero.skills.some(entry =>
+    entry.skill.slug === parsed.data.initiativeSkill && entry.skill.type === 'passive' && entry.skill.effect === 'speed_up'
+  )) {
+    return NextResponse.json({ error: 'La habilidad de iniciativa debe ser una pasiva desbloqueada por tu héroe' }, { status: 400 })
+  }
 
   function validatePrelimRule(r: z.infer<typeof prelimRuleSchema>): string | null {
     if (r.skillId !== undefined) {
@@ -175,6 +181,7 @@ export async function PUT(req: NextRequest) {
           name: dl ? `Nivel ${dl}` : "Estándar",
           dungeonLevel: dl,
           position: parsed.data.position ?? 'front',
+          initiativeSkill: parsed.data.initiativeSkill ?? 'organization',
           defenseSkills: parsed.data.defenseSkills ?? {},
           prelimRules: parsed.data.prelimRules ?? [],
           roundRules: parsed.data.roundRules ?? [

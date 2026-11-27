@@ -20,6 +20,7 @@ export interface CombatProfile {
   id: string; heroId: string
   name: string; dungeonLevel: number | null
   position: string
+  initiativeSkill?: string
   defenseSkills: Record<string, number | null>
   prelimRules: PrelimRule[]
   roundRules: RoundRule[]
@@ -27,6 +28,7 @@ export interface CombatProfile {
 
 export interface HeroSkillDef {
   id: number; name: string; icon: string
+  slug?: string; effect?: string
   type: string; timing: string; tier: number
   goldCost: number; manaCost: number
   multiplier: number; unlocked: boolean
@@ -166,6 +168,7 @@ export function useTactics() {
           body: JSON.stringify({
             dungeonLevel: p.dungeonLevel,
             position: p.position,
+            initiativeSkill: p.initiativeSkill ?? '',
             defenseSkills: p.defenseSkills,
             prelimRules: p.prelimRules,
             roundRules: p.roundRules,

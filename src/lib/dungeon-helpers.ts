@@ -256,6 +256,7 @@ export async function buildHeroData(hero: any, profile: any, options: BuildHeroD
     id: string
     dungeonLevel: number | null
     position: string
+    initiativeSkill?: string
     prelimRules: unknown
     roundRules: unknown
     defenseSkills: unknown
@@ -269,6 +270,7 @@ export async function buildHeroData(hero: any, profile: any, options: BuildHeroD
       .filter(candidate => candidate.dungeonLevel !== null)
       .map(candidate => [candidate.dungeonLevel, {
         position: candidate.position,
+        initiativeSkill: candidate.initiativeSkill,
         prelimRules: candidate.prelimRules as Array<{ skillId?: number; itemId?: number }>,
         roundRules: candidate.roundRules as HeroData['combatProfile']['roundRules'],
         defenseSkills: candidate.defenseSkills as HeroData['combatProfile']['defenseSkills'],
@@ -336,6 +338,7 @@ export async function buildHeroData(hero: any, profile: any, options: BuildHeroD
     manaShield,
     combatProfile: {
       position: baseProfile?.position ?? 'front',
+      initiativeSkill: baseProfile?.initiativeSkill ?? 'organization',
       prelimRules: (baseProfile?.prelimRules ?? []) as any[],
       roundRules: (baseProfile?.roundRules ?? [
         { priority: 1, condition: { type: 'hp_self_lt', value: 30 }, action: { skillId: defaultSkillId, targetPos: 'auto', targetType: 'weakest' } },

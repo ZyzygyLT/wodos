@@ -37,6 +37,7 @@ function makeHero(overrides: Partial<HeroData> = {}): HeroData {
     gold: 100,
     combatProfile: {
       position: 'front',
+      initiativeSkill: 'organization',
       prelimRules: [],
       roundRules: [
         { priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
@@ -80,6 +81,56 @@ function makeHero2(overrides: Partial<HeroData> = {}): HeroData {
 }
 
 describe('runDungeon', () => {
+  it('applies only the initiative passive selected in the combat profile', async () => {
+    const hero = makeHero({
+      attrs: { ...baseAttrs, ag: 0, pe: 0 },
+      combatProfile: {
+        position: 'front', initiativeSkill: 'organization', prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 99, slug: 'organization', type: 'passive', multiplier: 1, manaCost: 0, effect: 'speed_up', name: 'Organización' },
+      ],
+    })
+    const dungeon = makeDungeon({
+      lootTable: [],
+      levels: [{ number: 1, enemies: [{ id: 9, name: 'Slow Guard', icon: '🛡️', hp: 500, mp: 0, atk: 0, def: 0, dx: 0, ag: 4, pe: 0, attrs: { ag: 4, pe: 0 }, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    })
+
+    const withPassive = await runDungeon([hero], dungeon, { random: { next: () => 0 } })
+    expect(withPassive.levelReports[0]?.rounds[0]?.actions[0]?.actorId).toBe('hero-1')
+
+    const withoutPassive = await runDungeon([{
+      ...hero,
+      combatProfile: { ...hero.combatProfile, initiativeSkill: '' },
+    }], dungeon, { random: { next: () => 0 } })
+    expect(withoutPassive.levelReports[0]?.rounds[0]?.actions[0]?.actorId).not.toBe('hero-1')
+  })
+
+  it('allows a dungeon-floor profile to override the general initiative passive', async () => {
+    const hero = makeHero({
+      attrs: { ...baseAttrs, ag: 0, pe: 0 },
+      combatProfile: {
+        position: 'front', initiativeSkill: 'organization', prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+        levelOverrides: { 1: { initiativeSkill: '' } },
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 99, slug: 'organization', type: 'passive', multiplier: 1, manaCost: 0, effect: 'speed_up', name: 'Organización' },
+      ],
+    })
+    const dungeon = makeDungeon({
+      lootTable: [],
+      levels: [{ number: 1, enemies: [{ id: 9, name: 'Slow Guard', icon: '🛡️', hp: 500, mp: 0, atk: 0, def: 0, dx: 0, ag: 4, pe: 0, attrs: { ag: 4, pe: 0 }, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    })
+
+    const result = await runDungeon([hero], dungeon, { random: { next: () => 0 } })
+    expect(result.levelReports[0]?.rounds[0]?.actions[0]?.actorId).not.toBe('hero-1')
+  })
   it('uses each hero\'s own free attack when a group has no configured round rules', async () => {
     setupRand(...Array(100).fill(0.5))
     const firstHero = makeHero({

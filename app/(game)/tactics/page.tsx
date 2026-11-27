@@ -64,6 +64,7 @@ export default function TacticsEditor() {
 
   const preRoundSkills = heroSkills.filter(s => s.unlocked && PRELIM_TIMINGS.has(s.timing))
   const roundSkills = heroSkills.filter(s => s.unlocked && ROUND_TIMINGS.has(s.timing))
+  const initiativeSkills = heroSkills.filter(s => s.unlocked && s.type === 'passive' && s.effect === 'speed_up' && s.slug)
 
   function getDefenseValue(skillId: number | null): number {
     if (!skillId) return 0
@@ -132,7 +133,17 @@ export default function TacticsEditor() {
                 </select>
               </div>
               <div className="p-3 rounded-lg bg-gray-800/50">
-                <p className="text-xs text-gray-400">⚡ La iniciativa se calcula automáticamente: <strong className="text-gray-200">AG + PE/2</strong></p>
+                <label htmlFor="tactics-initiative-skill" className="text-xs text-gray-400">Habilidad de iniciativa</label>
+                <select id="tactics-initiative-skill"
+                  value={initiativeSkills.some(s => s.slug === profile.initiativeSkill) ? profile.initiativeSkill ?? '' : ''}
+                  onChange={e => updateProfile('initiativeSkill', e.target.value)}
+                  className="w-full bg-gray-700 rounded-lg px-2 py-1.5 mt-1 text-sm outline-none focus:ring-1 focus:ring-yellow-500">
+                  <option value="">Sin pasiva de iniciativa</option>
+                  {initiativeSkills.map(skill => (
+                    <option key={skill.slug} value={skill.slug}>{skill.icon} {skill.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-gray-500">Base: AG + ⌊PE/2⌋. La pasiva elegida suma +5 AG antes de la tirada.</p>
               </div>
             </div>
             {!profile.dungeonLevel && (
