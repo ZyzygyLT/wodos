@@ -351,7 +351,7 @@ export default function DungeonPage() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Expedición {runStatus.status === "registered" ? "registrada" : runStatus.status === "running" ? "en curso" : "finalizada"}</p>
                 <p className="mt-1 text-sm font-semibold text-gray-100">{runStatus.dungeon ?? "Última expedición"}</p>
                 {runStatus.status === "registered" && runStatus.nextRunAt && (
-                  <p className="mt-1 text-xs text-gray-400">Salida prevista: {new Date(runStatus.nextRunAt).toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-gray-400">Salida prevista (hora local): {new Date(runStatus.nextRunAt).toLocaleString()}</p>
                 )}
                 {runStatus.status === "running" && (
                   <p className="mt-1 text-xs text-gray-400">La expedición está siendo resuelta. Este estado se actualizará automáticamente.</p>
