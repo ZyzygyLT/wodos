@@ -1219,26 +1219,30 @@ function executeHeroSelfBuffAction(
   skillName: string,
   ctx: CombatCtx,
   meta: ActionMeta,
-  buff: 'atk',
-  bonus: number,
+  buffs: readonly { readonly buff: 'atk' | 'def'; readonly bonus: number }[],
 ): DetailedAction {
   // Two round ticks include the application round and preserve one complete
   // following hero turn, matching Venganza's one-turn design.
   const remainingRounds = 2
-  heroUnit.statusEffects = [...applyLegacyStatusEffect(heroUnit.statusEffects ?? [], {
-    type: 'atk_up',
+  heroUnit.statusEffects = [...buffs.reduce((statuses, { buff, bonus }) => applyLegacyStatusEffect(statuses, {
+    type: buff === 'atk' ? 'atk_up' : 'def_up',
     remainingRounds,
     value: bonus,
     source: skillName,
     sourceName: skillName,
-  })]
+  }), heroUnit.statusEffects ?? [])]
   emitUnitStateChanged(ctx, heroUnit, { statusEffects: heroUnit.statusEffects.map(effect => ({ ...effect })) })
-  const msg = `${heroUnit.name} usa ${skillName} → +${bonus}% ATK propio durante su próximo turno`
+  const buffSummary = buffs.map(({ buff, bonus }) =>
+    `+${bonus}% ${buff === 'atk' ? 'ATK propio' : 'DEF propia'}`
+  ).join(' y ')
+  const buffLabels = buffs.map(({ buff }) => buff === 'atk' ? 'ATK propio' : 'DEF propia')
+  const msg = `${heroUnit.name} usa ${skillName} → ${buffSummary} durante su próximo turno`
+  const primaryBonus = buffs[0]?.bonus ?? 0
   addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', msg,
-    { actor: heroUnit.name, skill: skillName, value: bonus })
+    { actor: heroUnit.name, skill: skillName, value: primaryBonus })
   return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative,
     actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
-    healA: null, healT: null, buffN: 'ATK propio', buffV: bonus, itemN: null,
+    healA: null, healT: null, buffN: buffLabels.join(' + '), buffV: primaryBonus, itemN: null,
     defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined,
     defEquip: undefined, msg, mpCost: meta.mpCost })
 }
