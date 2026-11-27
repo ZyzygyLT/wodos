@@ -36,22 +36,27 @@ export default function DungeonReport() {
   }, [levelReports])
 
   useEffect(() => {
+    let cancelled = false
     let id = params?.id as string | undefined
     if (!id && globalThis.window !== undefined) {
-      const m = /\/dungeon\/report\/([^/]+)/.exec(globalThis.window.location.pathname)
+      const m = /\\/dungeon\\/report\\/([^/]+)/.exec(globalThis.window.location.pathname)
       if (m) id = m[1]
     }
     if (!id) {
       Promise.resolve().then(() => {
+        if (cancelled) return
         setError("ID de reporte no encontrado en la URL")
         setLoading(false)
       })
-      return
+      return () => { cancelled = true }
     }
 
     fetch(`/api/dungeon/report/${id}`)
       .then(async r => {
-        if (r.status === 401) { router.push("/login"); return null }
+        if (r.status === 401) {
+          if (!cancelled) router.push("/login")
+          return null
+        }
         if (!r.ok) {
           const body = await r.json().catch(() => ({}))
           throw new Error(body.error || `Error ${r.status}`)
@@ -59,15 +64,22 @@ export default function DungeonReport() {
         return r.json()
       })
       .then(d => {
-        if (!d) return
-        if (d.error) { setError(d.error); setLoading(false); return }
+        if (cancelled || !d) return
+        if (d.error) {
+          setError(d.error)
+          setLoading(false)
+          return
+        }
         setReport(d)
         setLoading(false)
       })
       .catch(e => {
-        setError(e.message || "Error al cargar el reporte")
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : "Error al cargar el reporte")
         setLoading(false)
       })
+
+    return () => { cancelled = true }
   }, [params?.id, router])
 
   if (loading) {
