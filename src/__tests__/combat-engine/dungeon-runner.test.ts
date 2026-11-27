@@ -1064,6 +1064,7 @@ describe('runDungeon', () => {
     }))
     const action = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.skillName === 'Cura Grupal')
     expect(action?.mpCost).toBe(35)
+    expect(result.heroesFinalState.find(hero => hero.id === 'healer')?.mp).toBe(65)
     expect(action?.healingResults).toEqual([
       { targetId: 'healer', targetName: 'Healer', amount: 20 },
       { targetId: 'ally', targetName: 'Ally', amount: 20 },
@@ -1092,6 +1093,7 @@ describe('runDungeon', () => {
     expect(ticks.map(entry => entry.round)).toEqual([2, 3, 4])
     expect(ticks.map(entry => entry.value)).toEqual([20, 20, 20])
     expect(result.heroesFinalState[0]?.hp).toBe(70)
+    expect(result.heroesFinalState[0]?.mp).toBe(88)
   })
 
   it('handles healing skills in combat', async () => {
