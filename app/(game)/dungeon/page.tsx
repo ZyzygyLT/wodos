@@ -25,6 +25,7 @@ export default function DungeonPage() {
   const [selectedProfiles, setSelectedProfiles] = useState<Record<number, string>>({})
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>(undefined)
   const [running, setRunning] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [questSlugs, setQuestSlugs] = useState<Set<string>>(new Set())
   const { show: toast } = useToast()
   const [showCreateGroup, setShowCreateGroup] = useState(false)
@@ -251,6 +252,32 @@ export default function DungeonPage() {
     }
   }
 
+  async function cancelRegisteredRun() {
+    if (!runStatus?.runId || runStatus.status !== "registered" || cancelling) return
+    const confirmed = globalThis.window.confirm(
+      "¿Cancelar esta inscripción? La expedición pendiente se cancelará para todos sus integrantes."
+    )
+    if (!confirmed) return
+
+    setCancelling(true)
+    try {
+      const response = await fetch("/api/dungeon/cancel", { method: "POST" })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        toast(data.error || "No se pudo cancelar la expedición")
+        await fetchData()
+        return
+      }
+      toast("Inscripción cancelada. Tu grupo vuelve a estar disponible.")
+      await fetchData()
+    } catch (error) {
+      logger.error("dungeon", "Failed to cancel registered expedition", error)
+      toast("No se pudo cancelar la expedición. Inténtalo de nuevo.")
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   if (!hero && loadError) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 text-gray-100">
@@ -337,6 +364,12 @@ export default function DungeonPage() {
                 <button onClick={() => router.push("/dungeon/report/" + runStatus.runId)}
                   className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-amber-500">
                   Ver informe
+                </button>
+              )}
+              {runStatus.status === "registered" && runStatus.runId && (
+                <button onClick={cancelRegisteredRun} disabled={cancelling}
+                  className="rounded-lg border border-red-800/70 bg-red-950/40 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-900/50 disabled:opacity-50">
+                  {cancelling ? "Cancelando..." : "Cancelar inscripción"}
                 </button>
               )}
             </div>
