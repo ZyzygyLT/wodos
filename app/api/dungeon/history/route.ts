@@ -39,6 +39,7 @@ export async function GET() {
       levelsCleared: r.levelsCleared,
       epGained: r.epGained,
       goldGained: r.goldGained,
+      fameGained: r.fameGained,
       createdAt: r.createdAt,
     }))
   )

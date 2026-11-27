@@ -8,6 +8,7 @@ interface RunSummary {
   status: string; result: string | null
   levelsCleared: number | null
   epGained: number | null; goldGained: number | null
+  fameGained: number | null
   createdAt: string
 }
 
@@ -59,9 +60,10 @@ export default function DungeonHistory() {
                       {new Date(r.createdAt).toLocaleDateString()} {new Date(r.createdAt).toLocaleTimeString()}
                     </span>
                   </div>
-                  <div className="flex gap-4 mt-2 text-sm text-gray-400">
-                    <span>⭐ +{r.epGained ?? 0} EP</span>
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-400">
+                    <span>⭐ +{r.epGained ?? 0} PE</span>
                     <span>💰 +{r.goldGained ?? 0} oro</span>
+                    <span>🏅 +{r.fameGained ?? 0} fama</span>
                     <span>🗡️ {r.levelsCleared ?? 0} niveles</span>
                   </div>
                 </a>
