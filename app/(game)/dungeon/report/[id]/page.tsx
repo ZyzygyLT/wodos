@@ -39,7 +39,7 @@ export default function DungeonReport() {
     let cancelled = false
     let id = params?.id as string | undefined
     if (!id && globalThis.window !== undefined) {
-      const m = /\\/dungeon\\/report\\/([^/]+)/.exec(globalThis.window.location.pathname)
+      const m = /\/dungeon\/report\/([^/]+)/.exec(globalThis.window.location.pathname)
       if (m) id = m[1]
     }
     if (!id) {
