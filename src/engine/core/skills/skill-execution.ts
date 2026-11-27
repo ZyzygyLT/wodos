@@ -8,6 +8,7 @@ import {
 
 export interface SkillExecutionDefinition {
   readonly skillId: number
+  readonly slug?: string
   readonly name?: string
   readonly effect?: string
   readonly multiplier?: number
@@ -34,10 +35,37 @@ export interface SkillExecutionInput<T extends TargetableUnit> {
 }
 
 export type SkillExecutionPlan<T> =
+  | { readonly kind: 'unsupported'; readonly effect: string }
   | { readonly kind: 'heal'; readonly target: T | null; readonly healPct: number }
+  | { readonly kind: 'group_heal'; readonly targets: readonly T[]; readonly healPct: number }
+  | { readonly kind: 'heal_over_time'; readonly target: T | null; readonly healPct: number; readonly ticks: number }
   | { readonly kind: 'party_buff'; readonly buff: 'atk' | 'def'; readonly bonus: number }
+  | { readonly kind: 'self_buff'; readonly buffs: readonly { readonly buff: 'atk' | 'def'; readonly bonus: number }[] }
   | { readonly kind: 'area_attack'; readonly targets: readonly T[]; readonly armorPenetration: boolean; readonly critical: boolean }
   | { readonly kind: 'single_attack'; readonly target: T | null; readonly armorPenetration: boolean; readonly critical: boolean }
+
+/** Calculates the shared party-buff strength from its multiplier and trained rank. */
+export function calculatePartyBuffBonus(
+  effect: 'party_attack_up' | 'defense_up',
+  multiplier?: number,
+  rank?: number,
+): number {
+  const normalizedRank = Number.isFinite(rank) && (rank ?? 0) > 0 ? rank! : 1
+  const fallbackMultiplier = effect === 'party_attack_up' ? 1.5 : 1
+  const normalizedMultiplier = Number.isFinite(multiplier) && (multiplier ?? 0) > 0
+    ? multiplier!
+    : fallbackMultiplier
+  return Math.round(normalizedMultiplier * 10) + normalizedRank * 2
+}
+
+const SUPPORTED_SINGLE_TARGET_EFFECTS = new Set(['attack', 'armor_penetration', 'critical_attack'])
+
+/** Returns whether the combat runtime has a concrete handler for an active skill effect. */
+export function isSupportedSkillEffect(effect?: string, slug?: string): boolean {
+  return SUPPORTED_SINGLE_TARGET_EFFECTS.has(effect ?? 'attack') ||
+    effect === 'heal' || effect === 'party_attack_up' || effect === 'defense_up' || effect === 'aoe_attack' ||
+    (effect === 'buff' && (slug === 'venganza' || slug === 'forma-salvaje'))
+}
 
 /**
  * Resolves the action shape and targets for a skill without mutating combat state.
@@ -53,7 +81,7 @@ export function resolveSkillExecution<T extends TargetableUnit>(
 
   if (effect === 'heal') {
     const healPct = Number.isFinite(skill.healPct) ? Math.max(0, skill.healPct!) : 0
-    const candidates = (skill.healTarget === 'self' ? [actor] : [actor, ...allies]).filter(unit =>
+    const candidates = (skill.healTarget === 'self' || action.targetType === 'self' ? [actor] : [actor, ...allies]).filter(unit =>
       Number.isFinite(unit.hp) && Number.isFinite(unit.maxHp) &&
       unit.hp > 0 && unit.maxHp > 0 && unit.hp < unit.maxHp
     )
@@ -63,17 +91,37 @@ export function resolveSkillExecution<T extends TargetableUnit>(
           return best
         }, null)
       : null
+    if (healPct > 0 && skill.tags?.includes('aoe')) {
+      return { kind: 'group_heal', targets: candidates, healPct }
+    }
+    if (healPct > 0 && (skill.slug === 'renovacion' || skill.slug === 'regeneracion')) {
+      return { kind: 'heal_over_time', target, healPct, ticks: 3 }
+    }
     return { kind: 'heal', target, healPct }
   }
 
-  if (effect === 'party_attack_up' || effect === 'defense_up') {
-    const isAttack = effect === 'party_attack_up'
-    const fallbackMultiplier = isAttack ? 1.5 : 1
-    const multiplier = Number.isFinite(skill.multiplier) && (skill.multiplier ?? 0) > 0
-      ? skill.multiplier!
-      : fallbackMultiplier
-    const bonus = Math.round(multiplier * 10) + rank * 2
-    return { kind: 'party_buff', buff: isAttack ? 'atk' : 'def', bonus }
+  if (effect === 'party_attack_up') {
+    const bonus = calculatePartyBuffBonus(effect, skill.multiplier, rank)
+    return { kind: 'party_buff', buff: 'atk', bonus }
+  }
+
+  if (effect === 'defense_up') {
+    const bonus = calculatePartyBuffBonus(effect, skill.multiplier, rank)
+    if (['postura-defensiva', 'resistencia', 'inquebrantable', 'piel-corteza-activa'].includes(skill.slug ?? '')) {
+      return { kind: 'self_buff', buffs: [{ buff: 'def', bonus }] }
+    }
+    return { kind: 'party_buff', buff: 'def', bonus }
+  }
+
+  if (effect === 'buff' && skill.slug === 'venganza') {
+    const bonus = calculatePartyBuffBonus('party_attack_up', skill.multiplier, rank)
+    return { kind: 'self_buff', buffs: [{ buff: 'atk', bonus }] }
+  }
+
+  if (effect === 'buff' && skill.slug === 'forma-salvaje') {
+    const atkBonus = calculatePartyBuffBonus('party_attack_up', skill.multiplier, rank)
+    const defBonus = calculatePartyBuffBonus('defense_up', skill.multiplier, rank)
+    return { kind: 'self_buff', buffs: [{ buff: 'atk', bonus: atkBonus }, { buff: 'def', bonus: defBonus }] }
   }
 
   if (effect === 'aoe_attack') {
@@ -84,6 +132,8 @@ export function resolveSkillExecution<T extends TargetableUnit>(
       critical: false,
     }
   }
+
+  if (!SUPPORTED_SINGLE_TARGET_EFFECTS.has(effect)) return { kind: 'unsupported', effect }
 
   const selection = selectCombatTarget({
     actor,

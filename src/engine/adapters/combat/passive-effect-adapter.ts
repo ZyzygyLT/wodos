@@ -21,7 +21,7 @@ export interface PassiveSource {
 }
 
 export interface ResolvedPassiveCommand {
-  readonly trigger: CombatEventType
+  readonly trigger: LegacyPassiveTrigger
   readonly effectType: LegacyPassiveEffectType
   readonly targetType: LegacyPassiveTarget
   readonly value: number

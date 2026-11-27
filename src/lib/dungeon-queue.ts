@@ -2,9 +2,9 @@ import { Queue, Worker, Job } from 'bullmq'
 import { Redis } from 'ioredis'
 import db from '@/lib/db'
 import { runDungeon, HeroData } from '@/lib/combat-engine/dungeon-runner'
-import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday } from '@/lib/dungeon-helpers'
+import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, restoreDungeonParticipantSnapshots, reconcileDungeonParticipantConsumables } from '@/lib/dungeon-helpers'
 import { calcClanBonuses } from '@/lib/clan/upgrades'
-import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
+import { persistRunResult, processDungeonRunPostProcessing } from '@/services/dungeon-execution.service'
 import logger from '@/lib/logger'
 
 let connection: Redis | null = null
@@ -28,19 +28,36 @@ export function isQueueAvailable() {
 async function executeRun(runId: string, heroId: string, dungeonId: number) {
   const run = await db.dungeonRun.findUnique({
     where: { id: runId },
-    include: { dungeon: true }
+    include: { dungeon: true, participants: true }
   })
-  if (run?.status !== 'running') return
+  if (run?.status !== 'registered') return
 
+  // Queue and cron workers compete for the same conditional claim. Only one
+  // executor can transition a pending run to running.
+  const executionStartedAt = new Date()
+  const claim = await db.dungeonRun.updateMany({
+    where: { id: runId, status: 'registered' },
+    data: { status: 'running', executionStartedAt },
+  })
+  if (claim.count !== 1) return
+
+  try {
   const dungeon = run.dungeon
 
-  // Load participants
+  // Prefer the immutable party captured when the run was registered.
   let heroesData: HeroData[]
   let totalHeroes: number
 
-  if (run.groupId) {
+  if (run.participants?.length) {
+    const snapshots = restoreDungeonParticipantSnapshots(run.participants)
+    if (!snapshots) throw new Error('DUNGEON_RUN_PARTICIPANT_SNAPSHOT_INVALID')
+    heroesData = snapshots
+    await reconcileDungeonParticipantConsumables(heroesData)
+    totalHeroes = heroesData.length
+  } else if (run.groupId) {
+    // Legacy runs created before participant snapshots retain the previous loading behavior.
     const groupResult = await loadGroupParticipants(run.groupId)
-    if (groupResult.heroesData.length === 0) return
+    if (groupResult.heroesData.length === 0) throw new Error('DUNGEON_RUN_GROUP_PARTICIPANTS_MISSING')
     heroesData = groupResult.heroesData
     totalHeroes = heroesData.length
   } else {
@@ -49,12 +66,14 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
       include: {
         skills: { include: { skill: true } },
         items: { include: { item: true } },
-        combatProfiles: { where: { dungeonLevel: null }, take: 1 }
+        combatProfiles: true
       }
     })
-    if (!hero) return
+    if (!hero) throw new Error('DUNGEON_RUN_HERO_MISSING')
 
-    const profile = hero.combatProfiles[0]
+    const profile = run.profileId
+      ? hero.combatProfiles.find(candidate => candidate.id === run.profileId) ?? hero.combatProfiles[0]
+      : hero.combatProfiles[0]
     heroesData = [await buildHeroData(hero, profile)]
     totalHeroes = 1
   }
@@ -63,12 +82,16 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
 
   // Clan bonuses
   let clanBonuses: Record<string, number> | undefined
+  let clanMemberRec: { clanId: string; clan: { upgrades: { upgradeId: string; tier: number }[] } } | null = null
   try {
     const cm = await db.clanMember.findUnique({
-      where: { heroId: heroesData[0].id },
+      where: { heroId: run.heroId },
       include: { clan: { include: { upgrades: true } } },
     })
-    if (cm) clanBonuses = calcClanBonuses(cm.clan.upgrades)
+    if (cm) {
+      clanBonuses = calcClanBonuses(cm.clan.upgrades)
+      clanMemberRec = { clanId: cm.clanId, clan: cm.clan }
+    }
   } catch {}
 
   const isGroup = totalHeroes > 1
@@ -78,13 +101,26 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
 
   const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
 
-  await db.$transaction(async (tx) => {
-    await persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
-  })
+  await db.$transaction(async (tx) =>
+    persistRunResult(tx, {
+      runId: run.id, result, heroesData, totalHeroes,
+      dungeon: { id: dungeon.id, name: dungeon.name, slug: dungeon.slug },
+      clanMemberRec,
+    })
+  )
 
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id })
+  await processDungeonRunPostProcessing(run.id)
 
   return result
+  } catch (error) {
+    // Only release the claim owned by this job. A committed settlement has
+    // already changed status to done/failed and cannot be replayed here.
+    await db.dungeonRun.updateMany({
+      where: { id: runId, status: 'running', executionStartedAt },
+      data: { status: 'registered', executionStartedAt: null },
+    }).catch(releaseError => logger.error('dungeon-queue', 'No se pudo liberar la ejecución fallida', releaseError))
+    throw error
+  }
 }
 
 export async function enqueueDungeonRun(runId: string, heroId: string, dungeonId: number) {

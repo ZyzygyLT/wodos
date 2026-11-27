@@ -65,7 +65,7 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
 
   if (ei) {
     return (
-      <button type="button" className="bg-gray-900 rounded-lg border border-yellow-700/60 p-2 flex items-center gap-2 hover:border-yellow-600 transition cursor-default"
+      <div role="group" aria-label={`${info.label}: ${ei.item.name}`} className="bg-gray-900 rounded-lg border border-yellow-700/60 p-2 flex items-center gap-2 hover:border-yellow-600 transition"
         onMouseEnter={() => onHover?.(ei)} onMouseLeave={onLeave}
         onFocus={() => onHover?.(ei)} onBlur={onLeave}>
         <span className="text-lg">{ei.item.icon}</span>
@@ -75,22 +75,22 @@ function SlotCell({ slot, ei, isTwoHanded, onUnequip, onEnchant, onSocket, toggl
           {(ei.upgradeLevel ?? 0) > 0 && <p className="text-[10px] text-orange-400">⬆ +{ei.upgradeLevel}</p>}
         </div>
         <div className="flex flex-col gap-1 shrink-0">
-          <button onClick={() => onUnequip(ei.id)}
+          <button type="button" aria-label={`Retirar ${ei.item.name}`} onClick={() => onUnequip(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-800 hover:bg-yellow-700 transition"
             disabled={toggling === ei.id}>{toggling === ei.id ? "..." : "✕"}
           </button>
-          <button onClick={() => onEnchant(ei.id)}
+          <button type="button" aria-label={`Mejorar ${ei.item.name}`} onClick={() => onEnchant(ei.id)}
             className="text-[10px] px-1.5 py-0.5 rounded bg-orange-800 hover:bg-orange-700 transition">
             +{ei.upgradeLevel ?? 0}
           </button>
           {ei.item.runeSlots > 0 && (
-            <button onClick={() => onSocket(ei.id)}
+            <button type="button" aria-label={`Engarzar runa en ${ei.item.name}`} onClick={() => onSocket(ei.id)}
               className="text-[10px] px-1.5 py-0.5 rounded bg-purple-800 hover:bg-purple-700 transition">
               💎
             </button>
           )}
         </div>
-      </button>
+      </div>
     )
   }
 
@@ -197,6 +197,12 @@ export default function InventoryPage() {
   const invMax = (hero?.inventoryMaxSize ?? 20) + storageBonus
   const unequipped = items.filter(i => !i.equipped)
   const rarityOrder: Record<string, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, unique: 4 }
+  const hpCurrent = Number(hero?.hpCurrent ?? 0)
+  const hpMax = Number(hero?.computedHpMax ?? hero?.hpMax ?? 1)
+  const mpCurrent = Number(hero?.mpCurrent ?? 0)
+  const mpMax = Number(hero?.computedMpMax ?? hero?.mpMax ?? 1)
+  const hpPercent = hpMax > 0 ? Math.min(100, Math.max(0, (hpCurrent / hpMax) * 100)) : 0
+  const mpPercent = mpMax > 0 ? Math.min(100, Math.max(0, (mpCurrent / mpMax) * 100)) : 0
 
   if (!hero) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400"><div className="flex items-center gap-2"><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.2s]" /><div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse [animation-delay:0.4s]" /></div></div>
 
@@ -207,7 +213,52 @@ export default function InventoryPage() {
           onClick={() => dismiss()}>{message}</button>
       )}
 
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6">
+        <section aria-label="Estado del héroe" className="mb-6 rounded-xl border border-gray-800 bg-gray-900/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 className="font-bold text-lg">❤️ Estado del héroe</h2>
+              <p className="text-xs text-gray-500">Recursos actuales y máximos efectivos, incluyendo equipo y habilidades</p>
+            </div>
+            <span className="text-xs text-gray-500">Se actualiza al equipar objetos o usar consumibles</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-baseline justify-between gap-2 mb-1">
+                <span className="text-sm font-semibold text-red-300">Puntos de vida</span>
+                <span className="text-sm tabular-nums text-gray-200">{hpCurrent} / {hpMax}</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Puntos de vida"
+                aria-valuemin={0}
+                aria-valuemax={hpMax}
+                aria-valuenow={Math.max(0, hpCurrent)}
+                className="h-2.5 overflow-hidden rounded-full bg-gray-800"
+              >
+                <div className="h-full rounded-full bg-red-500 transition-all" style={{ width: `${hpPercent}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline justify-between gap-2 mb-1">
+                <span className="text-sm font-semibold text-sky-300">Maná</span>
+                <span className="text-sm tabular-nums text-gray-200">{mpCurrent} / {mpMax}</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-label="Maná"
+                aria-valuemin={0}
+                aria-valuemax={mpMax}
+                aria-valuenow={Math.max(0, mpCurrent)}
+                className="h-2.5 overflow-hidden rounded-full bg-gray-800"
+              >
+                <div className="h-full rounded-full bg-sky-500 transition-all" style={{ width: `${mpPercent}%` }} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 items-start">
 
         <div>
           <h2 className="font-bold text-lg mb-3">⚡ Equipamiento</h2>
@@ -349,6 +400,7 @@ export default function InventoryPage() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
 

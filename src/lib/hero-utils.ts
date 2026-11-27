@@ -1,17 +1,16 @@
 import db from "@/lib/db"
+import type { Prisma } from "@/generated/prisma"
 import { calcHpMax, calcMpMax } from "@/lib/combat-engine/formulas"
 
 export async function getHeroByUserId(userId: string) {
-  return db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
+  return getActiveHeroByUserId(userId, {
     include: {
       class: true,
       race: true,
       skills: { include: { skill: true } },
       items: { include: { item: true }, where: { equipped: true } },
       combatProfiles: { orderBy: { createdAt: "asc" } },
-    }
+    },
   })
 }
 
@@ -22,6 +21,32 @@ export function mergeAttrs(baseAttrs: Record<string, number>, mods: Record<strin
     result[k] = (baseAttrs[k] ?? 0) + (mods[k] ?? 0)
   }
   return result
+}
+
+type DefaultAttackCandidate = {
+  id: number
+  manaCost: number
+  tags?: unknown
+}
+
+/** Prefer the attack family associated with the class's primary attribute, then conserve mana. */
+export function selectDefaultAttackSkill<T extends DefaultAttackCandidate>(
+  skills: readonly T[],
+  primaryAttr: string,
+): T | undefined {
+  const preferredTag = ['in', 'wi'].includes(primaryAttr)
+    ? 'magic'
+    : ['dx', 'pe'].includes(primaryAttr)
+      ? 'ranged'
+      : ['st', 'ag'].includes(primaryAttr)
+        ? 'melee'
+        : undefined
+
+  return [...skills].sort((a, b) => {
+    const aPreferred = preferredTag && Array.isArray(a.tags) && a.tags.includes(preferredTag) ? 0 : 1
+    const bPreferred = preferredTag && Array.isArray(b.tags) && b.tags.includes(preferredTag) ? 0 : 1
+    return aPreferred - bPreferred || a.manaCost - b.manaCost || a.id - b.id
+  })[0]
 }
 
 function buildDefenseDefaults(genericDefense: { id: number; defenseCategory: string | null }[], classDefense: { id: number; defenseCategory: string | null } | null): Record<string, number | null> {
@@ -54,12 +79,47 @@ export async function createHero(userId: string, name: string, classId: number, 
   const mpMax = calcMpMax(attrs as any)
 
   return db.$transaction(async (tx) => {
+    // Serialize hero creation per account so maxHeroes and initial selection cannot race.
+    await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId} FOR UPDATE`
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { currentHeroId: true, maxHeroes: true },
+    })
+    if (!user) throw new Error("USER_NOT_FOUND")
+
+    const heroCount = await tx.hero.count({ where: { userId } })
+    if (user.maxHeroes !== null && heroCount >= user.maxHeroes) {
+      throw new Error("MAX_HEROES_REACHED")
+    }
+
     const genericDefense = await tx.skill.findMany({
       where: { classId: null, defenseCategory: { not: null } }
     })
     const classDefense = await tx.skill.findFirst({
       where: { classId, defenseCategory: { not: null } }
     })
+
+    const starterSkills = cls.skills.filter(s => s.tier <= 1 || s.goldCost === 0)
+    const attackCandidates = starterSkills
+      .filter(s => s.type === "active" && s.effect === "attack" && s.tier === 1 && s.manaCost <= mpMax)
+    const defaultAttackSkill = selectDefaultAttackSkill(attackCandidates, cls.primaryAttr)
+    if (!defaultAttackSkill) throw new Error("NO_STARTER_ATTACK_SKILL")
+
+    const defaultHealSkill = starterSkills.find(
+      s => s.type === "active" && s.effect === "heal" && s.tier === 1 && s.manaCost <= mpMax
+    )
+    const roundRules = [
+      ...(defaultHealSkill ? [{
+        priority: 1,
+        condition: { type: "hp_ally_lt", value: 30 },
+        action: { skillId: defaultHealSkill.id, targetPos: "auto", targetType: "most_injured_ally" as const },
+      }] : []),
+      {
+        priority: defaultHealSkill ? 2 : 1,
+        condition: { type: "always" },
+        action: { skillId: defaultAttackSkill.id, targetPos: "front", targetType: "weakest" },
+      },
+    ]
 
     const hero = await tx.hero.create({
       data: {
@@ -79,24 +139,11 @@ export async function createHero(userId: string, name: string, classId: number, 
             name: "Estándar",
             position: cls.position,
             defenseSkills: buildDefenseDefaults(genericDefense, classDefense) as any,
-            roundRules: [
-              {
-                priority: 1,
-                condition: { type: "hp_self_lt", value: 30 },
-                action: { skillId: 1, targetPos: "auto", targetType: "most_injured_ally" as const }
-              },
-              {
-                priority: 2,
-                condition: { type: "always" },
-                action: { skillId: 1, targetPos: "front", targetType: "weakest" }
-              }
-            ]
+            roundRules,
           }
         }
       }
     })
-
-    const starterSkills = cls.skills.filter(s => s.tier <= 1 || s.goldCost === 0)
     if (starterSkills.length > 0) {
       await tx.heroSkill.createMany({
         data: starterSkills.map(s => ({ heroId: hero.id, skillId: s.id }))
@@ -137,6 +184,109 @@ export async function createHero(userId: string, name: string, classId: number, 
       })
     }
 
+    const currentHero = user.currentHeroId
+      ? await tx.hero.findFirst({ where: { id: user.currentHeroId, userId }, select: { id: true } })
+      : null
+    if (!currentHero) {
+      const firstOwnedHero = await tx.hero.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      })
+      if (firstOwnedHero) {
+        await tx.user.update({ where: { id: userId }, data: { currentHeroId: firstOwnedHero.id } })
+      }
+    }
+
     return hero
+  })
+}
+
+
+/**
+ * Resolves the player's selected hero while enforcing ownership.
+ * A stale or missing selection is repaired to the oldest hero owned by the user.
+ * The conditional pointer update prevents a concurrent hero switch from being overwritten.
+ */
+type ActiveHeroOptions = Pick<Prisma.HeroFindFirstArgs, 'include' | 'select'>
+
+export async function getActiveHeroByUserId<T extends ActiveHeroOptions = ActiveHeroOptions>(
+  userId: string,
+  options: T = {} as T,
+): Promise<Prisma.HeroGetPayload<T> | null> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { currentHeroId: true },
+  })
+  if (!user) return null
+
+  const findOwnedHero = async (
+    where: Prisma.HeroWhereInput,
+    orderBy?: Prisma.HeroOrderByWithRelationInput,
+  ) => {
+    const base = { where, ...(orderBy ? { orderBy } : {}) }
+    if (options.select) {
+      return db.hero.findFirst({ ...base, select: options.select })
+    }
+    if (options.include) {
+      return db.hero.findFirst({ ...base, include: options.include })
+    }
+    return db.hero.findFirst(base)
+  }
+
+  if (user.currentHeroId) {
+    const activeHero = await findOwnedHero({ id: user.currentHeroId, userId })
+    if (activeHero) return activeHero as Prisma.HeroGetPayload<T>
+  }
+
+  const fallbackHero = await findOwnedHero(
+    { userId },
+    { createdAt: "asc" },
+  )
+  if (!fallbackHero) return null
+
+  const fallbackHeroId = (fallbackHero as { id: string }).id
+  const repaired = await db.user.updateMany({
+    where: { id: userId, currentHeroId: user.currentHeroId },
+    data: { currentHeroId: fallbackHeroId },
+  })
+
+  // If another request changed the selection while we were repairing it,
+  // return that newly selected hero rather than acting on a stale fallback.
+  if (repaired.count === 0) {
+    const latestUser = await db.user.findUnique({
+      where: { id: userId },
+      select: { currentHeroId: true },
+    })
+    if (latestUser?.currentHeroId) {
+      const concurrentlySelectedHero = await findOwnedHero({
+        id: latestUser.currentHeroId,
+        userId,
+      })
+      if (concurrentlySelectedHero) {
+        return concurrentlySelectedHero as Prisma.HeroGetPayload<T>
+      }
+    }
+  }
+
+  return fallbackHero as Prisma.HeroGetPayload<T>
+}
+
+/**
+ * Changes the active hero only if it is owned by the authenticated user.
+ */
+export async function setActiveHeroForUser(userId: string, heroId: string): Promise<boolean> {
+  return db.$transaction(async (tx) => {
+    const hero = await tx.hero.findFirst({
+      where: { id: heroId, userId },
+      select: { id: true },
+    })
+    if (!hero) return false
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { currentHeroId: hero.id },
+    })
+    return true
   })
 }

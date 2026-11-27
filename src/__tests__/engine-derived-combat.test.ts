@@ -6,7 +6,6 @@ import {
   calculateDefenseBase,
   calculateInitiativeBase,
   calculateDefense,
-  createSeededRandom,
 } from '@/engine/core'
 
 describe('Wodos derived-stat profile', () => {
@@ -23,7 +22,7 @@ describe('Wodos derived-stat profile', () => {
 })
 
 describe('engine defense calculation', () => {
-  it('uses configured defense skill formula, rank and injected dice', () => {
+  it('uses configured defense skill formula and rank', () => {
     const result = calculateDefense({
       attributes: { st: 5, dx: 4 },
       baseAttributes: { st: 3, dx: 4 },
@@ -32,19 +31,17 @@ describe('engine defense calculation', () => {
         skillId: 7, rank: 2,
         skill: { formula: { attrCoeffs: { st: 1 }, skillRankCoeff: 2, diceCount: 1, diceSides: 6, flatBonus: 1 } },
       }],
-      random: { next: () => 0 },
     })
-    expect(result.values).toEqual({ melee: 11, ranged: 8, magic: 8 })
+    expect(result.values).toEqual({ melee: 10, ranged: 8, magic: 8 })
     expect(result.breakdown.melee).toContain('st=3+2(eq) × 1 = 5')
   })
 
-  it('supports reproducible seeded defense rolls', () => {
+  it('returns stable expected defense values', () => {
     const input = {
       attributes: { dx: 4 },
       profile: { defenseSkills: { melee: 1 } },
       skills: [{ skillId: 1, rank: 1, formula: { attrCoeffs: {}, diceCount: 1, diceSides: 6, flatBonus: 0 } }],
     }
-    expect(calculateDefense({ ...input, random: createSeededRandom(42) }))
-      .toEqual(calculateDefense({ ...input, random: createSeededRandom(42) }))
+    expect(calculateDefense(input)).toEqual(calculateDefense(input))
   })
 })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { trackItemPurchased } from "@/lib/analytics/events"
 import { notify } from "@/lib/notifications/emitter"
 
@@ -27,10 +28,7 @@ async function getAuthenticatedHero() {
   const session = await auth()
   if (!session?.user?.id) return { error: "No autenticado", status: 401 as const }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    select: { id: true, userId: true },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true, userId: true } })
   if (!hero) return { error: "No tenés un héroe", status: 404 as const }
   return { hero }
 }

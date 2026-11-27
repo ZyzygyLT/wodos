@@ -1,34 +1,105 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { skillUpgradeCost } from "@/lib/skill-cost"
 import { useToast } from "@/hooks/useToast"
 import logger from "@/lib/logger"
 
+type HeroResources = {
+  gold: number
+  epTotal: number
+  epSpent: number
+}
+
+type SkillFormula = {
+  attrCoeffs?: Record<string, number>
+  skillRankCoeff?: number
+  diceCount: number
+  diceSides: number
+  flatBonus: number
+}
+
+type SkillEntry = {
+  id: number
+  name: string
+  icon: string
+  type: string
+  timing: string
+  tier: number
+  maxRank: number
+  description: string
+  effect: string
+  goldCost: number
+  manaCost: number
+  epCost: number
+  multiplier: number
+  formula: SkillFormula | null
+  defenseCategory: string | null
+  requiresSkills: number[]
+  unlocked: boolean
+  rank: number
+}
+
 export default function SkillsPage() {
   const router = useRouter()
-  const [hero, setHero] = useState<any>(null)
-  const [skills, setSkills] = useState<any[]>([])
+  const [hero, setHero] = useState<HeroResources | null>(null)
+  const [skills, setSkills] = useState<SkillEntry[]>([])
   const { toast: message, show: setMessage, dismiss } = useToast()
   const [loading, setLoading] = useState<number | null>(null)
   const [actionType, setActionType] = useState<"buy" | "upgrade" | null>(null)
   const [tab, setTab] = useState<"learned" | "available">("learned")
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    let active = true
+    Promise.all([fetch("/api/hero"), fetch("/api/hero/skills")])
+      .then(async ([heroRes, skillsRes]) => {
+        if (heroRes.status === 401) {
+          router.push("/login")
+          return null
+        }
+        if (heroRes.status === 404) {
+          router.push("/onboarding")
+          return null
+        }
+        if (!heroRes.ok || !skillsRes.ok) throw new Error("No se pudieron cargar los datos")
+        const [heroData, skillsData] = await Promise.all([
+          heroRes.json() as Promise<HeroResources>,
+          skillsRes.json() as Promise<SkillEntry[]>,
+        ])
+        return { heroData, skillsData }
+      })
+      .then(data => {
+        if (active && data) {
+          setHero(data.heroData)
+          setSkills(data.skillsData)
+        }
+      })
+      .catch(error => logger.error("skills", "Error fetching data", error))
+
+    return () => { active = false }
+  }, [router])
+
+  const refreshData = async () => {
     try {
       const [heroRes, skillsRes] = await Promise.all([
         fetch("/api/hero"),
         fetch("/api/hero/skills"),
       ])
-      if (heroRes.status === 401) return router.push("/login")
-      if (heroRes.status === 404) return router.push("/onboarding")
-      setHero(await heroRes.json())
-      setSkills(await skillsRes.json())
-    } catch (e) { logger.error('skills', 'Error fetching data', e) }
-  }, [router])
+      if (!heroRes.ok || !skillsRes.ok) throw new Error("No se pudieron actualizar los datos")
+      const [heroData, skillsData] = await Promise.all([
+        heroRes.json() as Promise<HeroResources>,
+        skillsRes.json() as Promise<SkillEntry[]>,
+      ])
+      setHero(heroData)
+      setSkills(skillsData)
+    } catch (error) {
+      logger.error("skills", "Error refreshing data", error)
+    }
+  }
 
-  useEffect(() => { fetchData() }, [fetchData])
+  const availableEp = hero ? Math.max(0, hero.epTotal - hero.epSpent) : 0
+  const availableGold = hero?.gold ?? 0
 
   async function buySkill(skillId: number) {
     setLoading(skillId)
@@ -39,15 +110,15 @@ export default function SkillsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ skillId }),
       })
-      setLoading(null)
       const data = await res.json()
       if (res.ok) {
         setMessage("✅ Skill aprendida!")
-        fetchData()
+        await refreshData()
       } else {
         setMessage(`❌ ${data.error}`)
       }
-    } catch { setLoading(null); setMessage("❌ Error de red") }
+    } catch { setMessage("❌ Error de red") }
+    finally { setLoading(null) }
   }
 
   async function upgradeSkill(skillId: number) {
@@ -59,26 +130,37 @@ export default function SkillsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ skillId }),
       })
-      setLoading(null)
       const data = await res.json()
       if (res.ok) {
         setMessage(`⬆️ Skill mejorada a rango ${data.newRank}!`)
-        fetchData()
+        await refreshData()
       } else {
         setMessage(`❌ ${data.error}`)
       }
-    } catch { setLoading(null); setMessage("❌ Error de red") }
+    } catch { setMessage("❌ Error de red") }
+    finally { setLoading(null) }
   }
 
-  function canUnlock(skill: any): { ok: boolean; reason?: string } {
-    if (skill.requiresSkills.length === 0) return { ok: true }
-    const unlockedIds = new Set(skills.filter(s => s.unlocked).map(s => s.id))
-    const missing = skill.requiresSkills.filter((id: number) => !unlockedIds.has(id))
-    if (missing.length > 0) {
-      const names = missing.map((id: number) => skills.find(s => s.id === id)?.name ?? `#${id}`)
-      return { ok: false, reason: `Requiere: ${names.join(", ")}` }
+  function canUnlock(skill: SkillEntry): { ok: boolean; reason?: string } {
+    if (skill.requiresSkills.length > 0) {
+      const unlockedIds = new Set(skills.filter(s => s.unlocked).map(s => s.id))
+      const missing = skill.requiresSkills.filter(id => !unlockedIds.has(id))
+      if (missing.length > 0) {
+        const names = missing.map(id => skills.find(s => s.id === id)?.name ?? `#${id}`)
+        return { ok: false, reason: `Requiere: ${names.join(", ")}` }
+      }
     }
+    if (availableGold < skill.goldCost) return { ok: false, reason: `Faltan ${skill.goldCost - availableGold} de oro` }
+    if (availableEp < skill.epCost) return { ok: false, reason: `Faltan ${skill.epCost - availableEp} EXP` }
     return { ok: true }
+  }
+
+  function upgradeAvailability(skill: SkillEntry): { ok: boolean; reason?: string; goldCost: number; epCost: number } {
+    const goldCost = skillUpgradeCost(skill.goldCost, skill.rank)
+    const epCost = skillUpgradeCost(skill.epCost, skill.rank)
+    if (availableGold < goldCost) return { ok: false, reason: `Faltan ${goldCost - availableGold} de oro`, goldCost, epCost }
+    if (availableEp < epCost) return { ok: false, reason: `Faltan ${epCost - availableEp} EXP`, goldCost, epCost }
+    return { ok: true, goldCost, epCost }
   }
 
   const learned = skills.filter(s => s.unlocked)
@@ -96,6 +178,18 @@ export default function SkillsPage() {
       )}
 
       <div className="max-w-3xl mx-auto p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 rounded-xl border border-gray-800 bg-gray-900 px-4 py-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500">Recursos disponibles</p>
+            <p className="mt-1 text-sm text-gray-200">
+              <span className="text-amber-400">{availableGold.toLocaleString()} oro</span>
+              <span className="mx-2 text-gray-600">·</span>
+              <span className="text-sky-300">{availableEp.toLocaleString()} EXP</span>
+            </p>
+          </div>
+          <p className="text-xs text-gray-500">Aprender y mejorar habilidades consume ambos recursos según su coste.</p>
+        </div>
+
         <div className="flex gap-2 mb-6">
           <button onClick={() => setTab("learned")}
             className={`px-4 py-1.5 rounded text-sm transition ${tab === "learned" ? "bg-yellow-700 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
@@ -110,13 +204,14 @@ export default function SkillsPage() {
         <div className="space-y-3">
           {(tab === "learned" ? learned : available).map(s => {
             const req = canUnlock(s)
+            const upgrade = s.unlocked ? upgradeAvailability(s) : null
             const isActive = loading === s.id
             return (
               <div key={s.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">{s.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold">{s.name}</p>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{s.type}</span>
                       {s.timing !== "passive" && (
@@ -124,7 +219,7 @@ export default function SkillsPage() {
                       )}
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-yellow-400">T{s.tier}</span>
                       {s.defenseCategory && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900 text-purple-300">{s.defenseCategory}</span>}
-                      {s.unlocked && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900 text-blue-300">Rango {s.rank}</span>}
+                      {s.unlocked && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-900 text-blue-300">Rango {s.rank}/{s.maxRank}</span>}
                     </div>
                     <p className="text-xs text-gray-400 mt-1">{s.description}</p>
                     <div className="flex flex-wrap gap-3 text-[11px] text-gray-500 mt-2">
@@ -133,20 +228,35 @@ export default function SkillsPage() {
                       {s.multiplier !== 1 && <span>×{s.multiplier}</span>}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-3">
+                    {s.formula && (
+                      <div className="mt-2 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Fórmula de la habilidad</p>
+                        <p className="font-mono text-[11px] text-gray-400">
+                          {Object.entries(s.formula.attrCoeffs ?? {}).map(([key, value]) => `${String(value)}×${key.toUpperCase()}`).join(" + ")}
+                          {s.formula.skillRankCoeff ? ` + ${s.formula.skillRankCoeff}×rango` : ""}
+                          {s.formula.diceCount > 0 && s.formula.diceSides > 0 ? ` + ${s.formula.diceCount}d${s.formula.diceSides}` : ""}
+                          {s.formula.flatBonus ? ` + ${s.formula.flatBonus}` : ""}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
                       {s.unlocked ? (
-                        <button onClick={() => upgradeSkill(s.id)} disabled={isActive}
-                          className="text-xs px-3 py-1.5 rounded bg-blue-800 hover:bg-blue-700 disabled:opacity-50 transition">
-                          {isActive && actionType === "upgrade" ? "..." : `⬆ Mejorar (💡${skillUpgradeCost(s.epCost, s.rank)} EXP · 💰${skillUpgradeCost(s.goldCost, s.rank)})`}
-                        </button>
+                        <>
+                          <button onClick={() => upgradeSkill(s.id)} disabled={isActive || !upgrade?.ok}
+                            className="text-xs px-3 py-1.5 rounded bg-blue-800 hover:bg-blue-700 disabled:opacity-50 transition">
+                            {isActive && actionType === "upgrade" ? "..." : `⬆ Mejorar (💡${upgrade?.epCost.toLocaleString()} EXP · 💰${upgrade?.goldCost.toLocaleString()})`}
+                          </button>
+                          {!upgrade?.ok && <span className="text-xs text-red-400">{upgrade?.reason}</span>}
+                        </>
                       ) : (
-                        <button onClick={() => buySkill(s.id)} disabled={isActive || !req.ok}
-                          className="text-xs px-3 py-1.5 rounded bg-green-800 hover:bg-green-700 disabled:opacity-50 transition">
-                          {isActive && actionType === "buy" ? "..." : `🔓 Aprender (💰${s.goldCost})`}
-                        </button>
-                      )}
-                      {!s.unlocked && !req.ok && (
-                        <span className="text-xs text-red-400">{req.reason}</span>
+                        <>
+                          <button onClick={() => buySkill(s.id)} disabled={isActive || !req.ok}
+                            className="text-xs px-3 py-1.5 rounded bg-green-800 hover:bg-green-700 disabled:opacity-50 transition">
+                            {isActive && actionType === "buy" ? "..." : `🔓 Aprender (💡${s.epCost.toLocaleString()} EXP · 💰${s.goldCost.toLocaleString()})`}
+                          </button>
+                          {!req.ok && <span className="text-xs text-red-400">{req.reason}</span>}
+                        </>
                       )}
                     </div>
                   </div>

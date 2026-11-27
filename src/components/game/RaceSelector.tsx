@@ -7,7 +7,7 @@ type Race = {
   lore: string
 }
 
-type Props = { races: Race[]; classAttrs: Record<string, number>; onSelect: (raceId: number) => void }
+type Props = { races: Race[]; classAttrs: Record<string, number>; onSelect: (raceId: number) => void; defaultSelectedRaceId?: number | null }
 
 const ATTR_NAMES: Record<string, string> = {
   st: "Fuerza", co: "Constitución", in: "Inteligencia", dx: "Destreza",
@@ -20,8 +20,10 @@ function modColor(val: number) {
   return "text-gray-400"
 }
 
-export default function RaceSelector({ races, classAttrs, onSelect }: Readonly<Props>) {
-  const [selected, setSelected] = useState<Race | null>(null)
+export default function RaceSelector({ races, classAttrs, onSelect, defaultSelectedRaceId = null }: Readonly<Props>) {
+  const [selected, setSelected] = useState<Race | null>(
+    () => races.find(race => race.id === defaultSelectedRaceId) ?? null,
+  )
 
   function finalAttr(attr: string) {
     return (classAttrs[attr] || 0) + (selected?.attrMods[attr] || 0)
@@ -32,6 +34,7 @@ export default function RaceSelector({ races, classAttrs, onSelect }: Readonly<P
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {races.map(race => (
           <button key={race.id}
+            aria-pressed={selected?.id === race.id}
             onClick={() => { setSelected(race); onSelect(race.id) }}
             className={`p-3 border rounded-xl text-left transition-all bg-gray-900
               ${selected?.id === race.id

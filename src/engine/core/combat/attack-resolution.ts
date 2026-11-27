@@ -24,7 +24,7 @@ export interface CriticalResult {
 
 /** Wodos' current critical chance: 5% + 0.5% per DX, capped at 75%. */
 export function calculateCriticalChance(attackerDexterity: number): number {
-  return Math.min(0.75, 0.05 + attackerDexterity * 0.005)
+  return Math.min(0.75, (10 + attackerDexterity) / 200)
 }
 
 /** Resolves a critical roll without coupling the engine to Math.random. */

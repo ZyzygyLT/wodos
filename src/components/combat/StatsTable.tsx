@@ -45,13 +45,24 @@ export function StatsTable({ stats }: Readonly<{ stats: HeroStats[] }>) {
                 <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${atkPct}%` }} />
               </div>
             </div>
-            {(s.dodged > 0 || s.blocked > 0 || s.barriered > 0) && (
+            {(s.dodged > 0 || s.blocked > 0 || s.barriered > 0 || s.totalDamageAbsorbed > 0) && (
               <div className="mt-2 bg-gray-800 rounded-lg p-3">
                 <div className="text-xs text-gray-500 mb-1.5">🛡️ Defensa</div>
-                <div className="flex gap-3 text-sm">
+                <div className="flex flex-wrap gap-3 text-sm">
                   <div className="flex items-center gap-1"><span>💨</span><span className="text-gray-300">{s.dodged}</span><span className="text-gray-500 text-xs">esquivados</span></div>
                   <div className="flex items-center gap-1"><span>🛡️</span><span className="text-gray-300">{s.blocked}</span><span className="text-gray-500 text-xs">bloqueos</span></div>
                   <div className="flex items-center gap-1"><span>🔮</span><span className="text-gray-300">{s.barriered}</span><span className="text-gray-500 text-xs">barreras</span></div>
+                  {s.totalDamageAbsorbed > 0 && <div className="flex items-center gap-1"><span>✨</span><span className="text-gray-300">{s.totalDamageAbsorbed.toLocaleString()}</span><span className="text-gray-500 text-xs">daño absorbido</span></div>}
+                </div>
+              </div>
+            )}
+            {(s.totalManaSpent > 0 || s.buffsUsed > 0 || s.itemsUsed > 0) && (
+              <div className="mt-2 bg-gray-800 rounded-lg p-3">
+                <div className="text-xs text-gray-500 mb-1.5">⚙️ Apoyo y recursos</div>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <div><span className="text-blue-300 font-semibold">{s.totalManaSpent}</span><span className="text-gray-500 text-xs"> MP gastados</span></div>
+                  <div><span className="text-amber-300 font-semibold">{s.buffsUsed}</span><span className="text-gray-500 text-xs"> buffs aplicados</span></div>
+                  <div><span className="text-purple-300 font-semibold">{s.itemsUsed}</span><span className="text-gray-500 text-xs"> consumibles usados</span></div>
                 </div>
               </div>
             )}

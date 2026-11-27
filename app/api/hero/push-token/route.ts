@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 
 export async function PUT(req: NextRequest) {
   const session = await auth()
@@ -13,15 +14,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Falta token" }, { status: 400 })
   }
 
-  const user = await db.user.findUnique({ where: { id: session.user.id }, select: { currentHeroId: true } })
-  let heroId = user?.currentHeroId
-  if (!heroId) {
-    const fallback = await db.hero.findFirst({ where: { userId: session.user.id }, orderBy: { createdAt: 'asc' }, select: { id: true } })
-    if (!fallback) return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
-    heroId = fallback.id
-  }
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
+  if (!hero) return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
 
-  await db.hero.update({ where: { id: heroId }, data: { pushToken: token } })
+  await db.hero.update({ where: { id: hero.id }, data: { pushToken: token } })
 
   return NextResponse.json({ success: true })
 }

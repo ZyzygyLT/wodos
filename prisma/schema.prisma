@@ -165,6 +165,7 @@ model Enemy {
   def          Int
   dx           Int            @default(10)
   ag           Int            @default(10)
+  pe           Int            @default(10)
   level        Int
   baseLevel    Int?
   growthFactor Float?
@@ -234,6 +235,7 @@ model Hero {
   fame                     Int                     @default(0)
   attrs                    Json
   freeAttrPoints           Int                     @default(10)
+  attrPointLedger          Json                    @default("{}")
   hpCurrent                Int                     @default(0)
   hpMax                    Int                     @default(0)
   mpCurrent                Int                     @default(0)
@@ -257,6 +259,7 @@ model Hero {
   clanMember               ClanMember?
   combatProfiles           CombatProfile[]
   dungeonRuns              DungeonRun[]
+  dungeonRunParticipants   DungeonRunParticipant[]
   forumReplies             ForumReply[]
   forumTopics              ForumTopic[]
   groupInvites             GroupInvite[]
@@ -349,6 +352,7 @@ model DungeonRun {
   dungeonId     Int
   profileId     String?
   startedAt     DateTime   @default(now())
+  executionStartedAt DateTime?
   completesAt   DateTime?
   registeredAt  DateTime   @default(now())
   executedAt    DateTime?
@@ -366,12 +370,49 @@ model DungeonRun {
   dungeon       Dungeon    @relation(fields: [dungeonId], references: [id])
   group         ClanGroup? @relation(fields: [groupId], references: [id])
   hero          Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+  participants  DungeonRunParticipant[]
+  postProcessing DungeonRunPostProcessing?
 
   @@index([heroId, status])
   @@index([heroId, createdAt])
   @@index([dungeonId, status])
+  @@index([status, executionStartedAt])
   @@index([groupId])
   @@map("dungeon_runs")
+}
+
+
+model DungeonRunParticipant {
+  id        String     @id @default(uuid())
+  runId     String
+  heroId    String
+  profileId String?
+  snapshot  Json
+  createdAt DateTime   @default(now())
+  run       DungeonRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  hero      Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, heroId])
+  @@index([heroId, createdAt])
+  @@map("dungeon_run_participants")
+}
+
+model DungeonRunPostProcessing {
+  id            String     @id @default(uuid())
+  runId         String     @unique
+  payload       Json
+  status        String     @default("pending")
+  attempts      Int        @default(0)
+  startedAt     DateTime?
+  nextAttemptAt DateTime   @default(now())
+  lastError     String?
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  run           DungeonRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@map("dungeon_run_post_processing")
 }
 
 model BazarListing {
@@ -748,6 +789,7 @@ model Notification {
   title     String
   body      String
   data      Json?
+  dedupeKey String?   @unique
   readAt    DateTime?
   createdAt DateTime  @default(now())
   hero      Hero      @relation(fields: [heroId], references: [id], onDelete: Cascade)

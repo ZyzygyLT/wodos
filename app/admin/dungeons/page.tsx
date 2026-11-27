@@ -112,7 +112,7 @@ export default function AdminDungeonsPage() {
     body.epReward = Number.parseInt(body.epReward) || 0
     body.goldReward = Number.parseInt(body.goldReward) || 0
     body.fameReward = Number.parseInt(body.fameReward) || 5
-    try { body.scheduledTimes = JSON.parse(body.scheduledTimes) } catch {}
+    body.scheduledTimes = body.isInstant ? [] : ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00']
     try {
       const res = await fetch("/api/admin/dungeons", {
         method, headers: { "Content-Type": "application/json" },
@@ -145,7 +145,7 @@ export default function AdminDungeonsPage() {
       <div className="lg:col-span-1">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold">🗺️ Dungeons</h1>
-          <button onClick={() => setEditingDungeon({ name: '', slug: '', icon: '🗺️', description: '', region: '', difficulty: 1, difficultyLabel: 'Normal', levelReq: 1, recommendedLevel: 1, epReward: 10, goldReward: 50, fameReward: 5, levels: [], lootTable: [], scheduledTimes: '[]', isInstant: false })}
+          <button onClick={() => setEditingDungeon({ name: '', slug: '', icon: '🗺️', description: '', region: '', difficulty: 1, difficultyLabel: 'Normal', levelReq: 1, recommendedLevel: 1, epReward: 10, goldReward: 50, fameReward: 5, levels: [], lootTable: [], scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'], isInstant: false })}
             className="px-3 py-1.5 bg-red-700 hover:bg-red-600 rounded text-xs font-bold transition">+ Nuevo</button>
         </div>
         <div className="space-y-2">
@@ -344,19 +344,10 @@ export default function AdminDungeonsPage() {
                 <textarea id="dungeon-loot-table-json" value={JSON.stringify(editingDungeon.lootTable, null, 2)} onChange={e => { try { setEditingDungeon({ ...editingDungeon, lootTable: JSON.parse(e.target.value) }) } catch {} }}
                   className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm font-mono text-xs" rows={3} />
               </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1" htmlFor="dungeon-horarios-programados-json-array">Horarios programados (JSON array)</label>
-                <input id="dungeon-horarios-programados-json-array" value={editingDungeon.scheduledTimes} onChange={e => setEditingDungeon({ ...editingDungeon, scheduledTimes: e.target.value })}
-                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm font-mono text-xs" placeholder='["02:00","06:00","10:00"]' />
-                <div className="flex gap-1 mt-1">
-                  {[['2h','["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"]'],
-                    ['4h','["02:00","06:00","10:00","14:00","18:00","22:00"]'],
-                    ['6h','["02:00","08:00","14:00","20:00"]'],
-                    ['8h','["00:00","08:00","16:00"]']].map(([label, val]) => (
-                    <button key={label} onClick={() => setEditingDungeon({ ...editingDungeon, scheduledTimes: val })}
-                      className="text-[10px] px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 rounded">{label}</button>
-                  ))}
-                </div>
+              <div className="rounded-lg border border-gray-700 bg-gray-800/60 px-3 py-3">
+                <div className="text-xs font-semibold text-gray-300">Calendario de mazmorra</div>
+                <div className="mt-1 text-sm text-white">Cada 4 horas · 6 ejecuciones diarias</div>
+                <p className="mt-1 text-xs text-gray-400">Horarios fijos UTC: 02:00, 06:00, 10:00, 14:00, 18:00 y 22:00. Las mazmorras instantáneas no usan este calendario.</p>
               </div>
               <label className="flex items-center gap-2 text-sm text-gray-400">
                 <input type="checkbox" checked={editingDungeon.isInstant} onChange={e => setEditingDungeon({ ...editingDungeon, isInstant: e.target.checked })} />{' '}Instant (abierto siempre)

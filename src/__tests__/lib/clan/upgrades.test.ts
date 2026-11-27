@@ -33,6 +33,11 @@ describe('calcClanBonuses', () => {
     expect(result).toEqual({})
   })
 
+  it('ignores legacy time altar upgrades because scheduled dungeon cadence is fixed', () => {
+    expect(calcClanBonuses([{ upgradeId: 'time_altar', tier: 3 }])).toEqual({})
+    expect(CLAN_UPGRADES).not.toHaveProperty('time_altar')
+  })
+
   it('ignores unknown tier', () => {
     const result = calcClanBonuses([{ upgradeId: 'library', tier: 99 }])
     expect(result).toEqual({})
@@ -46,7 +51,6 @@ describe('calcClanBonuses', () => {
     const result = calcClanBonuses(allUpgrades)
     expect(Object.keys(result).length).toBeGreaterThan(0)
     expect(result.ep_bonus_pct).toBe(5)
-    expect(result.timer_reduction_hours).toBe(1)
     expect(result.atk_bonus_pct).toBe(5)
   })
 })

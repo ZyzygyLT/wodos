@@ -37,6 +37,7 @@ function makeHero(overrides: Partial<HeroData> = {}): HeroData {
     gold: 100,
     combatProfile: {
       position: 'front',
+      initiativeSkill: 'organization',
       prelimRules: [],
       roundRules: [
         { priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
@@ -80,6 +81,388 @@ function makeHero2(overrides: Partial<HeroData> = {}): HeroData {
 }
 
 describe('runDungeon', () => {
+  it('applies only the initiative passive selected in the combat profile', async () => {
+    const hero = makeHero({
+      attrs: { ...baseAttrs, ag: 0, pe: 0 },
+      combatProfile: {
+        position: 'front', initiativeSkill: 'organization', prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 99, slug: 'organization', type: 'passive', multiplier: 1, manaCost: 0, effect: 'speed_up', name: 'Organización' },
+      ],
+    })
+    const dungeon = makeDungeon({
+      lootTable: [],
+      levels: [{ number: 1, enemies: [{ id: 9, name: 'Slow Guard', icon: '🛡️', hp: 500, mp: 0, atk: 0, def: 0, dx: 0, ag: 4, pe: 0, attrs: { ag: 4, pe: 0 }, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    })
+
+    const withPassive = await runDungeon([hero], dungeon, { random: { next: () => 0 } })
+    expect(withPassive.levelReports[0]?.rounds[0]?.actions[0]?.actorId).toBe('hero-1')
+
+    const withoutPassive = await runDungeon([{
+      ...hero,
+      combatProfile: { ...hero.combatProfile, initiativeSkill: '' },
+    }], dungeon, { random: { next: () => 0 } })
+    expect(withoutPassive.levelReports[0]?.rounds[0]?.actions[0]?.actorId).not.toBe('hero-1')
+  })
+
+  it('allows a dungeon-floor profile to override the general initiative passive', async () => {
+    const hero = makeHero({
+      attrs: { ...baseAttrs, ag: 0, pe: 0 },
+      combatProfile: {
+        position: 'front', initiativeSkill: 'organization', prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+        levelOverrides: { 1: { initiativeSkill: '' } },
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 99, slug: 'organization', type: 'passive', multiplier: 1, manaCost: 0, effect: 'speed_up', name: 'Organización' },
+      ],
+    })
+    const dungeon = makeDungeon({
+      lootTable: [],
+      levels: [{ number: 1, enemies: [{ id: 9, name: 'Slow Guard', icon: '🛡️', hp: 500, mp: 0, atk: 0, def: 0, dx: 0, ag: 4, pe: 0, attrs: { ag: 4, pe: 0 }, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    })
+
+    const result = await runDungeon([hero], dungeon, { random: { next: () => 0 } })
+    expect(result.levelReports[0]?.rounds[0]?.actions[0]?.actorId).not.toBe('hero-1')
+  })
+  it('uses each hero\'s own free attack when a group has no configured round rules', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const firstHero = makeHero({
+      id: 'hero-1',
+      name: 'First Hero',
+      hpMax: 100,
+      combatProfile: { position: 'front', prelimRules: [], roundRules: [], defenseSkills: {} },
+      skills: [{
+        skillId: 1, name: 'First basic attack', type: 'active', effect: 'attack',
+        multiplier: 1, manaCost: 0, rank: 1,
+        formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 },
+      }],
+    })
+    const secondHero = makeHero2({
+      name: 'Second Hero',
+      hpMax: 100,
+      combatProfile: { position: 'rear', prelimRules: [], roundRules: [], defenseSkills: {} },
+      skills: [{
+        skillId: 2, name: 'Second basic attack', type: 'active', effect: 'attack',
+        multiplier: 1, manaCost: 0, rank: 1,
+        formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 2 },
+      }],
+    })
+    const result = await runDungeon([firstHero, secondHero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 5, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+    }))
+
+    const actions = result.levelReports[0]?.rounds[0]?.actions ?? []
+    expect(actions.find(action => action.actorId === 'hero-1')).toMatchObject({
+      skillId: 1,
+      skillName: 'First basic attack',
+    })
+    expect(actions.find(action => action.actorId === 'hero-2')).toMatchObject({
+      skillId: 2,
+      skillName: 'Second basic attack',
+    })
+  })
+
+  it('applies Venganza to the hero personally for the following turn and reports the bonus', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 100,
+      mpMax: 100,
+      skills: [
+        { skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack', multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 } },
+        { skillId: 2, slug: 'venganza', name: 'Venganza', type: 'active', effect: 'buff', multiplier: 1, manaCost: 8, rank: 3, cooldownRounds: 3 },
+      ],
+      combatProfile: {
+        position: 'front', prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'self' } }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 1000, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    }))
+    const firstRound = result.levelReports[0]?.rounds[0]
+    expect(result.log.some(entry => entry.type === 'buff' && entry.message.includes('+16% ATK propio durante su próximo turno'))).toBe(true)
+    expect(firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects)
+      .toContainEqual({ type: 'atk_up', remainingRounds: 1 })
+    expect(firstRound?.actions.some(action => action.actorId === hero.id && action.skillName === 'Venganza')).toBe(true)
+  })
+
+  it('makes Venganza increase the damage of the hero next-turn attack', async () => {
+    const getSecondRoundDamage = async (withVenganza: boolean) => {
+      setupRand(...Array(200).fill(0.5))
+      const hero = makeHero({
+        hpMax: 500,
+        mpMax: 100,
+        skills: withVenganza
+          ? [
+              {
+                skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+                multiplier: 1, manaCost: 0, rank: 1,
+                formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+              },
+              {
+                skillId: 2, slug: 'venganza', name: 'Venganza', type: 'active', effect: 'buff',
+                multiplier: 1, manaCost: 8, rank: 3, cooldownRounds: 3,
+              },
+            ]
+          : [
+              {
+                skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+                multiplier: 1, manaCost: 0, rank: 1,
+                formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+              },
+            ],
+        combatProfile: {
+          position: 'front',
+          prelimRules: [],
+          roundRules: [{
+            priority: 1,
+            condition: { type: 'always' },
+            action: {
+              skillId: withVenganza ? 2 : 1,
+              targetPos: withVenganza ? 'auto' : 'front',
+              targetType: withVenganza ? 'self' : 'weakest',
+            },
+          }],
+          defenseSkills: {},
+        },
+      })
+      const result = await runDungeon([hero], makeDungeon({
+        levels: [{
+          number: 1,
+          enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+          epReward: 0,
+          goldReward: 0,
+        }],
+      }))
+      const secondRound = result.levelReports[0]?.rounds.find(round => round.roundNumber === 2)
+      const attack = secondRound?.actions.find(action => action.actorId === hero.id)
+      return {
+        damage: attack?.damageBreakdown?.reduce((total, entry) => total + entry.value, 0) ?? 0,
+        skillName: attack?.skillName,
+        targetName: attack?.targetName,
+        firstRoundStatus: result.levelReports[0]?.rounds[0]?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects,
+        secondRoundStatus: secondRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects,
+      }
+    }
+
+    const withoutVenganza = await getSecondRoundDamage(false)
+    const withVenganza = await getSecondRoundDamage(true)
+    expect(withVenganza.skillName).toBe('Ataque básico')
+    expect(withVenganza.targetName).toBe('Training Golem')
+    expect(withVenganza.firstRoundStatus).toContainEqual({ type: 'atk_up', remainingRounds: 1 })
+    expect(withVenganza.damage).toBeGreaterThan(withoutVenganza.damage)
+    expect(withVenganza.secondRoundStatus).not.toContainEqual(expect.objectContaining({ type: 'atk_up' }))
+  })
+
+  it('applies Piel de Corteza as a personal defense buff that reduces incoming damage', async () => {
+    const run = async (withPielDeCorteza: boolean) => {
+      setupRand(...Array(300).fill(0.5))
+      const hero = makeHero({
+        hpMax: 500,
+        mpMax: 100,
+        skills: [
+          {
+            skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+            multiplier: 1, manaCost: 0, rank: 1,
+            formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 },
+          },
+          ...(withPielDeCorteza ? [{
+            skillId: 2, slug: 'piel-corteza-activa', name: 'Piel de Corteza',
+            type: 'active' as const, effect: 'defense_up', multiplier: 1.3,
+            manaCost: 6, rank: 3, cooldownRounds: 2,
+          }] : []),
+        ],
+        combatProfile: {
+          position: 'front',
+          prelimRules: [],
+          roundRules: [{
+            priority: 1,
+            condition: { type: 'always' },
+            action: {
+              skillId: withPielDeCorteza ? 2 : 1,
+              targetPos: 'auto',
+              targetType: withPielDeCorteza ? 'self' : 'weakest',
+            },
+          }],
+          defenseSkills: {},
+        },
+      })
+      const result = await runDungeon([hero], makeDungeon({
+        levels: [{
+          number: 1,
+          enemies: [{ id: 1, name: 'Training Ogre', icon: '👹', hp: 9999, mp: 0, atk: 40, def: 1, dx: 1, ag: 1, level: 1, position: 'front' }],
+          epReward: 0,
+          goldReward: 0,
+        }],
+      }))
+      const firstRound = result.levelReports[0]?.rounds[0]
+      const enemyAttack = firstRound?.actions.find(action =>
+        action.actorName === 'Training Ogre' && action.targetName === hero.name
+      )
+      return {
+        damage: enemyAttack?.damageBreakdown?.reduce((total, entry) => total + entry.value, 0) ?? 0,
+        statuses: firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects ?? [],
+        log: result.log,
+      }
+    }
+
+    const withoutBuff = await run(false)
+    const withBuff = await run(true)
+    expect(withBuff.statuses).toContainEqual({ type: 'def_up', remainingRounds: 1 })
+    expect(withBuff.damage).toBeGreaterThan(0)
+    expect(withBuff.damage).toBeLessThan(withoutBuff.damage)
+    expect(withBuff.log.some(entry => entry.type === 'buff' && entry.message.includes('+19% DEF propia'))).toBe(true)
+  })
+
+  it('applies Forma Salvaje as simultaneous personal attack and defense buffs', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 500,
+      mpMax: 100,
+      skills: [
+        {
+          skillId: 1, name: 'Ataque básico', type: 'active', effect: 'attack',
+          multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 },
+        },
+        {
+          skillId: 2, slug: 'forma-salvaje', name: 'Forma Salvaje',
+          type: 'active', effect: 'buff', multiplier: 1, manaCost: 18, rank: 3, cooldownRounds: 4,
+        },
+      ],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{
+          priority: 1,
+          condition: { type: 'always' },
+          action: { skillId: 2, targetPos: 'auto', targetType: 'self' },
+        }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Ogre', icon: '👹', hp: 9999, mp: 0, atk: 40, def: 1, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+    }))
+    const firstRound = result.levelReports[0]?.rounds[0]
+    const statuses = firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects ?? []
+    expect(statuses).toContainEqual({ type: 'atk_up', remainingRounds: 1 })
+    expect(statuses).toContainEqual({ type: 'def_up', remainingRounds: 1 })
+    expect(result.log.some(entry => entry.type === 'buff'
+      && entry.message.includes('+16% ATK propio y +16% DEF propia'))).toBe(true)
+  })
+
+  it('applies per-floor tactical overrides to actions and formation', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+        levelOverrides: {
+          2: {
+            position: 'rear',
+            prelimRules: [],
+            roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'front', targetType: 'weakest' } }],
+            defenseSkills: {},
+          },
+        },
+      },
+      skills: [
+        {
+          skillId: 1, name: 'First-floor strike', type: 'active', effect: 'attack',
+          multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+        },
+        {
+          skillId: 2, name: 'Second-floor strike', type: 'active', effect: 'attack',
+          multiplier: 1, manaCost: 0, rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 200 },
+        },
+      ],
+    })
+    const floor = (number: number) => ({
+      number,
+      enemies: [{ id: number, name: `Training target ${number}`, icon: '🎯', hp: 1, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+      epReward: 0,
+      goldReward: 0,
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [floor(1), floor(2), floor(3)],
+      lootTable: [],
+    }))
+
+    const firstRound = result.levelReports[0]?.rounds[0]
+    const secondRound = result.levelReports[1]?.rounds[0]
+    const thirdRound = result.levelReports[2]?.rounds[0]
+    expect(firstRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('First-floor strike')
+    expect(secondRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('Second-floor strike')
+    expect(thirdRound?.actions.find(action => action.actorId === hero.id)?.skillName).toBe('First-floor strike')
+    expect(firstRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('front')
+    expect(secondRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('rear')
+    expect(thirdRound?.stateBefore.heroes.find(unit => unit.id === hero.id)?.position).toBe('front')
+  })
+
+  it('executes floor-specific preliminary tactics at the start of that floor', async () => {
+    setupRand(...Array(200).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+        levelOverrides: {
+          2: {
+            prelimRules: [{ skillId: 999 }],
+          },
+        },
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 999, name: 'War Chant', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1 },
+      ],
+    })
+    const floor = (number: number) => ({
+      number,
+      enemies: [{ id: number, name: `Training Golem ${number}`, icon: '🗿', hp: 5, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+      epReward: 0,
+      goldReward: 0,
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [floor(1), floor(2)],
+      lootTable: [],
+    }))
+
+    expect(result.log.some(entry => entry.type === 'buff' && entry.phase === 'prelim' && entry.skill === 'skill_999')).toBe(true)
+    expect(result.levelReports[0]?.preliminaryLog ?? []).toHaveLength(0)
+    expect(result.levelReports[1]?.preliminaryLog).toEqual([
+      expect.objectContaining({ type: 'buff', phase: 'prelim', level: 2, skill: 'skill_999' }),
+    ])
+    expect(result.levelReports[1]?.rounds[0]?.stateBefore.heroes[0]?.activeBuffs?.some(buff => buff.sourceName === 'War Chant')).toBe(true)
+  })
+
   it('returns victory after clearing all levels', async () => {
     // High random = all hits connect, no misses
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
@@ -89,8 +472,231 @@ describe('runDungeon', () => {
     expect(result.totalRounds).toBeGreaterThanOrEqual(1)
   })
 
+  it('preserves configured target selection when a skill is replaced by its cooldown fallback', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [
+          { priority: 1, condition: { type: 'hp_self_lt', value: 20 }, action: { skillId: 1, targetPos: 'front', targetType: 'weakest' } },
+          { priority: 2, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'rear', targetType: 'strongest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        { skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+        { skillId: 2, name: 'Heavy strike', type: 'active', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1, cooldownRounds: 2,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [
+          { id: 1, name: 'Front target', icon: '🛡️', hp: 500, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' },
+          { id: 2, name: 'Rear weaker', icon: '🐺', hp: 300, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'rear' },
+          { id: 3, name: 'Rear strongest', icon: '🐉', hp: 700, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'rear' },
+        ],
+        epReward: 0,
+        goldReward: 0,
+      }],
+    }))
+    const secondRoundAttack = result.levelReports[0]?.rounds.find(round => round.roundNumber === 2)
+      ?.actions.find(action => action.actorId === 'hero-1')
+    expect(secondRoundAttack?.skillName).toBe('Basic strike')
+    expect(secondRoundAttack?.targetName).toBe('Rear strongest')
+    expect(secondRoundAttack?.skillFallback).toBe('cooldown')
+    expect(secondRoundAttack?.selectedSkillName).toBe('Heavy strike')
+    expect(secondRoundAttack?.tacticRulePriority).toBe(2)
+    expect(secondRoundAttack?.tacticCondition).toEqual({ type: 'always' })
+    expect(secondRoundAttack?.tacticRuleEvaluationTrace).toEqual([
+      {
+        priority: 1,
+        condition: { type: 'hp_self_lt', value: 20 },
+        matched: false,
+        reason: 'HP propio 100.0% no es inferior a 20%',
+      },
+      {
+        priority: 2,
+        condition: { type: 'always' },
+        matched: true,
+      },
+    ])
+  })
+
+  it('does not execute an unimplemented hero skill effect or spend its mana', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      mpCurrent: 17,
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 999, targetPos: 'front', targetType: 'weakest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        {
+          skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 },
+        },
+        {
+          skillId: 999, name: 'Liderazgo', type: 'active', multiplier: 1.5, manaCost: 15, effect: 'buff', rank: 1,
+          formula: null as unknown as HeroData['skills'][number]['formula'],
+        },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+
+    const firstRound = result.levelReports[0]?.rounds[0]
+    expect(result.log.some(entry => entry.message.includes('Liderazgo') && entry.message.includes('todavía no está implementado'))).toBe(true)
+    expect(firstRound?.actions.some(action => action.actorId === hero.id)).toBe(false)
+    expect(firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.mp).toBe(24)
+  })
+  it('reports when an already-active party buff replaces the selected skill', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [{ skillId: 999, effect: 'party_attack_up', multiplier: 1.5 }],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 999, targetPos: 'front', targetType: 'weakest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        { skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 } },
+        { skillId: 999, name: 'Rallying Cry', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 3,
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+    const action = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.actorId === hero.id)
+
+    expect(action?.skillName).toBe('Basic strike')
+    expect(action?.skillFallback).toBe('buff_active')
+    expect(action?.selectedSkillName).toBe('Rallying Cry')
+    expect(result.log.some(entry => entry.message.includes('Rallying Cry') && entry.message.includes('ya activo'))).toBe(true)
+  })
+
+  it('allows a stronger party buff to replace a weaker active buff', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 9999,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [{ skillId: 999, effect: 'party_attack_up', multiplier: 1.5 }],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 1000, targetPos: 'front', targetType: 'weakest' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        { skillId: 1, name: 'Basic strike', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 5 } },
+        { skillId: 999, name: 'Rallying Cry', type: 'active', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 3,
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
+        { skillId: 1000, name: 'Greater Rally', type: 'active', multiplier: 2, manaCost: 0, effect: 'party_attack_up', rank: 5,
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+    const action = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.actorId === hero.id)
+
+    expect(action?.skillName).toBe('Greater Rally')
+    expect(action?.skillFallback).toBeUndefined()
+    expect(result.log.some(entry => entry.type === 'buff' && entry.value === 30 && entry.message.includes('Greater Rally'))).toBe(true)
+  })
+
+  it('uses the fallback basic skill formula and identity when the selected skill is unaffordable', async () => {
+    const hero = makeHero({
+      mpCurrent: 0,
+      skills: [
+        {
+          skillId: 1, name: 'Golpe básico', type: 'basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 7 },
+        },
+        {
+          skillId: 2, name: 'Golpe devastador', type: 'active', multiplier: 2, manaCost: 50, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 100 },
+        },
+      ],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'front', targetType: 'weakest' } }],
+        defenseSkills: {},
+      },
+    })
+    setupRand(0.5, 0.5, 0.5, 0.5, 0.5)
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Slime', icon: '🟢', hp: 999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+    const action = result.levelReports[0]?.rounds.flatMap(round => round.actions)
+      .find(entry => entry.actorId === hero.id)
+
+    expect(action?.skillName).toBe('Golpe básico')
+    expect(action?.attackRollBase).toBe(7)
+    expect(action?.skillFallback).toBe('free_basic')
+    expect(action?.selectedSkillName).toBe('Golpe devastador')
+  })
+
+  it('starts from persisted HP and MP and returns the remaining resources', async () => {
+    const hero = makeHero({ hpCurrent: 25, mpCurrent: 17 })
+    const dungeon = makeDungeon({
+      levels: [{ number: 1, enemies: [], epReward: 0, goldReward: 0 }],
+    })
+
+    const result = await runDungeon([hero], dungeon)
+
+    expect(result.heroesFinalState[0]).toMatchObject({ id: 'hero-1', hp: 25 })
+    expect(result.heroesFinalState[0].mp).toBeGreaterThan(0)
+    expect(result.heroesFinalState[0].mp).toBeLessThan(hero.mpMax)
+  })
+
   it('tracks the exact inventory row when a preliminary consumable is used', async () => {
     const hero = makeHero({
+      skills: [
+        { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
+        { skillId: 99, name: 'Tomar poción', type: 'active', multiplier: 1, manaCost: 0, effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
+      ],
       consumables: [{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }],
       combatProfile: {
         position: 'front',
@@ -100,9 +706,79 @@ describe('runDungeon', () => {
       },
     })
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
-    await runDungeon([hero], makeDungeon())
-    expect(hero.consumables).toHaveLength(0)
-    expect(hero.consumedConsumableIds).toEqual(['hero-item-potion-1'])
+    const result = await runDungeon([hero], makeDungeon())
+    expect(hero.consumables).toEqual([{ heroItemId: 'hero-item-potion-1', itemId: 42, healHp: 25 }])
+    expect(result.log.some(entry => entry.message.includes('usa item_42'))).toBe(true)
+    expect(result.consumedConsumables).toEqual([
+      { heroId: 'hero-1', heroItemId: 'hero-item-potion-1' },
+    ])
+  })
+
+  it('does not consume or apply a potion when the hero has not learned the skill', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      hpMax: 100,
+      hpCurrent: 20,
+      consumables: [{ heroItemId: 'hero-item-untrained-potion', itemId: 44, healHp: 25 }],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{ priority: 1, condition: { type: 'always' }, action: { skillId: 1, itemId: 44, targetPos: 'front', targetType: 'self' } }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+      lootTable: [],
+    }))
+
+    expect(result.consumedConsumables).toEqual([])
+    expect(hero.consumables).toEqual([{ heroItemId: 'hero-item-untrained-potion', itemId: 44, healHp: 25 }])
+    expect(result.heroesFinalState[0].hp).toBe(20)
+    const fallbackAttack = result.levelReports[0]?.rounds.flatMap(round => round.actions).find(action => action.skillFallback === 'forced')
+    expect(fallbackAttack).toMatchObject({ targetName: 'Training Golem', skillFallback: 'forced' })
+  })
+
+  it('applies both HP and MP restoration from a dual-effect consumable during combat', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const hero = makeHero({
+      skills: [
+        { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
+        { skillId: 99, name: 'Tomar poción', type: 'active', multiplier: 1, manaCost: 0, effect: 'use_potion', rank: 1, formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 } },
+      ],
+      hpMax: 100,
+      mpMax: 100,
+      hpCurrent: 20,
+      mpCurrent: 0,
+      consumables: [{ heroItemId: 'hero-item-dual-potion', itemId: 43, healHp: 25, healMp: 30 }],
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [{
+          priority: 1,
+          condition: { type: 'always' },
+          action: { skillId: 1, itemId: 43, targetPos: 'front', targetType: 'self' },
+        }],
+        defenseSkills: {},
+      },
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{
+        number: 1,
+        enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 9999, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }],
+        epReward: 0,
+        goldReward: 0,
+      }],
+      lootTable: [],
+    }))
+
+    expect(result.heroesFinalState[0].hp).toBeGreaterThan(20)
+    expect(result.heroesFinalState[0].mp).toBeGreaterThan(5)
+    expect(result.consumedConsumables).toEqual([
+      { heroId: 'hero-1', heroItemId: 'hero-item-dual-potion' },
+    ])
+    expect(result.log.some(entry => entry.message.includes('25 + 12 = 37 HP'))).toBe(true)
+    expect(result.log.some(entry => entry.message.includes('recupera 30 MP'))).toBe(true)
   })
 
   it('returns defeat when hero dies', async () => {
@@ -181,7 +857,7 @@ describe('runDungeon', () => {
           defenseSkills: {},
         },
         skills: withBuff
-          ? [...makeHero().skills, { skillId: 999, multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as any }]
+          ? [...makeHero().skills, { skillId: 999, multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as unknown as HeroData['skills'][number]['formula'] }]
           : makeHero().skills,
       })
       const result = await runDungeon([base], makeDungeon({
@@ -203,7 +879,7 @@ describe('runDungeon', () => {
     expect(withBuff).toBeGreaterThan(withoutBuff)
   })
 
-  it('applies prelim round buffs', async () => {
+  it('applies the trained rank to preliminary group buffs', async () => {
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     const hero = makeHero({
       combatProfile: {
@@ -218,13 +894,13 @@ describe('runDungeon', () => {
       },
       skills: [
         ...makeHero().skills,
-        { skillId: 999, multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as any },
+        { skillId: 999, name: 'War Chant', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 5, formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const result = await runDungeon([hero], makeDungeon({ levels: [{ number: 1, enemies: [{ id: 1, name: 'Slime', icon: '🟢', hp: 5, mp: 0, atk: 5, def: 1, dx: 3, ag: 2, level: 1, position: 'front' }], epReward: 100, goldReward: 50 }] }))
     expect(result.victory).toBe(true)
-    // Check prelim buff was logged
-    expect(result.log.some(l => l.type === 'buff' && l.phase === 'prelim')).toBe(true)
+    expect(result.log.some(l => l.type === 'buff' && l.phase === 'prelim' && l.value === 25)).toBe(true)
+    expect(result.levelReports[0]?.rounds[0]?.stateBefore.heroes[0]?.activeBuffs?.find(buff => buff.sourceName === 'War Chant')?.value).toBe(25)
   })
 
   it('supports armor penetration effect', async () => {
@@ -346,6 +1022,131 @@ describe('runDungeon', () => {
     expect(result.log.some(l => l.message.includes('Escudo de maná'))).toBe(true)
   })
 
+  it('records a terminal round when round-start effects defeat the party before turns', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const result = await runDungeon(
+      [makeHero({ hpMax: 10 })],
+      makeDungeon({
+        levels: [{
+          number: 1,
+          enemies: [{
+            id: 1, name: 'Ash Wraith', icon: '🔥', hp: 100, mp: 0, atk: 0, def: 0, dx: 1, ag: 1,
+            level: 1, position: 'rear',
+            passiveEffects: [{
+              trigger: 'on_round_start',
+              effectType: 'damage',
+              targetType: 'all_heroes',
+              value: 999,
+              sourceName: 'Opening blaze',
+            }],
+          }],
+          epReward: 0,
+          goldReward: 0,
+        }],
+        lootTable: [],
+      }),
+    )
+
+    const terminalRound = result.levelReports[0]?.rounds[0]
+    expect(result.victory).toBe(false)
+    expect(result.heroesFinalState[0]?.hp).toBe(0)
+    expect(result.totalRounds).toBe(1)
+    expect(terminalRound?.roundNumber).toBe(1)
+    expect(terminalRound?.stateAfter.heroes[0]?.hp).toBe(0)
+    expect(terminalRound?.actions).toEqual([])
+  })
+
+  it('records the updated condition when combat healing changes HP', async () => {
+    setupRand(...Array(100).fill(0.5))
+    let healedUnitId: string | undefined
+    const healingStateChanges: Array<{ unitId: string; condition?: string }> = []
+    const hero = makeHero({
+      hpMax: 100,
+      hpCurrent: 1,
+      combatProfile: {
+        position: 'front',
+        prelimRules: [],
+        roundRules: [
+          { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },
+        ],
+        defenseSkills: {},
+      },
+      skills: [
+        ...makeHero().skills,
+        { skillId: 2, multiplier: 1, manaCost: 0, effect: 'heal', rank: 1, healPct: 50,
+          formula: null as unknown as HeroData['skills'][number]['formula'] },
+      ],
+    })
+    await runDungeon([hero], makeDungeon(), {
+      combatEventHandlers: [
+        { eventType: 'healing_applied', handle: event => { if (event.type === 'healing_applied') healedUnitId = event.targetId } },
+        {
+          eventType: 'unit_state_changed',
+          handle: event => {
+            if (event.type === 'unit_state_changed' && event.changes.hp !== undefined) {
+              healingStateChanges.push({ unitId: event.unitId, condition: event.changes.condition })
+            }
+          },
+        },
+      ],
+    })
+
+    expect(healedUnitId).toBe(hero.id)
+    expect(healingStateChanges.find(change => change.unitId === hero.id)?.condition).toBeTruthy()
+  })
+
+  it('heals every injured living party member with Cura Grupal and reports each target', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const healer = makeHero({
+      id: 'healer', name: 'Healer', hpMax: 100, hpCurrent: 50, mpMax: 100, mpCurrent: 100,
+      combatProfile: { position: 'rear', prelimRules: [], roundRules: [
+        { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },
+      ], defenseSkills: {} },
+      skills: [
+        { skillId: 1, name: 'Basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+        { skillId: 2, slug: 'cura-grupo', name: 'Cura Grupal', multiplier: 1, manaCost: 35, effect: 'heal', rank: 1,
+          healPct: 20, tags: ['heal', 'aoe'], formula: null as unknown as HeroData['skills'][number]['formula'] },
+      ],
+    })
+    const ally = makeHero2({ id: 'ally', name: 'Ally', hpMax: 100, hpCurrent: 20, mpMax: 100, mpCurrent: 100 })
+    const result = await runDungeon([healer, ally], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 10000, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    }))
+    const action = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.skillName === 'Cura Grupal')
+    expect(action?.mpCost).toBe(35)
+    expect(action?.healingResults).toEqual([
+      { targetId: 'healer', targetName: 'Healer', amount: 20 },
+      { targetId: 'ally', targetName: 'Ally', amount: 20 },
+    ])
+    expect(result.log.filter(entry => entry.skill === 'Cura Grupal' && entry.type === 'heal' && entry.round === 1)).toHaveLength(2)
+  })
+
+  it('applies Renovación as three real round-start healing ticks', async () => {
+    setupRand(...Array(500).fill(0.5))
+    const hero = makeHero({
+      hpMax: 100, hpCurrent: 10, mpMax: 100, mpCurrent: 100,
+      combatProfile: { position: 'front', prelimRules: [], roundRules: [
+        { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },
+      ], defenseSkills: {} },
+      skills: [
+        { skillId: 1, name: 'Basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+        { skillId: 2, slug: 'renovacion', name: 'Renovación', multiplier: 1, manaCost: 12, effect: 'heal', rank: 1,
+          healPct: 20, cooldownRounds: 99, tags: ['heal'], formula: null as unknown as HeroData['skills'][number]['formula'] },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 10000, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    }))
+    const regenerationAction = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.skillName === 'Renovación')
+    const ticks = result.log.filter(entry => entry.skill === 'Regeneración' && entry.type === 'heal')
+    expect(ticks.map(entry => entry.round)).toEqual([2, 3, 4])
+    expect(ticks.map(entry => entry.value)).toEqual([20, 20, 20])
+    expect(result.heroesFinalState[0]?.hp).toBe(70)
+    expect(regenerationAction?.mpCost).toBe(12)
+  })
+
   it('handles healing skills in combat', async () => {
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     const hero = makeHero({
@@ -360,7 +1161,7 @@ describe('runDungeon', () => {
       },
       skills: [
         ...makeHero().skills,
-        { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as any },
+        { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const result = await runDungeon([hero], makeDungeon())
@@ -605,7 +1406,7 @@ describe('runDungeon', () => {
       const fortitudeDefense = await getEnemyAttackDefense({
         skills: [
           ...makeHero().skills,
-          { skillId: 2, multiplier: 1, manaCost: 0, effect: 'fortitude', rank: 1, formula: null as any },
+          { skillId: 2, multiplier: 1, manaCost: 0, effect: 'fortitude', rank: 1, formula: null as unknown as HeroData['skills'][number]['formula'] },
         ],
       })
 
@@ -674,7 +1475,7 @@ describe('runDungeon', () => {
           },
           skills: [
             { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
-            { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as any },
+            { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as unknown as HeroData['skills'][number]['formula'] },
           ],
         }),
          makeHero({ id: 'tank', name: 'Tank', hpMax: 100 })],

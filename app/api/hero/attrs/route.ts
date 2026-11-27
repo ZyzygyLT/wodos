@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
+import type { Prisma } from "@/generated/prisma"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { calcHpMax, calcMpMax, HeroAttrs } from "@/lib/combat-engine/formulas"
+import {
+  appendAttributeInvestments,
+  refundAttributeInvestments,
+} from "@/lib/attribute-investment-ledger"
 import { z } from "zod"
 import { formatZodError } from "@/lib/zod-error"
 
@@ -31,11 +37,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!hero) return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
 
   const { attr, amount } = parsed.data
@@ -47,7 +49,8 @@ export async function PUT(req: NextRequest) {
       where: { id: hero.id },
       select: {
         id: true, level: true, attrs: true, epTotal: true, epSpent: true,
-        freeAttrPoints: true, hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true,
+        freeAttrPoints: true, attrPointLedger: true,
+        hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true,
       },
     })
     if (!currentHero) throw new Error("HERO_NOT_FOUND")
@@ -56,32 +59,28 @@ export async function PUT(req: NextRequest) {
     const currentVal = attrs[attr] || 0
 
     if (amount < 0) {
-      const absAmount = Math.abs(amount)
-      const newVal = Math.max(0, currentVal - absAmount)
-      const pointsRemoved = currentVal - newVal
-      let refundEp = 0
-      for (let i = 0; i < pointsRemoved; i++) {
-        refundEp += attrCost(newVal + i)
-      }
-      const actualRefundEp = Math.min(refundEp, currentHero.epSpent)
-      const restoreFree = currentHero.freeAttrPoints < 5
-        ? Math.min(5 - currentHero.freeAttrPoints, absAmount)
-        : 0
+      const pointsRemoved = Math.min(currentVal, Math.abs(amount))
+      if (pointsRemoved < 1) throw new Error("ATTRIBUTE_MINIMUM")
 
+      const refund = refundAttributeInvestments(currentHero.attrPointLedger, attr, pointsRemoved)
+      if (!refund) throw new Error("ATTRIBUTE_REFUND_UNAVAILABLE")
+
+      const newVal = currentVal - pointsRemoved
       const newAttrs: Record<string, number> = { ...attrs, [attr]: newVal }
       const newHpMax = calcHpMax(newAttrs as unknown as HeroAttrs, currentHero.level)
       const newMpMax = calcMpMax(newAttrs as unknown as HeroAttrs)
 
       const updated = await tx.hero.updateMany({
-        where: { id: hero.id, epSpent: { gte: actualRefundEp } },
+        where: { id: hero.id, epSpent: { gte: refund.epRefund } },
         data: {
           attrs: newAttrs,
+          attrPointLedger: refund.ledger as Prisma.InputJsonValue,
           hpMax: newHpMax,
           mpMax: newMpMax,
           hpCurrent: Math.min(currentHero.hpCurrent, newHpMax),
           mpCurrent: Math.min(currentHero.mpCurrent, newMpMax),
-          epSpent: { decrement: actualRefundEp },
-          ...(restoreFree > 0 ? { freeAttrPoints: { increment: restoreFree } } : {}),
+          ...(refund.epRefund > 0 ? { epSpent: { decrement: refund.epRefund } } : {}),
+          ...(refund.freeRefund > 0 ? { freeAttrPoints: { increment: refund.freeRefund } } : {}),
         },
       })
       if (updated.count !== 1) throw new Error("ATTRIBUTE_BALANCE_STALE")
@@ -89,9 +88,10 @@ export async function PUT(req: NextRequest) {
       return {
         attr,
         newValue: newVal,
-        epRefund: actualRefundEp,
-        freeRemaining: currentHero.freeAttrPoints + restoreFree,
-        epRemaining: (currentHero.epTotal - currentHero.epSpent) + actualRefundEp,
+        epRefund: refund.epRefund,
+        freeRefund: refund.freeRefund,
+        freeRemaining: currentHero.freeAttrPoints + refund.freeRefund,
+        epRemaining: (currentHero.epTotal - currentHero.epSpent) + refund.epRefund,
         hpMax: newHpMax,
         mpMax: newMpMax,
         attrs: newAttrs,
@@ -102,13 +102,21 @@ export async function PUT(req: NextRequest) {
     const freeUsed = Math.min(remaining, currentHero.freeAttrPoints)
     remaining -= freeUsed
 
-    let epCost = 0
+    const epCosts: number[] = []
     if (remaining > 0) {
       const spendStart = currentVal + freeUsed
       for (let i = 0; i < remaining; i++) {
-        epCost += attrCost(spendStart + i)
+        epCosts.push(attrCost(spendStart + i))
       }
     }
+    const epCost = epCosts.reduce((total, cost) => total + cost, 0)
+    const ledger = appendAttributeInvestments(
+      currentHero.attrPointLedger,
+      attr,
+      freeUsed,
+      epCosts,
+    )
+    if (!ledger) throw new Error("ATTRIBUTE_LEDGER_INVALID")
 
     const epAvailable = currentHero.epTotal - currentHero.epSpent
     if (epAvailable < epCost) {
@@ -127,6 +135,7 @@ export async function PUT(req: NextRequest) {
       },
       data: {
         attrs: newAttrs,
+        attrPointLedger: ledger as Prisma.InputJsonValue,
         hpMax: newHpMax,
         mpMax: newMpMax,
         hpCurrent: Math.min(currentHero.hpCurrent + (newHpMax - currentHero.hpMax), newHpMax),
@@ -155,6 +164,18 @@ export async function PUT(req: NextRequest) {
     }
     if (error.message === "EP_INSUFFICIENT") {
       return { error: "EP insuficientes para realizar esta asignación", status: 400 }
+    }
+    if (error.message === "ATTRIBUTE_MINIMUM") {
+      return { error: "El atributo ya está en su valor mínimo", status: 400 }
+    }
+    if (error.message === "ATTRIBUTE_REFUND_UNAVAILABLE") {
+      return {
+        error: "Este punto fue asignado antes del registro de inversiones y no se puede reembolsar.",
+        status: 409,
+      }
+    }
+    if (error.message === "ATTRIBUTE_LEDGER_INVALID") {
+      return { error: "No se pudo verificar el historial de inversión del atributo", status: 409 }
     }
     if (error.message === "ATTRIBUTE_BALANCE_STALE") {
       return { error: "Los puntos o recursos cambiaron; volvé a intentarlo", status: 409 }

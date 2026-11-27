@@ -39,11 +39,6 @@ export async function POST(req: NextRequest) {
     const { name, classId, raceId } = parsed.data
     const hero = await createHero(session.user.id, name, classId, raceId)
 
-    // Set as current hero if it's the first one
-    if (heroCount === 0) {
-      await db.user.update({ where: { id: session.user.id }, data: { currentHeroId: hero.id } })
-    }
-
     const heroClass = await db.class.findUnique({ where: { id: classId }, select: { name: true } })
     const race = await db.race.findUnique({ where: { id: raceId }, select: { name: true } })
     trackHeroCreated(session.user.id, {
@@ -53,6 +48,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: hero.id, name: hero.name }, { status: 201 })
   } catch (e: any) {
+    if (e?.message === "MAX_HEROES_REACHED") {
+      return NextResponse.json({ error: "Límite de héroes alcanzado" }, { status: 409 })
+    }
     logger.error('hero-create', "Error al crear el héroe", e)
     return NextResponse.json({ error: e.message || "Error al crear el héroe" }, { status: 500 })
   }

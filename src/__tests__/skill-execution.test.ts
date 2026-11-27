@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveSkillExecution, type SkillExecutionInput } from '@/engine/core/skills/skill-execution'
+import { isSupportedSkillEffect, resolveSkillExecution, type SkillExecutionInput } from '@/engine/core/skills/skill-execution'
 import { createSeededRandom } from '@/engine/core/random/random-source'
 import type { TargetableUnit } from '@/engine/core/skills/target-selection'
 
@@ -22,6 +22,26 @@ describe('central skill execution planning', () => {
   it('selects the most injured living ally for healing and keeps the requested percentage', () => {
     const plan = resolve({ skillId: 1, effect: 'heal', healPct: 35 })
     expect(plan).toEqual({ kind: 'heal', target: base.allies[0], healPct: 35 })
+  })
+
+  it('selects every living injured ally for an area healing skill', () => {
+    const plan = resolve({ skillId: 20, slug: 'cura-grupo', effect: 'heal', healPct: 20, tags: ['heal', 'aoe'] })
+    expect(plan).toEqual({ kind: 'group_heal', targets: [base.actor, base.allies[0]], healPct: 20 })
+  })
+
+  it('resolves Renovación and Regeneración as three-tick healing effects', () => {
+    for (const slug of ['renovacion', 'regeneracion']) {
+      const plan = resolve({ skillId: 21, slug, effect: 'heal', healPct: 28, tags: ['heal'] })
+      expect(plan).toEqual({ kind: 'heal_over_time', target: base.allies[0], healPct: 28, ticks: 3 })
+    }
+  })
+
+  it('respects an explicit self target for a healing action', () => {
+    const plan = resolve(
+      { skillId: 16, effect: 'heal', healPct: 20 },
+      { action: { ...base.action, targetType: 'self' } },
+    )
+    expect(plan).toEqual({ kind: 'heal', target: base.actor, healPct: 20 })
   })
 
   it('supports self-only healing for enemy skills', () => {
@@ -73,10 +93,32 @@ describe('central skill execution planning', () => {
       .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 21 })
     expect(resolve({ skillId: 3, effect: 'defense_up', multiplier: 1, rank: 2 }))
       .toEqual({ kind: 'party_buff', buff: 'def', bonus: 14 })
+    for (const slug of ['postura-defensiva', 'resistencia', 'inquebrantable', 'piel-corteza-activa']) {
+      expect(resolve({ skillId: 30, slug, effect: 'defense_up', multiplier: 1.3, rank: 3 }))
+        .toEqual({ kind: 'self_buff', buffs: [{ buff: 'def', bonus: 19 }] })
+    }
     expect(resolve({ skillId: 9, effect: 'party_attack_up', multiplier: 1.5, rank: 0 }))
-      .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 15 })
+      .toEqual({ kind: 'party_buff', buff: 'atk', bonus: 17 })
   })
 
+  it('resolves Venganza as a rank-scaled self attack buff and keeps other generic buffs unsupported', () => {
+    expect(resolve({ skillId: 98, slug: 'venganza', effect: 'buff', multiplier: 1, rank: 3 }))
+      .toEqual({ kind: 'self_buff', buffs: [{ buff: 'atk', bonus: 16 }] })
+    expect(isSupportedSkillEffect('buff', 'venganza')).toBe(true)
+    expect(resolve({ skillId: 97, slug: 'forma-salvaje', effect: 'buff', multiplier: 1, rank: 3 }))
+      .toEqual({ kind: 'self_buff', buffs: [{ buff: 'atk', bonus: 16 }, { buff: 'def', bonus: 16 }] })
+    expect(isSupportedSkillEffect('buff', 'forma-salvaje')).toBe(true)
+  })
+
+  it('marks unimplemented combat effects as unsupported instead of treating them as attacks', () => {
+    for (const effect of ['buff', 'debuff', 'taunt', 'mana_drain', 'unknown_effect']) {
+      expect(resolve({ skillId: 99, effect })).toEqual({ kind: 'unsupported', effect })
+      expect(isSupportedSkillEffect(effect)).toBe(false)
+    }
+    for (const effect of ['attack', 'armor_penetration', 'critical_attack', 'aoe_attack', 'heal', 'party_attack_up', 'defense_up']) {
+      expect(isSupportedSkillEffect(effect)).toBe(true)
+    }
+  })
   it('returns all living enemies for area attacks', () => {
     const plan = resolve({ skillId: 4, effect: 'aoe_attack' }, { enemies: [...base.enemies, unit('defeated', 0)] })
     expect(plan.kind).toBe('area_attack')
@@ -96,6 +138,19 @@ describe('central skill execution planning', () => {
     })
     expect(plan.kind).toBe('single_attack')
     if (plan.kind === 'single_attack') expect(plan.target?.id).toBe('hero-weak')
+  })
+
+  it('resolves an explicit self target to the acting unit for single-target skills', () => {
+    const plan = resolve(
+      { skillId: 17, effect: 'attack' },
+      { action: { ...base.action, targetType: 'self' } },
+    )
+    expect(plan).toEqual({
+      kind: 'single_attack',
+      target: base.actor,
+      armorPenetration: false,
+      critical: false,
+    })
   })
 
   it('resolves a single target and preserves armor penetration / automatic critical flags', () => {

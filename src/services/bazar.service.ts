@@ -1,4 +1,5 @@
 import db from '@/lib/db'
+import { getActiveHeroByUserId } from '@/lib/hero-utils'
 import { trackItemListed } from '@/lib/analytics/events'
 import type { ListingType } from '@/generated/prisma'
 
@@ -16,11 +17,7 @@ export async function listItem(
   userId: string,
   params: { heroItemId: string; price: number; listingType: ListingType; expiresInHours?: number }
 ): Promise<{ ok: boolean; error?: string; status?: number; data?: ListItemResult }> {
-  const hero = await db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true },
-  })
+  const hero = await getActiveHeroByUserId(userId, { select: { id: true } })
   if (!hero) return { ok: false, error: 'No tenés un héroe', status: 404 }
 
   const expiresAt = new Date(Date.now() + (params.expiresInHours ?? 72) * 3600000)

@@ -5,14 +5,18 @@ const createMock = () => ({
   findUnique: vi.fn(),
   findFirst: vi.fn(),
   findMany: vi.fn(),
+  count: vi.fn(),
   update: vi.fn(),
+  updateMany: vi.fn(),
   create: vi.fn(),
   createMany: vi.fn(),
   upsert: vi.fn(),
   delete: vi.fn(),
+  deleteMany: vi.fn(),
 })
 
 const mockDb = {
+  $queryRaw: vi.fn(),
   $transaction: vi.fn(async (arg: any) => {
     if (Array.isArray(arg)) {
       return Promise.all(arg.map((p: any) => Promise.resolve(p)))
@@ -30,6 +34,8 @@ const mockDb = {
   clan: createMock(),
   clanMember: createMock(),
   clanGroup: createMock(),
+  groupInvite: createMock(),
+  groupMember: createMock(),
   clanUpgrade: createMock(),
   quest: createMock(),
   item: createMock(),
@@ -43,11 +49,14 @@ const mockDb = {
   dungeon: createMock(),
   enemy: createMock(),
   dungeonRun: createMock(),
+  dungeonRunPostProcessing: createMock(),
+  dungeonRunRewardGrant: createMock(),
   combatProfile: createMock(),
   forumTopic: createMock(),
   forumReply: createMock(),
   forumCategory: createMock(),
   weeklyEvent: createMock(),
+  heroEventParticipation: createMock(),
   clanEventParticipation: createMock(),
   tournament: createMock(),
   tournamentParticipant: createMock(),
@@ -83,8 +92,6 @@ vi.mock('@/lib/analytics/events', () => ({
   trackClanUpgrade: vi.fn(),
   trackQuestCompleted: vi.fn(),
 }))
-
-
 
 // ─── Mock quest progress ───────────────────────────────────────────────────────
 vi.mock('@/lib/quests/progress', () => ({

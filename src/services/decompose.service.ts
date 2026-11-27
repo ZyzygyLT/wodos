@@ -1,4 +1,5 @@
 import db from '@/lib/db'
+import { getActiveHeroByUserId } from '@/lib/hero-utils'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from "@/lib/achievements/checker"
 import logger from '@/lib/logger'
@@ -25,9 +26,7 @@ export async function processDecompose(
   userId: string,
   heroItemId: string,
 ): Promise<{ ok: boolean; error?: string; status?: number; data?: DecomposeResult }> {
-  const hero = await db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(userId, {
     include: {
       items: { include: { item: true } },
       materials: { include: { material: true } },

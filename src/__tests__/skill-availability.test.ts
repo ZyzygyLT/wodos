@@ -5,12 +5,14 @@ import {
   getSkillCooldownRemaining,
   isSkillOnCooldown,
   normalizeSkillCooldown,
+  isBasicSkill,
+  getDefaultCombatSkillId,
   resolveSkillMana,
   setSkillCooldown,
 } from '@/engine/core/skills/skill-availability'
 
-const basic = { skillId: 1, name: 'Basic', effect: 'attack', manaCost: 0 }
-const costly = { skillId: 2, name: 'Power Strike', effect: 'attack', manaCost: 10 }
+const basic = { skillId: 1, name: 'Basic', type: 'basic' as const, effect: 'attack', manaCost: 0 }
+const costly = { skillId: 2, name: 'Power Strike', type: 'active' as const, effect: 'attack', manaCost: 10 }
 
 describe('skill availability and resource rules', () => {
   it('scales mana cost by 20% of base cost per rank above one', () => {
@@ -81,8 +83,49 @@ describe('skill availability and resource rules', () => {
     })
   })
 
+  it('recognizes a zero-mana active attack as the practical basic attack in legacy seed data', () => {
+    const freeAttack = { skillId: 6, type: 'active' as const, effect: 'attack', manaCost: 0 }
+    expect(isBasicSkill(freeAttack)).toBe(true)
+    expect(resolveSkillMana({
+      selectedSkill: costly,
+      availableSkills: [costly, freeAttack],
+      currentMp: 2,
+    })).toEqual({
+      skill: freeAttack,
+      mpCost: 0,
+      remainingMp: 2,
+      fallback: 'free_basic',
+    })
+  })
+
+  it('selects a per-hero default attack ahead of passive skills', () => {
+    expect(getDefaultCombatSkillId([
+      { skillId: 9, type: 'passive', effect: 'defense', manaCost: 0 },
+      { skillId: 7, type: 'active', effect: 'attack', manaCost: 0 },
+      { skillId: 8, type: 'active', effect: 'attack', manaCost: 10 },
+    ])).toBe(7)
+    expect(getDefaultCombatSkillId([
+      { skillId: 9, type: 'passive', effect: 'defense', manaCost: 0 },
+      { skillId: 8, type: 'active', effect: 'attack', manaCost: 10 },
+    ])).toBe(8)
+  })
+
+  it('does not mistake an active attack skill for a basic attack', () => {
+    const activeAttack = { skillId: 5, type: 'active' as const, effect: 'attack', manaCost: 10 }
+    expect(resolveSkillMana({
+      selectedSkill: activeAttack,
+      availableSkills: [activeAttack],
+      currentMp: 2,
+    })).toEqual({
+      skill: activeAttack,
+      mpCost: 0,
+      remainingMp: 0,
+      fallback: 'forced',
+    })
+  })
+
   it('preserves the forced-skill fallback when no basic attack exists', () => {
-    const spell = { skillId: 4, effect: 'heal', manaCost: 10 }
+    const spell = { skillId: 4, type: 'active' as const, effect: 'heal', manaCost: 10 }
     expect(resolveSkillMana({
       selectedSkill: spell,
       availableSkills: [spell],

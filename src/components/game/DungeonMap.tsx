@@ -8,6 +8,7 @@ interface DungeonNode {
   levelReq: number; recommendedLevel: number
   difficultyLabel: string; difficulty: number; isInstant: boolean
   isRegistered: boolean; nextScheduledTime: string | null
+  activeRunDungeonId?: number | null; activeRunDungeonName?: string | null
   epReward?: number; goldReward?: number; fameReward?: number
   lootTable?: { itemId: number; chance: number; minQty: number; maxQty: number; name?: string }[]
   levels?: { number: number; enemies: { id: number; name: string; count: number; pos: string; isBoss?: boolean }[]; epReward: number; goldReward: number }[]
@@ -116,10 +117,11 @@ function strokeWidth(selected: boolean, clanOnly: boolean, registered: boolean):
   return 1
 }
 
-function buttonLabel(loading: boolean | string | null, isInstant: boolean, isRegistered: boolean): string {
+function buttonLabel(loading: boolean | string | null, isInstant: boolean, isRegistered: boolean, activeRunElsewhere: boolean): string {
   if (loading) return "..."
-  if (isInstant) return "Entrar ahora"
   if (isRegistered) return "Ya registrado"
+  if (activeRunElsewhere) return "Comprometido"
+  if (isInstant) return "Entrar ahora"
   return "Registrarse"
 }
 
@@ -393,7 +395,7 @@ export default function DungeonMap({ dungeons, heroLevel, heroHp, selectedProfil
             <div className="relative">
               <button onClick={() => setProfileDropdown(profileDropdown === selected.id ? null : selected.id)}
                 className="flex items-center justify-between w-full bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition">
-                <span>⚔️ {selected.profiles.find(p => p.id === selectedProfiles[selected.id])?.name ?? "Perfil"}</span>
+                <span>⚔️ {selected.profiles.find(p => p.id === selectedProfiles[selected.id])?.name ?? selected.profiles[0]?.name ?? "Perfil"}</span>
                 <span className="text-gray-500">▼</span>
               </button>
 
@@ -415,30 +417,38 @@ export default function DungeonMap({ dungeons, heroLevel, heroHp, selectedProfil
 
             {/* Group selector */}
             {groups && groups.length > 0 && (
-              <div className="relative">
-                <button onClick={() => setGroupDropdown(!groupDropdown)}
-                  className="flex items-center justify-between w-full bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition">
-                  <span>👥 {groups.find(g => g.id === selectedGroupId)?.name ?? "Seleccionar grupo"}</span>
-                  <span className="text-gray-500">▼</span>
-                </button>
-                {groupDropdown && (
-                  <>
-                    <button type="button" className="fixed inset-0 z-10" onClick={() => setGroupDropdown(false)} />
-                    <div className="absolute bottom-full left-0 mb-1 z-20 bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-[200px]">
-                      {groups.map(g => (
-                        <div key={g.id} className={`flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-700 transition ${selectedGroupId === g.id ? "text-yellow-400" : "text-gray-200"}`}>
-                          <button onClick={() => { onSelectGroup?.(g.id); setGroupDropdown(false) }} className="flex-1 text-left">
-                            {g.name}
-                            <span className="text-gray-500 ml-2">({g.members?.length ?? g.groupMembers?.length ?? 0})</span>
-                          </button>
-                          <a href={`/groups/${g.id}`} onClick={e => e.stopPropagation()}
-                            className="text-gray-500 hover:text-amber-400 ml-2 shrink-0" title="Administrar grupo">
-                            ⚙️
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </>
+              <div className="space-y-2">
+                <div className="relative">
+                  <button onClick={() => setGroupDropdown(!groupDropdown)}
+                    className="flex items-center justify-between w-full bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition">
+                    <span>👥 {groups.find(g => g.id === selectedGroupId)?.name ?? "Seleccionar grupo"}</span>
+                    <span className="text-gray-500">▼</span>
+                  </button>
+                  {groupDropdown && (
+                    <>
+                      <button type="button" className="fixed inset-0 z-10" onClick={() => setGroupDropdown(false)} />
+                      <div className="absolute bottom-full left-0 mb-1 z-20 bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-[200px]">
+                        {groups.map(g => (
+                          <div key={g.id} className={`flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-700 transition ${selectedGroupId === g.id ? "text-yellow-400" : "text-gray-200"}`}>
+                            <button onClick={() => { onSelectGroup?.(g.id); setGroupDropdown(false) }} className="flex-1 text-left">
+                              {g.name}
+                              <span className="text-gray-500 ml-2">({g.members?.length ?? g.groupMembers?.length ?? 0})</span>
+                            </button>
+                            <a href={`/groups/${g.id}`} onClick={e => e.stopPropagation()}
+                              className="text-gray-500 hover:text-amber-400 ml-2 shrink-0" title="Administrar grupo">
+                              ⚙️
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {onCreateGroup && (
+                  <button onClick={onCreateGroup}
+                    className="w-full text-xs px-3 py-2 rounded bg-green-800 hover:bg-green-700 transition">
+                    + Crear grupo
+                  </button>
                 )}
               </div>
             )}
@@ -454,10 +464,15 @@ export default function DungeonMap({ dungeons, heroLevel, heroHp, selectedProfil
               </div>
             )}
 
+            {selected.activeRunDungeonId != null && selected.activeRunDungeonId !== selected.id && (
+              <p className="rounded-lg border border-amber-800/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-300">
+                Tu héroe ya participa en <strong>{selected.activeRunDungeonName ?? "otra expedición"}</strong>. Debe terminar antes de entrar en otra mazmorra.
+              </p>
+            )}
             <button onClick={() => handleEnter(selected)}
-              disabled={heroHp <= 0 || selected.isRegistered || enterLoading === selected.id || !filteredSlugs.has(selected.slug)}
+              disabled={heroHp <= 0 || selected.isRegistered || (selected.activeRunDungeonId != null && selected.activeRunDungeonId !== selected.id) || enterLoading === selected.id || !filteredSlugs.has(selected.slug)}
               className="w-full py-2 rounded-lg text-sm font-medium transition bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 disabled:cursor-not-allowed">
-              {buttonLabel(enterLoading === selected.id, selected.isInstant, selected.isRegistered)}
+              {buttonLabel(enterLoading === selected.id, selected.isInstant, selected.isRegistered, selected.activeRunDungeonId != null && selected.activeRunDungeonId !== selected.id)}
             </button>
           </div>
         )}

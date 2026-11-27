@@ -7,7 +7,7 @@ import logger from "@/lib/logger"
 import { trackDuelCompleted } from "@/lib/analytics/events"
 import { trackHeroEventProgress } from "@/services/event.service"
 import { adjustRep } from "@/services/faction.service"
-import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({ where: { userId: session.user.id } })
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
 
   const { hero2Id } = await req.json()

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { updateQuestProgress } from "@/lib/quests/progress"
 import { checkAchievements } from "@/lib/achievements/checker"
 import { notify } from "@/lib/notifications/emitter"
@@ -14,9 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: { materials: { include: { material: true } } },
   })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
@@ -83,9 +82,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Item no crafteable" }, { status: 400 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: { materials: true, items: true },
   })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })

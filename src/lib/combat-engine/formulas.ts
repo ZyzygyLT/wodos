@@ -1,17 +1,13 @@
 import { type RandomSource } from '@/engine/core/random/random-source'
 import { rollCombatInitiative } from '@/engine/core/combat/initiative'
-import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage } from '@/engine/core'
+import { calculateDefenseBase, calculateInitiativeBase, calculateMaxHp, calculateMaxMp, resolveCritical, resolveFormulaDamage, type DamageType } from '@/engine/core'
+export type { DamageType } from '@/engine/core'
 import { applySkillDiceMultiplier, evaluateSkillFormula } from '@/engine/core/skills/skill-definition'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IRONHOLD — Fórmulas de combate
 // lib/combat-engine/formulas.ts
 // ─────────────────────────────────────────────────────────────────────────────
-
-export type DamageType =
-  | 'physical' | 'fire' | 'ice' | 'lightning'
-  | 'poison' | 'holy' | 'dark' | 'psychological'
-  | 'piercing' | 'arcane' | 'healing' | 'bleed'
 
 export interface HeroAttrs {
   st: number  // strength

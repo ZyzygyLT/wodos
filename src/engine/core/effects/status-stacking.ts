@@ -9,21 +9,29 @@ export interface StatusStackingEntry {
  * model: one active entry per type, maximum potency and duration, and source
  * metadata retained from the first existing entry.
  *
- * Non-matching entries retain their relative order; the refreshed/new entry is
- * appended, matching the legacy replace lifecycle's ordering.
+ * Duplicate entries collapse into the position of the last matching entry,
+ * preserving the relative order of unrelated statuses.
  */
 export function mergeStatusByMaximum<T extends StatusStackingEntry>(
   current: readonly T[],
   incoming: T,
 ): readonly T[] {
-  const matching = current.find(status => status.type === incoming.type)
-  const merged: T = matching
-    ? {
-        ...matching,
-        remainingRounds: Math.max(matching.remainingRounds, incoming.remainingRounds),
-        value: Math.max(matching.value, incoming.value),
-      }
-    : incoming
+  const matching = current.filter(status => status.type === incoming.type)
+  if (matching.length === 0) return [...current, incoming]
 
-  return [...current.filter(status => status.type !== incoming.type), merged]
+  const first = matching[0]
+  const merged: T = {
+    ...first,
+    remainingRounds: Math.max(incoming.remainingRounds, ...matching.map(status => status.remainingRounds)),
+    value: Math.max(incoming.value, ...matching.map(status => status.value)),
+  }
+  const lastMatchingIndex = current.reduce(
+    (last, status, index) => status.type === incoming.type ? index : last,
+    -1,
+  )
+
+  return current.flatMap((status, index) => {
+    if (status.type !== incoming.type) return [status]
+    return index === lastMatchingIndex ? [merged] : []
+  })
 }

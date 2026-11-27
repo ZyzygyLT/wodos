@@ -16,15 +16,21 @@ export default function LoginPage() {
     setLoading(true)
     setError("")
 
-    const res = await signIn("credentials", {
-      email, password, redirect: false,
-    })
+    try {
+      const res = await signIn("credentials", {
+        email, password, redirect: false,
+      })
 
-    if (res?.error) {
-      setError("Credenciales inválidas")
-      setLoading(false)
-    } else {
+      if (res?.error) {
+        setError("Credenciales inválidas")
+        return
+      }
+
       router.push("/")
+    } catch {
+      setError("No se pudo conectar. Comprobá tu conexión e intentá nuevamente.")
+    } finally {
+      setLoading(false)
     }
   }
 

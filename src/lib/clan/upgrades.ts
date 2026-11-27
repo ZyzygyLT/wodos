@@ -1,5 +1,5 @@
 export type UpgradeId =
-  | "library" | "time_altar" | "storage"
+  | "library" | "storage"
   | "training" | "infirmary" | "cartography"
   | "smithy" | "exclusive_dungeon"
 
@@ -17,14 +17,6 @@ export const CLAN_UPGRADES: Record<UpgradeId, { name: string; tiers: UpgradeTier
       { tier: 1, goldCost: 500,  effect: "+5% EP en dungeons",  bonus: { ep_bonus_pct: 5 } },
       { tier: 2, goldCost: 1200, effect: "+10% EP en dungeons", bonus: { ep_bonus_pct: 10 } },
       { tier: 3, goldCost: 3000, effect: "+15% EP en dungeons", bonus: { ep_bonus_pct: 15 } },
-    ],
-  },
-  time_altar: {
-    name: "Altar del tiempo",
-    tiers: [
-      { tier: 1, goldCost: 800,  effect: "Timer -1 hora",               bonus: { timer_reduction_hours: 1 } },
-      { tier: 2, goldCost: 2000, effect: "Timer -2 horas",              bonus: { timer_reduction_hours: 2 } },
-      { tier: 3, goldCost: 5000, effect: "Timer -3 horas + dungeon extra", bonus: { timer_reduction_hours: 3, extra_dungeons: 1 } },
     ],
   },
   storage: {

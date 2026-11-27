@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 
 /**
  * Combines auth() session check + hero lookup.
@@ -20,11 +20,7 @@ export async function requireHero(): Promise<
     return { error: NextResponse.json({ error: "No autenticado" }, { status: 401 }) }
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!hero) {
     return { error: NextResponse.json({ error: "No tenés un héroe" }, { status: 404 }) }
   }

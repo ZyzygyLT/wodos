@@ -59,7 +59,7 @@ describe('arena opponent stat mapping', () => {
       hpMax: 125,
       mpMax: 120,
       gold: 100,
-      combatProfile: { position: 'rear', prelimRules: [], roundRules: [], defenseSkills: {} },
+      combatProfile: { position: 'rear', prelimRules: [], roundRules: [], defenseSkills: { melee: 7 } },
       skills: [{
         skillId: 7, name: 'Golpe', icon: '⚔️', multiplier: 1, manaCost: 5,
         effect: 'attack', rank: 2,
@@ -82,7 +82,8 @@ describe('arena opponent stat mapping', () => {
 describe('runArenaDuel', () => {
   it('throws error if hero not found', async () => {
     const db = (await import('@/lib/db')).default
-    ;(db.hero.findFirst as Mock).mockResolvedValue(null)
+    ;(db.hero.findUnique as Mock).mockResolvedValue(null)
+    ;(db.$transaction as Mock).mockImplementation((callback: (tx: typeof db) => unknown) => callback(db))
 
     const { runArenaDuel } = await import('@/lib/combat-engine/arena-runner')
     await expect(runArenaDuel('fake-id', 'fake-id-2')).rejects.toThrow('Héroe no encontrado')
@@ -91,9 +92,10 @@ describe('runArenaDuel', () => {
   it('returns duel result with ELO change', async () => {
     const { runArenaDuel } = await import('@/lib/combat-engine/arena-runner')
     const db = (await import('@/lib/db')).default
-    ;(db.hero.findFirst as Mock).mockResolvedValueOnce(makeFakeHero('h1', 'Hero1', 1200))
-    ;(db.hero.findFirst as Mock).mockResolvedValueOnce(makeFakeHero('h2', 'Hero2', 1200))
-    ;(db.$transaction as Mock).mockResolvedValue([])
+    ;(db.hero.findUnique as Mock).mockResolvedValueOnce(makeFakeHero('h1', 'Hero1', 1200))
+    ;(db.hero.findUnique as Mock).mockResolvedValueOnce(makeFakeHero('h2', 'Hero2', 1200))
+    ;(db.hero.updateMany as Mock).mockResolvedValue({ count: 1 })
+    ;(db.$transaction as Mock).mockImplementation((callback: (tx: typeof db) => unknown) => callback(db))
 
     const result = await runArenaDuel('h1', 'h2')
     expect(result).toHaveProperty('won')
@@ -106,9 +108,10 @@ describe('runArenaDuel', () => {
   it('higher ELO hero gets smaller gain on win', async () => {
     const { runArenaDuel } = await import('@/lib/combat-engine/arena-runner')
     const db = (await import('@/lib/db')).default
-    ;(db.hero.findFirst as Mock).mockResolvedValueOnce(makeFakeHero('h1', 'Favorito', 1600))
-    ;(db.hero.findFirst as Mock).mockResolvedValueOnce(makeFakeHero('h2', 'Underdog', 1000))
-    ;(db.$transaction as Mock).mockResolvedValue([])
+    ;(db.hero.findUnique as Mock).mockResolvedValueOnce(makeFakeHero('h1', 'Favorito', 1600))
+    ;(db.hero.findUnique as Mock).mockResolvedValueOnce(makeFakeHero('h2', 'Underdog', 1000))
+    ;(db.hero.updateMany as Mock).mockResolvedValue({ count: 1 })
+    ;(db.$transaction as Mock).mockImplementation((callback: (tx: typeof db) => unknown) => callback(db))
 
     const result = await runArenaDuel('h1', 'h2')
     expect(result).toHaveProperty('won')

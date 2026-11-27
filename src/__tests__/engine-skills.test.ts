@@ -73,7 +73,7 @@ describe('engine skill definitions and formulas', () => {
 
   it('preserves legacy defaults for partially populated persisted formulas', () => {
     expect(evaluateSkillFormula(
-      { attrCoeffs: { st: 2 } } as SkillFormulaDefinition,
+      { attrCoeffs: { st: 2 } } as unknown as SkillFormulaDefinition,
       { st: 4 },
       1,
       { next: () => 0 },

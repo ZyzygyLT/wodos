@@ -1,4 +1,5 @@
 import db from '@/lib/db'
+import { getActiveHeroByUserId } from '@/lib/hero-utils'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
 import { notify } from "@/lib/notifications/emitter"
@@ -31,9 +32,7 @@ export interface DailyLoginStatus {
 export async function getDailyLoginStatus(
   userId: string,
 ): Promise<{ ok: boolean; error?: string; status?: number; data?: DailyLoginStatus }> {
-  const hero = await db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(userId, {
     include: { materials: { include: { material: true } } },
   })
   if (!hero) return { ok: false, error: 'Héroe no encontrado', status: 404 }
@@ -100,9 +99,7 @@ export interface DailyLoginClaimResult {
 export async function claimDailyLogin(
   userId: string,
 ): Promise<{ ok: boolean; error?: string; status?: number; data?: DailyLoginClaimResult }> {
-  const hero = await db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(userId, {
     include: { materials: { include: { material: true } } },
   })
   if (!hero) return { ok: false, error: 'Héroe no encontrado', status: 404 }

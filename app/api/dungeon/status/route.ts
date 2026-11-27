@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
+import { DUNGEON_SCHEDULE_TIMES } from "@/lib/dungeon-schedule"
 
 export async function GET() {
   const session = await auth()
@@ -8,15 +10,20 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({ where: { userId: session.user.id } })
+  const hero = await getActiveHeroByUserId(session.user.id)
   if (!hero) {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
   }
 
   const lastRun = await db.dungeonRun.findFirst({
-    where: { heroId: hero.id },
+    where: {
+      OR: [
+        { heroId: hero.id },
+        { participants: { some: { heroId: hero.id } } },
+      ],
+    },
     orderBy: { createdAt: "desc" },
-    include: { dungeon: true }
+    include: { dungeon: true },
   })
 
   if (!lastRun) {
@@ -24,7 +31,7 @@ export async function GET() {
   }
 
   if (lastRun.status === 'registered') {
-    const times = lastRun.dungeon.scheduledTimes as string[]
+    const times = lastRun.dungeon.isInstant ? [] : DUNGEON_SCHEDULE_TIMES
     const nextTime = getNextScheduledTime(times)
     return NextResponse.json({
       status: 'registered',
@@ -38,7 +45,9 @@ export async function GET() {
   if (lastRun.status === 'running') {
     return NextResponse.json({
       status: 'running',
+      runId: lastRun.id,
       dungeon: lastRun.dungeon.name,
+      completesAt: lastRun.completesAt,
     })
   }
 
@@ -50,6 +59,7 @@ export async function GET() {
     levelsCleared: lastRun.levelsCleared,
     epGained: lastRun.epGained,
     goldGained: lastRun.goldGained,
+    fameGained: lastRun.fameGained,
     loot: lastRun.loot,
   })
 }

@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import logger from "@/lib/logger"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { updateQuestProgress } from "@/lib/quests/progress"
 import { checkAchievements } from "@/lib/achievements/checker"
 import { assertHeroItemNotListed } from "@/services/bazar-item-guard"
+import { buildHeroData, mergeHeroAttrs } from "@/lib/dungeon-helpers"
+import { calculateEffectiveResourceMaxima } from "@/engine/core/stats/derived-stats"
 
 export async function GET() {
   const session = await auth()
@@ -12,9 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: {
       items: {
         where: { item: { category: 'consumable' } },
@@ -45,11 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Falta heroItemId" }, { status: 400 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
-    select: { id: true },
-  })
+  const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
 
   const result = await db.$transaction(async tx => {
@@ -58,9 +55,26 @@ export async function POST(req: NextRequest) {
 
     const currentHero = await tx.hero.findUnique({
       where: { id: hero.id },
-      select: { id: true, hpCurrent: true, hpMax: true, mpCurrent: true, mpMax: true },
+      include: {
+        skills: { include: { skill: true } },
+        items: { where: { equipped: true }, include: { item: true } },
+      },
     })
     if (!currentHero) throw new Error("HERO_NOT_FOUND")
+
+    // A registered/running expedition uses an immutable participant snapshot.
+    // Prevent consumable changes until that snapshot is no longer active.
+    const activeRun = await tx.dungeonRun.findFirst({
+      where: {
+        status: { in: ["registered", "running"] },
+        OR: [
+          { heroId: hero.id },
+          { participants: { some: { heroId: hero.id } } },
+        ],
+      },
+      select: { id: true },
+    })
+    if (activeRun) throw new Error("CONSUMABLE_EXPEDITION_ACTIVE")
 
     const hi = await tx.heroItem.findFirst({
       where: { id: heroItemId, heroId: hero.id, item: { category: "consumable" } },
@@ -73,12 +87,29 @@ export async function POST(req: NextRequest) {
     const stats = hi.item.stats as Record<string, number> | null
     if (!stats) throw new Error("CONSUMABLE_NO_EFFECTS")
 
+    // Consumables must use the same equipment/passive bonuses as combat and the
+    // hero status UI, rather than capping at the persisted base maxima.
+    const combatHero = await buildHeroData(currentHero, null)
+    const equipStats = combatHero.equipStats ?? {}
+    const effectiveResources = calculateEffectiveResourceMaxima({
+      baseHpMax: currentHero.hpMax,
+      baseMpMax: currentHero.mpMax,
+      level: currentHero.level,
+      baseAttributes: currentHero.attrs as Record<string, number>,
+      effectiveAttributes: mergeHeroAttrs({
+        attrs: currentHero.attrs as Record<string, number>,
+        equipStats,
+      }),
+      equipmentHp: equipStats.hp ?? 0,
+      equipmentMp: equipStats.mp ?? 0,
+      skillEffects: combatHero.skills.map(skill => skill.effect),
+    })
     const updateData: Record<string, number> = {}
-    if (typeof stats.healHp === "number" && stats.healHp > 0) {
-      updateData.hpCurrent = Math.min(currentHero.hpCurrent + stats.healHp, currentHero.hpMax)
+    if (typeof stats.healHp === "number" && stats.healHp > 0 && currentHero.hpCurrent < effectiveResources.hpMax) {
+      updateData.hpCurrent = Math.min(currentHero.hpCurrent + stats.healHp, effectiveResources.hpMax)
     }
-    if (typeof stats.healMp === "number" && stats.healMp > 0) {
-      updateData.mpCurrent = Math.min(currentHero.mpCurrent + stats.healMp, currentHero.mpMax)
+    if (typeof stats.healMp === "number" && stats.healMp > 0 && currentHero.mpCurrent < effectiveResources.mpMax) {
+      updateData.mpCurrent = Math.min(currentHero.mpCurrent + stats.healMp, effectiveResources.mpMax)
     }
     if (Object.keys(updateData).length === 0) throw new Error("CONSUMABLE_NO_EFFECTS")
 
@@ -86,7 +117,14 @@ export async function POST(req: NextRequest) {
     const consumed = await tx.heroItem.deleteMany({ where: { id: hi.id, heroId: hero.id } })
     if (consumed.count !== 1) throw new Error("CONSUMABLE_STALE")
 
-    return { effects: stats, hpCurrent: updateData.hpCurrent, mpCurrent: updateData.mpCurrent }
+    return {
+      effects: {
+        healHp: updateData.hpCurrent === undefined ? 0 : updateData.hpCurrent - currentHero.hpCurrent,
+        healMp: updateData.mpCurrent === undefined ? 0 : updateData.mpCurrent - currentHero.mpCurrent,
+      },
+      hpCurrent: updateData.hpCurrent,
+      mpCurrent: updateData.mpCurrent,
+    }
   }).catch(error => {
     if (error instanceof Error && error.message === "ITEM_LISTED") {
       return { error: "No podés usar un consumible mientras esté publicado en el bazar.", status: 409 }
@@ -96,6 +134,9 @@ export async function POST(req: NextRequest) {
     }
     if (error instanceof Error && error.message === "HERO_NOT_FOUND") {
       return { error: "Héroe no encontrado", status: 404 }
+    }
+    if (error instanceof Error && error.message === "CONSUMABLE_EXPEDITION_ACTIVE") {
+      return { error: "No podés usar consumibles mientras participás en una expedición activa.", status: 409 }
     }
     if (error instanceof Error && error.message === "CONSUMABLE_NO_EFFECTS") {
       return { error: "Este item no tiene efectos válidos", status: 400 }

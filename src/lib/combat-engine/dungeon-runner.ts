@@ -12,7 +12,7 @@ import {
 
 import {
   evalTactics, buildTurnQueue,
-  CombatState, CombatUnit, RoundRule, TacticAction, StatusEffect,
+  CombatState, CombatUnit, RoundRule, TacticAction, TacticCondition, TacticRuleEvaluation, StatusEffect,
   BuffEntry, PassiveEffect,
 } from './tactics-evaluator'
 
@@ -21,6 +21,8 @@ import {
   advanceLegacyNonPeriodicStatusRound,
   applyLegacyStatusEffect,
   calculateLegacyStatusDamage,
+  calculateLegacyStatusHealing,
+  type LegacyCombatStatusEffect,
   isLegacyCombatUnitDisabled,
   applyLegacyStatusStatModifiers,
 } from '../../engine/adapters/combat/status-effect-adapter'
@@ -42,8 +44,8 @@ import { resolveIncomingDamage } from '../../engine/core/combat/incoming-damage'
 import { resolveAttackHit, resolveCritical } from '../../engine/core/combat/attack-resolution'
 import { resolveEnemyFallbackDamage } from '../../engine/core/combat/damage-resolution'
 import { nextRandom, randomIntInclusive, type RandomSource } from '../../engine/core/random/random-source'
-import { advanceSkillCooldowns, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
-import { resolveSkillExecution } from '../../engine/core/skills/skill-execution'
+import { advanceSkillCooldowns, getDefaultCombatSkillId, isBasicSkill, isSkillOnCooldown, normalizeSkillCooldown, resolveSkillMana, setSkillCooldown } from '../../engine/core/skills/skill-availability'
+import { calculatePartyBuffBonus, isSupportedSkillEffect, resolveSkillExecution } from '../../engine/core/skills/skill-execution'
 import { dispatchSkillExecutionPlan } from '../../engine/core/skills/skill-plan-dispatch'
 import { resolveCombatRoundStatus } from '../../engine/core/combat/round-control'
 import { executeCombatTurnQueue } from '../../engine/core/combat/turn-scheduler'
@@ -57,22 +59,33 @@ import { applyInitiativeSkillModifiers, calculateEffectiveResourceMaxima } from 
 
 export interface HeroData {
   id: string
+  profileId?: string
   name: string
   level: number
   attrs: Record<string, number>
   hpMax: number
   mpMax: number
-  /** Persisted HP at participant load time; simulation still starts at max HP. */
+  /** Persisted HP and MP at participant load time; values are clamped to effective maxima. */
   hpCurrent?: number
+  mpCurrent?: number
   gold: number
   groupAtkBonus?: number
   combatProfile: {
     position: string
+    initiativeSkill?: string
     prelimRules: any[]
     roundRules: RoundRule[]
     defenseSkills: Record<string, number | null>
+    /** Per-dungeon-floor settings override the selected base profile when present. */
+    levelOverrides?: Record<number, Partial<{
+      position: string
+      initiativeSkill: string
+      prelimRules: Array<{ skillId?: number; itemId?: number }>
+      roundRules: RoundRule[]
+      defenseSkills: Record<string, number | null>
+    }>>
   }
-  skills: Array<{ skillId: number; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
+  skills: Array<{ skillId: number; slug?: string; type?: 'basic' | 'active' | 'passive'; multiplier: number; manaCost: number; healPct?: number; cooldownRounds?: number; effect?: string; rank?: number; formula?: SkillFormula; tags?: string[]; name?: string; icon?: string }>
   equipStats?: Record<string, number>
   consumables?: Array<{ heroItemId: string; itemId: number; healHp?: number; healMp?: number }>
   /** Inventory row IDs removed by this in-memory simulation. */
@@ -84,6 +97,7 @@ export interface EnemySkillRef {
   skillId: number
   name: string
   icon: string
+  type?: 'basic' | 'active' | 'passive'
   effect?: string
   multiplier: number
   manaCost: number
@@ -104,6 +118,7 @@ export interface EnemyData {
   def: number
   dx: number
   ag: number
+  pe?: number
   /** Optional canonical attributes for hero-derived arena opponents. */
   attrs?: Record<string, number>
   level: number
@@ -214,6 +229,14 @@ export interface DetailedAction {
   skillName: string
   skillIcon?: string
   mpCost?: number
+  /** Why the selected skill was replaced or forced by low-mana resolution. */
+  skillFallback?: 'free_basic' | 'basic' | 'forced' | 'cooldown' | 'buff_active'
+  selectedSkillName?: string
+  /** The configured rule that selected this action, before any execution fallback. */
+  tacticRulePriority?: number
+  tacticCondition?: TacticCondition
+  /** Exact rule checks performed by the evaluator before choosing this action. */
+  tacticRuleEvaluationTrace?: TacticRuleEvaluation[]
   targetId?: string
   targetName?: string
   attackValue?: number
@@ -231,9 +254,18 @@ export interface DetailedAction {
   targetResults?: TargetResult[]
   healAmount?: number
   healType?: 'hp' | 'mp'
+  /** Per-unit healing breakdown for group and periodic healing actions. */
+  healingResults?: Array<{ targetId: string; targetName: string; amount: number }>
+  appliedStatus?: string
   buffName?: string
   buffValue?: number
   itemName?: string
+  /** Potion-use audit fields persisted in the combat replay. */
+  potionSkillName?: string
+  potionSkillRank?: number
+  potionWisdom?: number
+  potionBaseHeal?: number
+  potionSkillBonus?: number
   absorbed?: number
   fled?: boolean
   message: string
@@ -251,6 +283,8 @@ export interface LevelReport {
   levelNumber: number
   victory: boolean
   rounds: RoundReport[]
+  /** Actual preliminary-phase log entries for this floor, in execution order. */
+  preliminaryLog?: LogEntry[]
   epGained: number
   goldGained: number
   narrative?: string
@@ -295,6 +329,7 @@ export interface RunResult {
   fameGained: number
   loot: Array<{ itemId: number; qty: number; heroId?: string; heroName?: string }>
   heroesFinalState: HeroFinalState[]
+  consumedConsumables?: Array<{ heroId: string; heroItemId: string }>
   log: LogEntry[]
   levelResults: Array<{ level: number; victory: boolean; rounds: number }>
   levelReports: LevelReport[]
@@ -303,6 +338,8 @@ export interface RunResult {
 
 type HeroSkill = {
   skillId: number
+  slug?: string
+  type?: 'basic' | 'active' | 'passive'
   multiplier: number
   manaCost: number
   healPct?: number
@@ -373,8 +410,9 @@ function applyHealingWithEvent(unit: CombatUnit, amount: number, sourceId: strin
   const result = applyHpHealing(unit.hp, unit.maxHp, amount)
   unit.hp = result.currentHp
   if (result.applied > 0) {
+    unit.condition = getCondition(result.currentHp, unit.maxHp)
     dispatchCombatEvent(ctx, { type: 'healing_applied', sourceId, targetId: unit.id, healing: result.applied })
-    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, defeated: result.defeated })
+    emitUnitStateChanged(ctx, unit, { hp: result.currentHp, condition: unit.condition, defeated: result.defeated })
   }
   return result.applied
 }
@@ -530,6 +568,7 @@ function scaleEnemy(enemy: EnemyData, effectiveLevel: number, difficultyMod: num
     def: Math.round(enemy.def * clamped),
     dx: Math.round(enemy.dx * clamped),
     ag: Math.round(enemy.ag * clamped),
+    ...(typeof enemy.pe === 'number' ? { pe: Math.round(enemy.pe * clamped) } : {}),
     level: Math.ceil(enemy.isBoss ? Math.max(effectiveLevel, baseLevel) : effectiveLevel),
   }
 }
@@ -539,7 +578,7 @@ function mergeHeroAttrs(hero: HeroData, equip: Record<string, number>): Record<s
   return applyStatModifiersToRecord(hero.attrs, equipmentModifiers)
 }
 
-function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; defenseBonus: number; thornsPct: number; vampirePct: number; counterPct: number } {
+function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, number>, baseHp: number, baseMp: number, level: number, initiativeSkill = 'organization'): { finalHp: number; finalMp: number; merged: Record<string, number>; heroDef: number; defenseBonus: number; thornsPct: number; vampirePct: number; counterPct: number } {
   let finalHp = baseHp
   let finalMp = baseMp
   const baseDefense = calcDefenseBase(merged as any) + level * 2
@@ -565,7 +604,7 @@ function applyHeroSkillModifiers(skills: HeroSkill[], merged: Record<string, num
 
   const modifiedAttrs = applyInitiativeSkillModifiers(
     applyStatModifiersToRecord(merged, skillModifiers),
-    skills.map(skill => skill.effect)
+    skills.filter(skill => skill.type === 'passive' && skill.slug === initiativeSkill).map(skill => skill.effect)
   )
   const heroDef = applyStatModifiers(baseDefense, defenseModifiers)
   return { finalHp, finalMp, merged: modifiedAttrs, heroDef, defenseBonus: heroDef - baseDefense, thornsPct, vampirePct, counterPct }
@@ -625,7 +664,8 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
     merged,
     resources.hpMax,
     resources.mpMax,
-    hero.level
+    hero.level,
+    hero.combatProfile.initiativeSkill ?? 'organization'
   )
   const equipmentDefense = Number.isFinite(equip.def) ? equip.def! : 0
   const { defenseValues, defenseSkillNames, defenseEffects } = buildHeroDefenseValues(
@@ -634,8 +674,8 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
   const resistances = buildHeroResistances(equip)
   return {
     id: hero.id, name: hero.name, icon: '🧙', level: hero.level,
-    hp: finalHp, maxHp: finalHp,
-    mp: finalMp, maxMp: finalMp,
+    hp: Math.min(finalHp, Math.max(0, hero.hpCurrent ?? finalHp)), maxHp: finalHp,
+    mp: Math.min(finalMp, Math.max(0, hero.mpCurrent ?? finalMp)), maxMp: finalMp,
     isHero: true, isAlly: false,
     position: hero.combatProfile.position,
     condition: 'ready',
@@ -649,6 +689,51 @@ function toUnit(hero: HeroData, hp: number, mp: number, random: RandomSource): C
     vampirePct: vampirePct > 0 ? vampirePct : undefined,
     counterPct: counterPct > 0 ? counterPct : undefined,
     resistances,
+  }
+}
+
+function applyLevelCombatProfile(
+  hero: HeroData,
+  unit: CombatUnit & { attrs: Record<string, number> },
+  baseProfile: HeroData['combatProfile'],
+  levelNumber: number,
+  baseDefense: Pick<CombatUnit, 'defenseValues' | 'defenseSkillNames' | 'defenseEffects'>,
+  random: RandomSource,
+): void {
+  const override = baseProfile.levelOverrides?.[levelNumber]
+  hero.combatProfile = {
+    position: override?.position ?? baseProfile.position,
+    prelimRules: override?.prelimRules ?? baseProfile.prelimRules,
+    roundRules: override?.roundRules ?? baseProfile.roundRules,
+    defenseSkills: override?.defenseSkills ?? baseProfile.defenseSkills,
+    initiativeSkill: override?.initiativeSkill ?? baseProfile.initiativeSkill ?? 'organization',
+    levelOverrides: baseProfile.levelOverrides,
+  }
+  unit.position = hero.combatProfile.position
+  const equip = hero.equipStats ?? {}
+  const merged = mergeHeroAttrs(hero, equip)
+  const initiativeStats = applyHeroSkillModifiers(
+    hero.skills, merged, hero.hpMax, hero.mpMax, hero.level, hero.combatProfile.initiativeSkill
+  )
+  unit.attrs = initiativeStats.merged
+
+  if (override?.defenseSkills || override?.initiativeSkill !== undefined) {
+    const equip = hero.equipStats ?? {}
+    const merged = mergeHeroAttrs(hero, equip)
+    const { merged: mergedMod, defenseBonus } = applyHeroSkillModifiers(
+      hero.skills, merged, hero.hpMax, hero.mpMax, hero.level, hero.combatProfile.initiativeSkill
+    )
+    const equipmentDefense = Number.isFinite(equip.def) ? equip.def! : 0
+    const defense = buildHeroDefenseValues(
+      hero.combatProfile.defenseSkills, hero.skills, mergedMod, random, defenseBonus + equipmentDefense
+    )
+    unit.defenseValues = defense.defenseValues
+    unit.defenseSkillNames = defense.defenseSkillNames
+    unit.defenseEffects = defense.defenseEffects
+  } else {
+    unit.defenseValues = { ...baseDefense.defenseValues }
+    unit.defenseSkillNames = { ...baseDefense.defenseSkillNames }
+    unit.defenseEffects = { ...baseDefense.defenseEffects }
   }
 }
 
@@ -676,7 +761,12 @@ function enemyToUnit(e: EnemyData, idx: number, random: RandomSource): CombatUni
     passiveEffects: e.passiveEffects,
     position: e.position ?? 'front',
     condition: 'ready',
-    attrs: e.attrs,
+    attrs: (e.attrs || typeof e.pe === 'number')
+      ? applyInitiativeSkillModifiers(
+          e.attrs ?? { ag: e.ag ?? 0, pe: e.pe! },
+          (e.skills ?? []).filter(skill => skill.type === 'passive').map(skill => skill.effect)
+        )
+      : undefined,
     def: e.def ?? 5,
     armorName: e.armorName,
     attackSkillName: e.skillName,
@@ -780,7 +870,7 @@ function buildStateSnapshot(
 function getSkill(hero: HeroData, skillId: number) {
   const found = hero.skills.find(s => s.skillId === skillId)
   if (found) return found
-  const basic = hero.skills.find(s => s.effect === 'attack' || !s.effect)
+  const basic = hero.skills.find(s => isBasicSkill(s))
   if (basic) return basic
   // Fallback genérico clase-neutral
   return { skillId: 1, name: 'Ataque', multiplier: 1, manaCost: 5, effect: 'attack' as const, rank: 1, cooldownRounds: 0, formula: { attrCoeffs: { st: 1, dx: 1, in: 1, wi: 1 }, skillRankCoeff: 1, diceSides: 6, diceCount: 1, diceDivisor: 6, flatBonus: 3 } }
@@ -788,6 +878,25 @@ function getSkill(hero: HeroData, skillId: number) {
 
 function getItem(consumables: Array<{ heroItemId: string; itemId: number; healHp?: number; healMp?: number }>, itemId: number) {
   return consumables.find(c => c.itemId === itemId)
+}
+
+function getPotionSkill(hero: HeroData) {
+  return hero.skills.find(skill => skill.effect === 'use_potion')
+}
+
+function calculatePotionHpHealing(
+  baseHeal: number,
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: NonNullable<ReturnType<typeof getPotionSkill>>,
+) {
+  const rank = Math.max(1, skill.rank ?? 1)
+  const wisdom = Math.max(0, heroUnit.attrs.wi ?? 0)
+  const formula = skill.formula
+  const wisdomBonus = wisdom * (formula?.attrCoeffs?.wi ?? 0)
+  const rankBonus = rank * (formula?.skillRankCoeff ?? 0)
+  const flatBonus = formula?.flatBonus ?? 0
+  const bonus = Math.max(0, Math.round(wisdomBonus + rankBonus + flatBonus))
+  return { amount: Math.max(0, baseHeal + bonus), rank, wisdom, bonus }
 }
 
 function consumeItem(hero: HeroData, itemId: number) {
@@ -829,10 +938,16 @@ function applyPrelimItem(
 ) {
   const item = getItem(hero.consumables ?? [], rule.itemId)
   if (!item) return
+  const potionSkill = getPotionSkill(hero)
+  if (!potionSkill) {
+    addLog(log, 'tactic_eval', 0, level, 'prelim', `${heroUnit.name} no puede usar item_${item.itemId}: necesita aprender Tomar poción`, { actor: heroUnit.name })
+    return
+  }
   if (item.healHp) {
-    const actual = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
+    const scaling = calculatePotionHpHealing(item.healHp, heroUnit, potionSkill)
+    const actual = Math.min(scaling.amount, heroUnit.maxHp - heroUnit.hp)
     heroUnit.hp = applyHpHealing(heroUnit.hp, heroUnit.maxHp, actual).currentHp
-    addLog(log, 'heal', 0, level, 'prelim', `${heroUnit.name} usa item_${item.itemId} → recupera ${actual} HP`, { actor: heroUnit.name, skill: `item_${item.itemId}`, value: actual })
+    addLog(log, 'heal', 0, level, 'prelim', `${heroUnit.name} usa item_${item.itemId} con Tomar poción R${scaling.rank} (Sabiduría ${scaling.wisdom}): ${item.healHp} + ${scaling.bonus} = ${actual} HP`, { actor: heroUnit.name, skill: `item_${item.itemId}`, value: actual })
   }
   if (item.healMp) {
     const actual = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
@@ -850,13 +965,13 @@ function applyPrelimSkill(
   level: number
 ) {
   if (skill.effect === 'party_attack_up') {
-    const bonus = Math.round((skill.multiplier || 1.5) * 10)
+    const bonus = calculatePartyBuffBonus('party_attack_up', skill.multiplier, skill.rank)
     addBuff(state, 'atk', bonus, skill.name ?? 'ATK grupal', 'hero', BUFF_DURATION)
     addLog(log, 'buff', 0, level, 'prelim', `${heroUnit.name} usa skill_${skill.skillId} → +${bonus}% ATK grupal`, { actor: heroUnit.name, skill: `skill_${skill.skillId}`, value: bonus })
     return
   }
   if (skill.effect === 'defense_up') {
-    const bonus = Math.round((skill.multiplier || 1) * 10)
+    const bonus = calculatePartyBuffBonus('defense_up', skill.multiplier, skill.rank)
     addBuff(state, 'def', bonus, skill.name ?? 'DEF grupal', 'hero', BUFF_DURATION)
     addLog(log, 'buff', 0, level, 'prelim', `${heroUnit.name} usa skill_${skill.skillId} → +${bonus}% DEF grupal`, { actor: heroUnit.name, skill: `skill_${skill.skillId}`, value: bonus })
     return
@@ -990,29 +1105,62 @@ function executeHeroItemAction(
 ): DetailedAction | null {
   if (action.itemId == null) return null
   const itemId: number = action.itemId
-  const consumables = hero.consumables ?? []
-  const item = getItem(consumables, itemId)
-  if (!item) return null
+  const item = getItem(hero.consumables ?? [], itemId)
+  const potionSkill = getPotionSkill(hero)
+  if (!item || !potionSkill) return null
+
   const itemName = `item_${item.itemId}`
-  if (item.healHp) {
-    const actual = Math.min(item.healHp, heroUnit.maxHp - heroUnit.hp)
-    applyHealingWithEvent(heroUnit, actual, heroUnit.id, ctx)
-    const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} HP`
-    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
-    consumeItem(hero, itemId)
-    return makeDetail({ skill: null, heroUnit, target: null, action, initiative, actionNum, total: totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'hp', buffN: null, buffV: null, itemN: itemName, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
+  let healedHp = 0
+  let healedMp = 0
+  const scaling = item.healHp
+    ? calculatePotionHpHealing(item.healHp, heroUnit, potionSkill)
+    : null
+
+  if (item.healHp && scaling) {
+    healedHp = Math.min(scaling.amount, heroUnit.maxHp - heroUnit.hp)
+    applyHealingWithEvent(heroUnit, healedHp, heroUnit.id, ctx)
+    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} usa ${itemName} con Tomar poción R${scaling.rank} (Sabiduría ${scaling.wisdom}): ${item.healHp} + ${scaling.bonus} = ${healedHp} HP`,
+      { actor: heroUnit.name, skill: itemName, value: healedHp })
   }
+
   if (item.healMp) {
     const previousMp = heroUnit.mp
-    const actual = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
-    heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + actual)
+    healedMp = Math.min(item.healMp, heroUnit.maxMp - heroUnit.mp)
+    heroUnit.mp = Math.min(heroUnit.maxMp, heroUnit.mp + healedMp)
     if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
-    const msg = `${heroUnit.name} usa ${itemName} → recupera ${actual} MP`
-    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat', msg, { actor: heroUnit.name, skill: itemName, value: actual })
-    consumeItem(hero, itemId)
-    return makeDetail({ skill: null, heroUnit, target: null, action, initiative, actionNum, total: totalActions, dmg: null, hit: null, crit: null, healA: actual, healT: 'mp', buffN: null, buffV: null, itemN: itemName, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg })
+    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} usa ${itemName} → recupera ${healedMp} MP`,
+      { actor: heroUnit.name, skill: itemName, value: healedMp })
   }
-  return null
+
+  if (!item.healHp && !item.healMp) return null
+
+  consumeItem(hero, itemId)
+  const primaryHeal = healedHp > 0 || !healedMp ? healedHp : healedMp
+  const primaryHealType = healedHp > 0 || !healedMp ? 'hp' : 'mp'
+  const effects = [
+    ...(item.healHp ? [`${healedHp} HP`] : []),
+    ...(item.healMp ? [`${healedMp} MP`] : []),
+  ]
+  const msg = `${heroUnit.name} usa ${itemName} → recupera ${effects.join(' y ')}`
+
+  const detail = makeDetail({
+    skill: null, heroUnit, target: null, action, initiative, actionNum,
+    total: totalActions, dmg: null, hit: null, crit: null,
+    healA: primaryHeal, healT: primaryHealType,
+    buffN: null, buffV: null, itemN: itemName,
+    defVal: undefined, defRoll: undefined, defSkill: undefined,
+    defEffect: undefined, defEquip: undefined, msg,
+  })
+  if (scaling) {
+    detail.potionSkillName = potionSkill.name ?? 'Tomar poción'
+    detail.potionSkillRank = scaling.rank
+    detail.potionWisdom = scaling.wisdom
+    detail.potionBaseHeal = item.healHp
+    detail.potionSkillBonus = scaling.bonus
+  }
+  return detail
 }
 
 function handleHeroSkillMana(
@@ -1020,7 +1168,7 @@ function handleHeroSkillMana(
   hero: HeroData,
   skill: HeroSkill,
   ctx: CombatCtx,
-): { skill: HeroSkill; mpCost: number } {
+): { skill: HeroSkill; mpCost: number; fallback: 'free_basic' | 'basic' | 'forced' | null; selectedSkillName: string } {
   const rank = skill.rank ?? 1
   const previousMp = heroUnit.mp
   const resolution = resolveSkillMana({
@@ -1040,7 +1188,75 @@ function handleHeroSkillMana(
   }
   heroUnit.mp = resolution.remainingMp
   if (heroUnit.mp !== previousMp) emitUnitStateChanged(ctx, heroUnit, { mp: heroUnit.mp })
-  return { skill: resolution.skill, mpCost: resolution.mpCost }
+  return {
+    skill: resolution.skill,
+    mpCost: resolution.mpCost,
+    fallback: resolution.fallback,
+    selectedSkillName: skill.name ?? `skill_${skill.skillId}`,
+  }
+}
+
+function executeHeroGroupHealAction(
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: HeroSkill,
+  skillName: string,
+  ctx: CombatCtx,
+  meta: ActionMeta,
+  targets: readonly CombatUnit[],
+  healPct: number,
+): DetailedAction {
+  const healingResults: Array<{ targetId: string; targetName: string; amount: number }> = []
+  for (const target of targets) {
+    const amount = calculateEffectiveHealing(target.hp, target.maxHp, calcHeal(target.maxHp, healPct))
+    const healed = applyHealingWithEvent(target, amount, heroUnit.id, ctx)
+    if (healed <= 0) continue
+    healingResults.push({ targetId: target.id, targetName: target.name, amount: healed })
+    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} usa ${skillName} → ${target.name} recupera ${healed} HP`,
+      { actor: heroUnit.name, target: target.name, skill: skillName, value: healed })
+  }
+  const totalHealed = healingResults.reduce((total, result) => total + result.amount, 0)
+  const message = totalHealed > 0
+    ? `${heroUnit.name} usa ${skillName} → cura a ${healingResults.length} aliado(s), ${totalHealed} HP en total`
+    : `${heroUnit.name} usa ${skillName} — ningún aliado necesita curación`
+  const detail = makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative,
+    actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+    healA: totalHealed > 0 ? totalHealed : null, healT: totalHealed > 0 ? 'hp' : null,
+    buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined,
+    defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: message, mpCost: meta.mpCost })
+  detail.healingResults = healingResults
+  return detail
+}
+
+function executeHeroHealOverTimeAction(
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: HeroSkill,
+  skillName: string,
+  ctx: CombatCtx,
+  meta: ActionMeta,
+  target: CombatUnit | null,
+  healPct: number,
+  ticks: number,
+): DetailedAction {
+  if (!target || target.hp <= 0 || target.hp >= target.maxHp || healPct <= 0) {
+    return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative,
+      actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+      healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined,
+      defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined,
+      msg: `${heroUnit.name} usa ${skillName} — sin objetivo para regenerar`, mpCost: meta.mpCost })
+  }
+  const healingPerTick = calcHeal(target.maxHp, healPct)
+  applyStatusEffect(target, 'regen', healingPerTick, ticks, skillName, ctx)
+  const message = `${heroUnit.name} usa ${skillName} → ${target.name} recibe regeneración de ${healingPerTick} HP al inicio de las próximas ${ticks} rondas`
+  addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', message,
+    { actor: heroUnit.name, target: target.name, skill: skillName, value: healingPerTick })
+  const detail = makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative,
+    actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+    healA: null, healT: null, buffN: 'Regeneración', buffV: healingPerTick, itemN: null,
+    defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined,
+    defEquip: undefined, msg: message, mpCost: meta.mpCost })
+  detail.appliedStatus = 'regen'
+  return detail
 }
 
 function executeHeroHealAction(
@@ -1084,6 +1300,44 @@ function executeHeroBuffAction(
   return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative, actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null, healA: null, healT: null, buffN: label, buffV: bonus, itemN: null, defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined, msg, mpCost: meta.mpCost })
 }
 
+function executeHeroSelfBuffAction(
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: HeroSkill,
+  skillName: string,
+  ctx: CombatCtx,
+  meta: ActionMeta,
+  buffs: readonly { readonly buff: 'atk' | 'def'; readonly bonus: number }[],
+): DetailedAction {
+  // Two round ticks include the application round and preserve one complete
+  // following hero turn, matching Venganza's one-turn design.
+  const remainingRounds = 2
+  let statuses: readonly LegacyCombatStatusEffect[] = heroUnit.statusEffects ?? []
+  for (const { buff, bonus } of buffs) {
+    statuses = applyLegacyStatusEffect(statuses, {
+      type: buff === 'atk' ? 'atk_up' : 'def_up',
+      remainingRounds,
+      value: bonus,
+      source: skillName,
+      sourceName: skillName,
+    })
+  }
+  heroUnit.statusEffects = [...statuses]
+  emitUnitStateChanged(ctx, heroUnit, { statusEffects: heroUnit.statusEffects.map(effect => ({ ...effect })) })
+  const buffSummary = buffs.map(({ buff, bonus }) =>
+    `+${bonus}% ${buff === 'atk' ? 'ATK propio' : 'DEF propia'}`
+  ).join(' y ')
+  const buffLabels = buffs.map(({ buff }) => buff === 'atk' ? 'ATK propio' : 'DEF propia')
+  const msg = `${heroUnit.name} usa ${skillName} → ${buffSummary} durante su próximo turno`
+  const primaryBonus = buffs[0]?.bonus ?? 0
+  addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', msg,
+    { actor: heroUnit.name, skill: skillName, value: primaryBonus })
+  return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative,
+    actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+    healA: null, healT: null, buffN: buffLabels.join(' + '), buffV: primaryBonus, itemN: null,
+    defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined,
+    defEquip: undefined, msg, mpCost: meta.mpCost })
+}
+
 function processAoeTarget(
   enemy: CombatUnit,
   heroUnit: CombatUnit & { attrs: Record<string, number> },
@@ -1092,6 +1346,8 @@ function processAoeTarget(
 ): TargetResult {
   const { actionId, skill, skillName, aCat, atkTotal, adjAttack, isArmorPen, isCritAuto, formula, statusBase } = cfg
   const state = ctx.state!
+  const allHeroUnits = [state.hero, ...state.allies]
+  const allEnemyUnits = state.enemies
   const { total: defVal, dice: defDice } = getDefenseValue(enemy, aCat, ctx.random)
   const hit = resolveAttackHit({ attackTotal: atkTotal, defenseValue: defVal }).hit
   if (!hit) {
@@ -1243,26 +1499,64 @@ function executeHeroAction(
 ): DetailedAction | null {
   const state = ctx.state!
   const action = meta.action!
-  if (action.itemId) return executeHeroItemAction(heroUnit, hero, action, ctx, meta.initiative, meta.actionNum, meta.totalActions)
+  if (action.itemId != null) {
+    const item = getItem(hero.consumables ?? [], action.itemId)
+    const potionSkill = getPotionSkill(hero)
+    if (!item || !potionSkill) {
+      const reason = !item ? 'el consumible ya no está disponible' : 'no conoce la habilidad Tomar poción'
+      addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+        `${heroUnit.name} no puede usar item_${action.itemId}: ${reason}. Ejecuta un ataque básico`,
+        { actor: heroUnit.name, skill: 'Tomar poción' })
+      // A failed consumable action becomes a normal basic attack; never carry the
+      // consumable's self-target setting into that offensive fallback.
+      const fallbackAction = {
+        ...action,
+        itemId: undefined,
+        skillId: getDefaultCombatSkillId(hero.skills),
+        targetPos: 'auto' as const,
+        targetType: 'weakest' as const,
+      }
+      const fallbackResult = executeHeroAction(
+        heroUnit, hero, { ...meta, action: fallbackAction }, ctx, extraUnits,
+      )
+      if (fallbackResult) {
+        fallbackResult.skillFallback = 'forced'
+        fallbackResult.selectedSkillName = 'Tomar poción'
+      }
+      return fallbackResult
+    }
+    return executeHeroItemAction(heroUnit, hero, action, ctx, meta.initiative, meta.actionNum, meta.totalActions)
+  }
 
   let skill = getSkill(hero, action.skillId)
+  if (!isSupportedSkillEffect(skill.effect, skill.slug)) {
+    const skillName = skill.name ?? `skill_${skill.skillId}`
+    addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} no puede ejecutar ${skillName}: el efecto "${skill.effect}" todavía no está implementado. No consume maná ni aplica un ataque alternativo.`,
+      { actor: heroUnit.name, skill: skillName })
+    return null
+  }
+  const { skill: resolvedSkill, mpCost, fallback, selectedSkillName } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
+  skill = resolvedSkill
+
+  // Formula, rank and report identity must follow the skill actually executed.
+  // A low-mana fallback can replace the selected skill with a basic attack.
   const skillName = skill.name ?? `skill_${skill.skillId}`
   const rank = skill.rank ?? 1
   const formula = skill.formula
-
-  const { skill: resolvedSkill, mpCost } = handleHeroSkillMana(heroUnit, hero, skill, ctx)
-  skill = resolvedSkill
 
   // Legacy attack formulas consume their dice before random target selection.
   // Keep that order so seeded combat streams remain compatible.
   const isSupportSkill = (skill.effect === 'heal' && !!skill.healPct)
     || skill.effect === 'party_attack_up'
     || skill.effect === 'defense_up'
+    || (skill.effect === 'buff' && (skill.slug === 'venganza' || skill.slug === 'forma-salvaje'))
   const fResult = isSupportSkill ? null : evaluateFormula(formula, heroUnit.attrs, rank, ctx.random)
 
   const plan = resolveSkillExecution({
     skill: {
       skillId: skill.skillId,
+      slug: skill.slug,
       name: skill.name,
       effect: skill.effect,
       multiplier: skill.multiplier,
@@ -1278,9 +1572,12 @@ function executeHeroAction(
   })
 
   const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
-  return dispatchSkillExecutionPlan(plan, {
+  const detailedAction = dispatchSkillExecutionPlan(plan, {
     heal: target => executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target),
+    group_heal: (targets, healPct) => executeHeroGroupHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, targets, healPct),
+    heal_over_time: (target, healPct, ticks) => executeHeroHealOverTimeAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target, healPct, ticks),
     party_buff: (buff, bonus) => executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
+    self_buff: buffs => executeHeroSelfBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buffs),
     area_attack: (targets, armorPenetration, critical) => {
       const resolvedFormula = fResult!
       const adjAttack = applyDiceMultiplier(resolvedFormula.base, resolvedFormula.diceTotal, formula?.diceCount ?? 0, formula?.diceSides ?? 0, formula?.diceDivisor)
@@ -1293,7 +1590,13 @@ function executeHeroAction(
       const atkValues: AttackValues = { fResult: resolvedFormula, adjAttack, isArmorPen: armorPenetration, isCritAuto: critical }
       return executeHeroSingleTargetAttack(heroUnit, skillInfo, ctx, { ...meta, mpCost }, atkValues, target, extraUnits)
     },
+    unsupported: () => null,
   })
+  if (detailedAction && fallback) {
+    detailedAction.skillFallback = fallback
+    detailedAction.selectedSkillName = selectedSkillName
+  }
+  return detailedAction
 }
 
 // ─── ACCIÓN DEL ENEMIGO (IA SIMPLE) ─────────────────────────────────────────
@@ -1349,6 +1652,8 @@ function executeEnemyHealEffect(enemy: EnemyData, enemyUnit: CombatUnit, target:
 function processEnemyAoeTarget(hero: CombatUnit, enemy: EnemyData, enemyUnit: CombatUnit, cfg: EnemyAoeProcessConfig, ctx: CombatCtx): TargetResult {
   const { actionId, chosenSkill, skillName, aCat, atkTotal, adjAttack, isArmorPen } = cfg
   const state = ctx.state!
+  const heroUnits = [state.hero, ...state.allies]
+  const allEnemyUnits = state.enemies
   const { total: defVal, dice: defDice } = getDefenseValue(hero, aCat, ctx.random)
   const hit = defVal <= atkTotal
   if (!hit) {
@@ -1404,7 +1709,6 @@ function executeEnemyAoeAttack(
 ): DetailedAction {
   const { chosenSkill, skillName } = actionSkill
   const { fResult, adjAttack, isArmorPen } = atkValues
-  const state = ctx.state!
   const atkTotal = adjAttack
   const aCat = inferAttackCategory(chosenSkill ?? undefined, enemyUnit.position)
   const actionId = targets.length > 0 ? startAttack(ctx, enemyUnit.id, targets.map(target => target.id)) : undefined
@@ -1425,7 +1729,8 @@ function executeEnemySingleTargetAttack(
   target: CombatUnit, state: CombatState, ctx: CombatCtx,
   initiative: number, actionNum: number, totalActions: number,
   aCat: string
-): DetailedAction | null {
+ ): DetailedAction | null {
+  const allEnemyUnits = state.enemies
   const actionId = startAttack(ctx, enemyUnit.id, [target.id])
   const { total: defVal, dice: defDice } = getDefenseValue(target, aCat, ctx.random)
   const { hit, rollBase, rollDice, attackTotal } = computeEnemyHitValues(fResult, adjAttack, enemy, defVal, ctx.random)
@@ -1541,7 +1846,7 @@ function computeEnemyHitValues(fResult: { base: number; diceTotal: number } | nu
 
 function applyManaShieldAbsorption(target: CombatUnit, state: CombatState, dmg: number, ctx: CombatCtx): { absorbed: number; finalDmg: number } {
   const result = resolveManaShield({
-    enabled: state.manaShield,
+    enabled: state.manaShield ?? false,
     currentMp: target.mp,
     incomingDamage: dmg,
   })
@@ -1605,7 +1910,13 @@ function executeEnemyAction(
     ...(enemy.attrs ?? {}),
   }
 
-  const chosenSkill = pickEnemySkill(enemy, enemyUnit, state, ctx.round)
+  let chosenSkill = pickEnemySkill(enemy, enemyUnit, state, ctx.round)
+  if (chosenSkill && !isSupportedSkillEffect(chosenSkill.effect)) {
+    addLog(ctx.log, 'tactic_eval', ctx.round, ctx.level, 'combat',
+      `${enemyUnit.name} omite ${chosenSkill.name ?? 'una habilidad'}: efecto "${chosenSkill.effect}" no implementado; ejecuta su ataque básico.`,
+      { actor: enemyUnit.name, skill: chosenSkill.name ?? `skill_${chosenSkill.skillId}` })
+    chosenSkill = null
+  }
   const skillName = chosenSkill?.name ?? enemy.skillName ?? 'Ataque'
   const damageType = (chosenSkill?.damageType ?? enemy.damageType ?? 'physical') as DamageType
 
@@ -1668,9 +1979,11 @@ function executeEnemyAction(
         skill: { ...executionSkill, effect: 'attack' },
       })
     : plan
-  return dispatchSkillExecutionPlan(singlePlan, {
+  return dispatchSkillExecutionPlan<CombatUnit, DetailedAction | null>(singlePlan, {
     heal: () => null,
     party_buff: () => null,
+    // Enemy self-buffs are not part of the supported enemy skill set yet.
+    self_buff: () => null,
     area_attack: targets => fResult
       ? executeEnemyAoeAttack(enemy, enemyUnit, heroUnits, { chosenSkill, skillName }, { fResult, adjAttack, isArmorPen: false }, ctx, { initiative, actionNum, totalActions }, targets)
       : null,
@@ -1679,6 +1992,7 @@ function executeEnemyAction(
       const aCat = inferAttackCategory(chosenSkill ?? undefined, enemy.position)
       return executeEnemySingleTargetAttack(enemy, enemyUnit, heroUnits, chosenSkill, skillName, damageType, fResult, adjAttack, armorPenetration, target, state, ctx, initiative, actionNum, totalActions, aCat)
     },
+    unsupported: () => null,
   })
 }
 
@@ -1704,19 +2018,34 @@ function processDotDamage(
 ): number {
   if (!unit.statusEffects || unit.hp <= 0) return 0
   const doT = calculateLegacyStatusDamage(unit.statusEffects)
-  if (doT <= 0) return 0
-
-  const appliedDamage = applyDamageWithEvent(unit, doT, `status:${unit.id}`, ctx)
-  unit.condition = getCondition(unit.hp, unit.maxHp)
-  if (appliedDamage > 0) {
-    ctx.state!.damagedThisRound = true
-    processPassiveEffects('on_damage', unit, heroUnits, enemyUnits, undefined, ctx)
-    addLog(log, 'hit', round, level, 'combat',
-      `☠️ ${unitName} recibe ${appliedDamage} daño de efectos`,
-      { target: unitName, value: appliedDamage })
+  let appliedDamage = 0
+  if (doT > 0) {
+    appliedDamage = applyDamageWithEvent(unit, doT, `status:${unit.id}`, ctx)
+    unit.condition = getCondition(unit.hp, unit.maxHp)
+    if (appliedDamage > 0) {
+      ctx.state!.damagedThisRound = true
+      processPassiveEffects('on_damage', unit, heroUnits, enemyUnits, undefined, ctx)
+      addLog(log, 'hit', round, level, 'combat',
+        `☠️ ${unitName} recibe ${appliedDamage} daño de efectos`,
+        { target: unitName, value: appliedDamage })
+    }
+    if (unit.hp <= 0) {
+      processUnitDefeat(unit, undefined, heroUnits, enemyUnits, ctx, `💀 ${unitName} derribado por efectos`)
+    }
   }
-  if (unit.hp <= 0) {
-    processUnitDefeat(unit, undefined, heroUnits, enemyUnits, ctx, `💀 ${unitName} derribado por efectos`)
+
+  // Regeneration ticks at round start before duration decay; defeated units never revive.
+  if (unit.hp > 0) {
+    const regeneration = calculateLegacyStatusHealing(unit.statusEffects)
+    if (regeneration > 0) {
+      const healed = applyHealingWithEvent(unit, regeneration, `status:${unit.id}`, ctx)
+      if (healed > 0) {
+        unit.condition = getCondition(unit.hp, unit.maxHp)
+        addLog(log, 'heal', round, level, 'combat',
+          `🌿 ${unitName} recupera ${healed} HP por regeneración`,
+          { target: unitName, value: healed, skill: 'Regeneración' })
+      }
+    }
   }
   return appliedDamage
 }
@@ -2105,9 +2434,23 @@ function scaleEnemiesToParty(dungeon: DungeonData, heroes: HeroData[]): void {
 function resolveCooldownOverride(hero: HeroData, action: TacticAction, state: CombatState, actorUnit: CombatUnit, log: LogEntry[], round: number, levelNum: number): TacticAction {
   const heroCooldowns = state.skillCooldowns?.[actorUnit.id] ?? {}
   if (!isSkillOnCooldown(state.skillCooldowns, actorUnit.id, action.skillId)) return action
-  const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (s.effect === 'attack' || !s.effect))
+  const available = hero.skills.find(s => !heroCooldowns[s.skillId] && (isBasicSkill(s)))
   if (!available) return action
-  const override: TacticAction = { skillId: available.skillId, targetPos: 'front', targetType: 'weakest' }
+  const selectedSkill = hero.skills.find(s => s.skillId === action.skillId)
+  const isSupportSkill = selectedSkill?.effect === 'heal'
+    || selectedSkill?.effect === 'buff'
+    || selectedSkill?.effect === 'party_attack_up'
+    || selectedSkill?.effect === 'defense_up'
+  const fallbackTarget = isSupportSkill
+    ? { targetPos: 'auto' as const, targetType: 'weakest' as const }
+    : {}
+  const override: TacticAction = {
+    ...action,
+    ...fallbackTarget,
+    skillId: available.skillId,
+    fallbackReason: 'cooldown',
+    selectedSkillId: action.skillId,
+  }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
     `⏳ ${actorUnit.name} — skill_${action.skillId} en cooldown, usando skill_${available.skillId}`,
     { actor: actorUnit.name, skill: `skill_${available.skillId}` })
@@ -2118,11 +2461,26 @@ function resolveBuffOverride(hero: HeroData, action: TacticAction, state: Combat
   const chosenBuffSkill = hero.skills.find(s => s.skillId === action.skillId)
   if (!chosenBuffSkill || (chosenBuffSkill.effect !== 'party_attack_up' && chosenBuffSkill.effect !== 'defense_up')) return action
   const isAtk = chosenBuffSkill.effect === 'party_attack_up'
-  const heroBuffBonuses = groupBuffBonusesForSide(state, 'hero')
-  if (isAtk ? heroBuffBonuses.atk <= 0 : heroBuffBonuses.def <= 0) return action
-  const ataque = hero.skills.find(s => s.effect === 'attack' || !s.effect)
+  const buffType = isAtk ? 'atk' : 'def'
+  const currentBuffs = (state.buffs ?? []).filter(buff =>
+    buff.side === 'hero' && buff.type === buffType &&
+    (buff.remainingRounds === null || buff.remainingRounds > 0)
+  )
+  const currentBuffValue = currentBuffs.reduce((maximum, buff) => Math.max(maximum, buff.value), 0)
+  if (currentBuffValue <= 0) return action
+
+  const selectedBuffValue = calculatePartyBuffBonus(chosenBuffSkill.effect, chosenBuffSkill.multiplier, chosenBuffSkill.rank)
+  // A stronger buff, or an equal/stronger buff that expires sooner, is still useful.
+  // The stacking adapter preserves the strongest value and extends finite duration.
+  const existingCoversDuration = currentBuffs.some(buff =>
+    buff.value >= selectedBuffValue &&
+    (buff.remainingRounds === null || buff.remainingRounds >= BUFF_DURATION)
+  )
+  if (selectedBuffValue > currentBuffValue || !existingCoversDuration) return action
+
+  const ataque = hero.skills.find(s => isBasicSkill(s))
   if (!ataque) return action
-  const override: TacticAction = { skillId: ataque.skillId, targetPos: 'front', targetType: 'weakest' }
+  const override: TacticAction = { ...action, skillId: ataque.skillId, fallbackReason: 'buff_active', selectedSkillId: action.skillId }
   addLog(log, 'tactic_eval', round, levelNum, 'combat',
     `⏭️ ${actorUnit.name} — ${chosenBuffSkill.name ?? 'buff'} ya activo, usando ${ataque.name ?? 'Ataque básico'}`,
     { actor: actorUnit.name, skill: `skill_${ataque.skillId}` })
@@ -2244,7 +2602,7 @@ function runHeroTurn(
   actorUnit: CombatUnit & { attrs: Record<string, number> },
   actor: any, heroes: HeroData[], heroUnits: CombatUnit[], enemyUnits: CombatUnit[],
   state: CombatState, log: LogEntry[], round: number, levelNum: number,
-  fallbackSkillId: number, ai: number, totalActors: number,
+  ai: number, totalActors: number,
   roundActions: DetailedAction[],
   random: RandomSource,
   combatCtx: CombatCtx,
@@ -2255,7 +2613,7 @@ function runHeroTurn(
 
   const perHeroState = buildPerHeroState(actorUnit, heroUnits, enemyUnits, state)
   return executeHeroTurnPipeline({
-    selectAction: () => evalTactics(hero.combatProfile.roundRules, perHeroState, fallbackSkillId),
+    selectAction: () => evalTactics(hero.combatProfile.roundRules, perHeroState, getDefaultCombatSkillId(hero.skills)),
     recordSelection: action => addLog(
       log, 'tactic_eval', round, levelNum, 'combat',
       `⚡ Táctica: ${actorUnit.name} → skill_${action.skillId} → ${action.targetType}`,
@@ -2263,12 +2621,31 @@ function runHeroTurn(
     ),
     applyCooldownOverride: action => resolveCooldownOverride(hero, action, state, actorUnit, log, round, levelNum),
     applyBuffOverride: action => resolveBuffOverride(hero, action, state, actorUnit, log, round, levelNum),
-    execute: finalAction => executeHeroAction(
-      actorUnit, hero,
-      { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors },
-      { ...combatCtx, state: perHeroState },
-      { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits }
-    ),
+    execute: finalAction => {
+      const result = executeHeroAction(
+        actorUnit, hero,
+        { action: finalAction, initiative: actor.initiative, actionNum: ai + 1, totalActions: totalActors },
+        { ...combatCtx, state: perHeroState },
+        { allHeroUnits: heroUnits, allEnemyUnits: enemyUnits }
+      )
+      if (result) {
+        if (finalAction.matchedRulePriority !== undefined) {
+          result.tacticRulePriority = finalAction.matchedRulePriority
+        }
+        if (finalAction.matchedCondition) {
+          result.tacticCondition = finalAction.matchedCondition
+        }
+        if (finalAction.ruleEvaluationTrace?.length) {
+          result.tacticRuleEvaluationTrace = finalAction.ruleEvaluationTrace
+        }
+        if (finalAction.fallbackReason && finalAction.selectedSkillId !== undefined) {
+          result.skillFallback = finalAction.fallbackReason
+          const selectedSkill = hero.skills.find(skill => skill.skillId === finalAction.selectedSkillId)
+          result.selectedSkillName = selectedSkill?.name ?? `skill_${finalAction.selectedSkillId}`
+        }
+      }
+      return result
+    },
     afterSuccessfulExecution: finalAction => applySkillCooldown(
       state, actorUnit, hero, finalAction.skillId, undefined, combatCtx
     ),
@@ -2310,51 +2687,11 @@ function runEnemyTurn(
 }
 
 function cloneHeroForSimulation(hero: HeroData): HeroData {
-  return {
-    ...hero,
-    attrs: { ...hero.attrs },
-    combatProfile: {
-      ...hero.combatProfile,
-      prelimRules: hero.combatProfile.prelimRules.map(rule => ({ ...rule })),
-      roundRules: hero.combatProfile.roundRules.map(rule => ({ ...rule })),
-      defenseSkills: { ...hero.combatProfile.defenseSkills },
-    },
-    skills: hero.skills.map(skill => ({
-      ...skill,
-      tags: skill.tags ? [...skill.tags] : undefined,
-      formula: skill.formula
-        ? {
-            ...skill.formula,
-            attrCoeffs: skill.formula.attrCoeffs ? { ...skill.formula.attrCoeffs } : undefined,
-          }
-        : undefined,
-    })),
-    equipStats: hero.equipStats ? { ...hero.equipStats } : undefined,
-    consumables: hero.consumables?.map(item => ({ ...item })),
-  }
+  return JSON.parse(JSON.stringify(hero)) as HeroData
 }
 
 function cloneDungeonForSimulation(dungeon: DungeonData): DungeonData {
-  return {
-    ...dungeon,
-    lootTable: dungeon.lootTable.map(entry => ({ ...entry })),
-    levels: dungeon.levels.map(level => ({
-      ...level,
-      enemies: level.enemies.map(enemy => ({
-        ...enemy,
-        skills: enemy.skills?.map(skill => ({
-          ...skill,
-          formula: skill.formula
-            ? {
-                ...skill.formula,
-                attrCoeffs: skill.formula.attrCoeffs ? { ...skill.formula.attrCoeffs } : undefined,
-              }
-            : undefined,
-        })),
-        passiveEffects: enemy.passiveEffects?.map(effect => ({ ...effect })),
-      })),
-    })),
-  }
+  return JSON.parse(JSON.stringify(dungeon)) as DungeonData
 }
 
 export async function runDungeon(
@@ -2387,17 +2724,23 @@ export async function runDungeon(
     toUnit(h, h.hpMax, h.mpMax, random)
   )
 
-  // Skill básica del primer héroe para fallback táctico
-  const mainHero = heroes[0]
-  const basicSkill = mainHero?.skills.find(s => s.effect === 'attack' || !s.effect)
-  const fallbackSkillId = basicSkill?.skillId ?? (mainHero?.skills[0]?.skillId ?? 1)
-
   // Acumular groupAtkBonus de todos los héroes
   const totalGroupAtkBonus = heroes.reduce((sum, h) => sum + (h.groupAtkBonus ?? 0), 0)
 
   const levelReports: LevelReport[] = []
+  const baseCombatProfiles = heroes.map(hero => hero.combatProfile)
+  const baseHeroDefense = heroUnits.map(unit => ({
+    defenseValues: { ...(unit.defenseValues ?? {}) },
+    defenseSkillNames: { ...(unit.defenseSkillNames ?? {}) },
+    defenseEffects: { ...(unit.defenseEffects ?? {}) },
+  }))
 
   for (const lvl of dungeon.levels) {
+    heroes.forEach((hero, index) => {
+      const unit = heroUnits[index]
+      if (unit) applyLevelCombatProfile(hero, unit, baseCombatProfiles[index], lvl.number, baseHeroDefense[index], random)
+    })
+
     addLog(log, 'level_start', 0, lvl.number, 'prelim',
       `━━━ Nivel ${lvl.number} — ${dungeon.name} ━━━`)
 
@@ -2426,7 +2769,7 @@ export async function runDungeon(
       const hero = heroes[hi]
       const hu = heroUnits[hi]
       if (hu.hp <= 0) continue
-      if (lvl.number === 1 && hero.combatProfile.prelimRules.length > 0) {
+      if (hero.combatProfile.prelimRules.length > 0) {
         runPrelimRound(hu, hero, hero.combatProfile.prelimRules, state, log, lvl.number)
       }
     }
@@ -2445,6 +2788,17 @@ export async function runDungeon(
       state.damagedThisRound = false
 
       const stateBefore = buildStateSnapshot(heroUnits, enemyUnits, state.buffs, state.groupAtkBonus, state.groupDefBonus, state.factionBonuses)
+      const recordRound = (actions: DetailedAction[]) => {
+        totalRounds++
+        const stateAfter = buildStateSnapshot(heroUnits, enemyUnits, state.buffs, state.groupAtkBonus, state.groupDefBonus, state.factionBonuses)
+        roundReports.push({
+          roundNumber: round,
+          stateBefore,
+          stateAfter,
+          actions,
+          narrative: generateRoundNarrative(round, actions),
+        })
+      }
 
       addLog(log, 'round_start', round, lvl.number, 'combat',
         `── Ronda ${round} ──`)
@@ -2492,9 +2846,13 @@ export async function runDungeon(
         livingHeroCount: heroUnits.filter(hero => hero.hp > 0).length,
         livingEnemyCount: enemyUnits.filter(enemy => enemy.hp > 0).length,
       })
-      if (roundStatus === 'heroes_defeated') break
+      if (roundStatus === 'heroes_defeated') {
+        recordRound([])
+        break
+      }
       if (roundStatus === 'level_victory') {
         levelVictory = true
+        recordRound([])
         break
       }
 
@@ -2506,6 +2864,7 @@ export async function runDungeon(
         })
         if (trapStatus === 'level_victory') {
           levelVictory = true
+          recordRound([])
           break
         }
       }
@@ -2534,7 +2893,7 @@ export async function runDungeon(
             executeHero: (unit, heroActor, index, total) => runHeroTurn(
               unit as CombatUnit & { attrs: Record<string, number> },
               heroActor, heroes, heroUnits, enemyUnits, state, log, round, lvl.number,
-              fallbackSkillId, index, total, roundActions, random, roundCtx
+              index, total, roundActions, random, roundCtx
             ),
             executeEnemy: (unit, _enemyActor, index, total) => runEnemyTurn(
               unit, lvl, heroUnits, state, log, round, lvl.number, index, total, random, roundCtx
@@ -2543,8 +2902,6 @@ export async function runDungeon(
           if (detail) roundActions.push(detail)
         },
       })
-
-      totalRounds++
 
       // Los buffs duran rondas completas: se consumen después de que ambos bandos actuaron.
       decayBuffs(state, roundCtx)
@@ -2555,15 +2912,7 @@ export async function runDungeon(
 
       decaySkillCooldowns(state, roundCtx)
 
-      const stateAfter = buildStateSnapshot(heroUnits, enemyUnits, state.buffs, state.groupAtkBonus, state.groupDefBonus, state.factionBonuses)
-
-      roundReports.push({
-        roundNumber: round,
-        stateBefore,
-        stateAfter,
-        actions: roundActions,
-        narrative: generateRoundNarrative(round, roundActions),
-      })
+      recordRound(roundActions)
 
       const completedRoundStatus = resolveCombatRoundStatus({
         livingHeroCount: heroUnits.filter(hero => hero.hp > 0).length,
@@ -2602,6 +2951,10 @@ export async function runDungeon(
       levelNumber: lvl.number,
       victory: levelVictory,
       rounds: roundReports,
+      preliminaryLog: log.filter(entry =>
+        entry.level === lvl.number && entry.phase === 'prelim' &&
+        entry.type !== 'level_start' && entry.type !== 'prelim_start'
+      ),
       epGained: lvlEp,
       goldGained: lvlGold,
       locationName: lvl.locationName,
@@ -2625,6 +2978,9 @@ export async function runDungeon(
     fameGained,
     loot: allLoot,
     heroesFinalState: heroUnits.map(h => ({ id: h.id, hp: h.hp, mp: h.mp })),
+    consumedConsumables: heroes.flatMap(hero =>
+      (hero.consumedConsumableIds ?? []).map(heroItemId => ({ heroId: hero.id, heroItemId }))
+    ),
     log,
     levelResults,
     levelReports,

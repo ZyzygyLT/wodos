@@ -40,7 +40,10 @@ describe('reproducible combat randomness', () => {
       enemies: [unit('e1', 'front'), unit('e2', 'front'), unit('e3', 'front')],
       round: 1,
       damagedThisRound: false,
-    } as CombatState
+      groupAtkBonus: 0,
+      groupDefBonus: 0,
+      buffs: [],
+    } satisfies CombatState
     const action = { skillId: 1, targetPos: 'front' as const, targetType: 'random' as const }
     const first = resolveTarget(action, state, 'front', [], createSeededRandom(55))
     const second = resolveTarget(action, state, 'front', [], createSeededRandom(55))
@@ -65,7 +68,7 @@ describe('reproducible combat randomness', () => {
         name: 'Basic attack',
         formula: { attrCoeffs: { st: 10 }, skillRankCoeff: 0, diceCount: 0, diceSides: 0, flatBonus: 100 },
       }],
-      consumables: [{ itemId: 7, healHp: 10 }],
+      consumables: [{ heroItemId: 'hero-item-7', itemId: 7, healHp: 10 }],
     }]
     const dungeon: DungeonData = {
       id: 1,
@@ -114,6 +117,14 @@ describe('reproducible combat randomness', () => {
     const withoutTimestamps = (result: Awaited<ReturnType<typeof runDungeon>>) => ({
       ...result,
       log: result.log.map(({ timestamp: _timestamp, ...entry }) => entry),
+      levelReports: result.levelReports.map(level => ({
+        ...level,
+        preliminaryLog: level.preliminaryLog?.map(entry => {
+          const { timestamp, ...withoutTimestamp } = entry
+          void timestamp
+          return withoutTimestamp
+        }),
+      })),
     })
 
     expect(withoutTimestamps(first)).toEqual(withoutTimestamps(second))
@@ -154,7 +165,7 @@ describe('reproducible combat randomness', () => {
     expect(observedEvents).toContain('death:enemy_10_0')
     expect(first.loot).toHaveLength(1)
     expect(first.loot[0]).toMatchObject({ itemId: 99, qty: 1, heroId: 'hero-1' })
-    expect(heroes[0].consumables).toEqual([{ itemId: 7, healHp: 10 }])
+    expect(heroes[0].consumables).toEqual([{ heroItemId: 'hero-item-7', itemId: 7, healHp: 10 }])
   })
 
 })

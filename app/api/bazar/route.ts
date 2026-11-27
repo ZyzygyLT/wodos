@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { checkRateLimit, ipKey } from "@/lib/rate-limit"
 import { listItem } from "@/services/bazar.service"
 import { z } from "zod"
@@ -75,11 +76,7 @@ export async function DELETE(req: NextRequest) {
   const listingId = typeof body.listingId === "string" ? body.listingId : ""
   if (!listingId) return NextResponse.json({ error: "Falta listingId" }, { status: 400 })
 
-  const seller = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  })
+  const seller = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!seller) return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
 
   try {

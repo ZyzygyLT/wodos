@@ -42,6 +42,7 @@ export async function checkAchievements(heroId: string, event: {
         title: `🏅 ¡Logro desbloqueado!`,
         body: ach.name,
         data: { achievementId: ach.id, achievementName: ach.name },
+        dedupeKey: `achievement:${heroId}:${ach.id}`,
       }).catch(e => logger.error("achievements", "Background achievement check failed", e))
     }
   }

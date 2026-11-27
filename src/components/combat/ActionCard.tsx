@@ -98,10 +98,10 @@ function TargetRow({ t, isEnemy }: Readonly<{ t: NonNullable<DetailedAction['tar
   const badge = targetResultBadge(t.resultType, t.defenseEffect)
   const dmgCls = isEnemy ? 'text-orange-300' : 'text-green-300'
   return (
-    <div className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-gray-800/40 border border-gray-700/30">
+    <div className="flex flex-wrap items-center gap-2 text-xs py-1 px-2 rounded bg-gray-800/40 border border-gray-700/30">
       <span className="text-gray-300 font-medium min-w-[80px] truncate">{t.targetName}</span>
       {defStr && <span className="text-blue-400 font-mono shrink-0">({defStr})</span>}
-      <span className="ml-auto flex items-center gap-1.5 shrink-0">
+      <span className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
         {badge && (
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${badge.cls}`}>
             {badge.icon} {badge.label}
@@ -118,6 +118,22 @@ function TargetRow({ t, isEnemy }: Readonly<{ t: NonNullable<DetailedAction['tar
   )
 }
 
+function tacticConditionLabel(condition: NonNullable<DetailedAction['tacticCondition']>): string {
+  const value = condition.value
+  switch (condition.type) {
+    case 'always': return 'siempre'
+    case 'hp_self_lt': return `HP propio < ${value ?? 30}%`
+    case 'hp_self_gt': return `HP propio > ${value ?? 70}%`
+    case 'hp_enemy_lt': return `HP del enemigo más débil < ${value ?? 25}%`
+    case 'hp_ally_lt': return `HP de un aliado < ${value ?? 50}%`
+    case 'round_gt': return `ronda > ${value ?? 3}`
+    case 'mana_lt': return `maná < ${value ?? 20}%`
+    case 'ally_down': return 'un aliado está derrotado'
+    case 'damaged_this_round': return 'recibió daño esta ronda'
+    default: return 'condición configurada'
+  }
+}
+
 /** Build a narrative description for the left column */
 function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boolean }>) {
   const nameCls = isEnemy ? 'text-orange-300' : 'text-green-300'
@@ -130,6 +146,7 @@ function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boole
   const isMiss = a.resultType === 'failed' && !isHeal && !isBuff && !isItem
   const roll = a.attackRollTotal == null ? null : Math.round(a.attackRollTotal)
   const multiTarget = a.targetResults != null && a.targetResults.length > 0
+  const tacticRuleEvaluationTrace = a.tacticRuleEvaluationTrace ?? []
 
   return (
     <div className="space-y-0.5">
@@ -137,6 +154,47 @@ function Narrative({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy?: boole
         <span className="text-lg leading-none">{a.actorIcon ?? '🧙'}</span>
         <span className={`font-bold text-sm ${nameCls}`}>{a.actorName}</span>
       </div>
+      {!isEnemy && a.tacticRulePriority !== undefined && a.tacticCondition && (
+        <p className="text-[10px] text-cyan-300 ml-1">
+          Regla táctica #{a.tacticRulePriority} · si {tacticConditionLabel(a.tacticCondition)}
+        </p>
+      )}
+      {!isEnemy && a.tacticRulePriority === undefined && tacticRuleEvaluationTrace.length > 0 && (
+        <p className="text-[10px] text-amber-300 ml-1">
+          Ninguna regla coincidió; se usó la acción predeterminada
+        </p>
+      )}
+      {!isEnemy && tacticRuleEvaluationTrace.length > 0 && (
+        <details className="ml-1 text-[10px] text-gray-400">
+          <summary className="cursor-pointer select-none hover:text-gray-200">
+            Evaluación táctica · {tacticRuleEvaluationTrace.length} reglas comprobadas
+          </summary>
+          <div className="mt-1 space-y-1 border-l border-gray-700 pl-2">
+            {tacticRuleEvaluationTrace.map((entry, index) => (
+              <p key={`${entry.priority}-${index}`}>
+                <span className={entry.matched ? "text-cyan-300" : "text-gray-500"}>
+                  #{entry.priority} · {entry.matched ? "coincide" : "no coincide"}
+                </span>
+                {" · "}{tacticConditionLabel(entry.condition)}
+                {entry.reason && <span className="text-gray-500"> — {entry.reason}</span>}
+              </p>
+            ))}
+          </div>
+        </details>
+      )}
+      {a.skillFallback && (
+        <p className="text-[10px] text-amber-300 ml-1">
+          {a.skillFallback === 'free_basic'
+            ? `Sin maná: ataque básico gratuito (seleccionada: ${a.selectedSkillName})`
+            : a.skillFallback === 'basic'
+              ? `Sin maná: sustituida por ataque básico (seleccionada: ${a.selectedSkillName})`
+              : a.skillFallback === 'forced'
+                ? `Sin maná ni ataque básico disponible: se fuerza "${a.selectedSkillName}"`
+                : a.skillFallback === 'cooldown'
+                  ? `Enfriamiento: "${a.selectedSkillName}" no estaba disponible; se usó un ataque básico`
+                  : `Buff ya activo: se evitó repetir "${a.selectedSkillName}" y se usó un ataque básico`}
+        </p>
+      )}
       <div className="text-xs text-gray-300 ml-1 space-y-0.5">
 
         {isAttack && (
@@ -233,7 +291,7 @@ export function ActionCard({ a, isEnemy }: Readonly<{ a: DetailedAction; isEnemy
 
       {/* Body — two columns */}
       <div className="p-3">
-        <div className="grid grid-cols-[1fr_1fr] gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
           {/* LEFT: narrative */}
           <div className="space-y-1 min-w-0">
             <Narrative a={a} isEnemy={isEnemy} />

@@ -82,7 +82,7 @@ describe('Prisma engine adapters', () => {
     expect(resolveWodosUpgradeBonus(item)).toEqual({ atk: 13, def: 4, healHp: 2 })
     const modifiers = equippedItemsToModifiers([item], { resolveUpgrade: resolveWodosUpgradeBonus })
     expect(modifiers).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'item:upgraded-sword:base:atk', value: 33 }),
+      expect.objectContaining({ id: 'item:upgraded-sword:atk', value: 33 }),
       expect.objectContaining({ id: 'item:upgraded-sword:upgrade:atk', value: 13 }),
     ]))
     expect(applyStatModifiers(0, modifiers.filter(modifier => modifier.stat === 'atk'))).toBe(46)

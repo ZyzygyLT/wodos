@@ -1,12 +1,22 @@
 import db from '@/lib/db'
+import type { Prisma } from '@/generated/prisma'
 import { runDungeon, HeroData, RunResult } from '@/lib/combat-engine/dungeon-runner'
-import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday } from '@/lib/dungeon-helpers'
-import { checkLevelUp, LevelUpResult } from '@/lib/level-up'
-import { updateQuestProgress } from '@/lib/quests/progress'
-import { checkAchievements } from '@/lib/achievements/checker'
-import { grantMaterialDrops } from '@/lib/craft/material-drops'
+import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, snapshotDungeonParticipant } from '@/lib/dungeon-helpers'
+import type { LevelUpResult } from '@/lib/level-up'
+import { persistRunResult, processDungeonRunPostProcessing } from '@/services/dungeon-execution.service'
 import { calcClanBonuses } from "@/lib/clan/upgrades"
 import logger from "@/lib/logger"
+
+type CombatHero = Prisma.HeroGetPayload<{
+  include: {
+    combatProfiles: true
+    skills: { include: { skill: true } }
+    items: { include: { item: true } }
+  }
+}>
+type CombatProfile = CombatHero['combatProfiles'][number]
+type DungeonRecord = NonNullable<Awaited<ReturnType<typeof db.dungeon.findUnique>>>
+type LootItem = Awaited<ReturnType<typeof db.item.findMany>>[number]
 
 export interface InstantRunParams {
   heroId: string
@@ -42,14 +52,16 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
     },
   })
   if (!hero) return { ok: false, error: 'No tenés un héroe', status: 404 }
-  if (hero.hpCurrent <= 0) return { ok: false, error: 'Tu héroe está derribado. Esperá a que se recupere.', status: 400 }
-
   const dungeon = await db.dungeon.findUnique({ where: { id: params.dungeonId } })
   if (!dungeon) return { ok: false, error: 'Mazmorra no encontrada', status: 404 }
   if (dungeon.levelReq > hero.level) return { ok: false, error: 'Nivel insuficiente para esta mazmorra', status: 400 }
 
-  const profileId = params.profileId ?? hero.combatProfiles[0]?.id ?? null
-  const profile = profileId ? hero.combatProfiles.find(p => p.id === profileId) ?? hero.combatProfiles[0] ?? null : null
+  const profile = params.profileId
+    ? hero.combatProfiles.find(p => p.id === params.profileId) ?? null
+    : hero.combatProfiles.find(p => p.dungeonLevel === null) ?? hero.combatProfiles[0] ?? null
+  if (params.profileId && !profile) {
+    return { ok: false, error: 'Perfil de combate no válido', status: 404 }
+  }
 
   const cm = await db.clanMember.findUnique({ where: { heroId: hero.id } })
   const effectiveGroupId = params.groupId ?? cm?.groupId
@@ -58,32 +70,57 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   if (!groupResult.ok) return { ok: false, error: groupResult.error!, status: groupResult.status! }
   const { heroesData, totalHeroes, isGroup } = groupResult
 
-  if (isGroup && !heroesData.some(h => h.combatProfile?.position === 'front')) {
+  if (isGroup && !heroesData.some(h => (h.combatProfile?.levelOverrides?.[1]?.position ?? h.combatProfile?.position) === 'front')) {
     return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
   }
 
-  const clanBonuses = cm ? await loadClanBonuses(hero.id) : undefined
+  const clanInfo = cm
+    ? await db.clanMember.findUnique({
+        where: { heroId: hero.id },
+        include: { clan: { include: { upgrades: true } } },
+      })
+    : null
+  const clanBonuses = clanInfo ? calcClanBonuses(clanInfo.clan.upgrades) : undefined
+  const clanMemberRec = clanInfo ? { clanId: clanInfo.clanId, clan: clanInfo.clan } : null
   const dungeonData = await enrichDungeonLevels(dungeon)
 
-  const firstOfDay = isGroup
-    ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
-    : !(await hasHeroRunDungeonToday(hero.id))
-
-  const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
-
-  const itemMap = await loadLootItemMap(result)
-  const runId = await createRunTransaction(hero.id, dungeon, profile, effectiveGroupId, result, heroesData, totalHeroes)
-
-  const levelUp = await checkLevelUp(hero.id)
-
-  for (const fs of result.heroesFinalState) {
-    await grantMaterialDrops(fs.id, dungeon.id, runId).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    const kills = (result.log as any[])?.filter((l: any) => l.type === 'death').length ?? 0
-    await updateQuestProgress(fs.id, { type: 'dungeon_complete', dungeonSlug: dungeon.slug, kills, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    if (kills > 0) await updateQuestProgress(fs.id, { type: 'total_kills', kills, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    await updateQuestProgress(fs.id, { type: 'ep_total', value: result.epGained / totalHeroes, sourceRunId: runId }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
-    checkAchievements(fs.id, { type: 'dungeon_complete' }).catch(e => logger.error("dungeon-registration", "Background operation failed", e))
+  const runId = await createInstantRunReservation(hero.id, dungeon, profile, effectiveGroupId, heroesData)
+  if (!runId) {
+    return { ok: false, error: 'Uno de los héroes ya está comprometido en otra expedición', status: 409 }
   }
+
+  // Evaluate the daily bonus after reservation so concurrent runs cannot both claim first-of-day.
+  let firstOfDay = false
+  let result: RunResult
+  let levelUps: Array<{ heroId: string; result: LevelUpResult }> = []
+  let itemMap: Map<number, LootItem> = new Map()
+  try {
+    firstOfDay = isGroup
+      ? !(await hasGroupRunDungeonToday(heroesData.map(h => h.id)))
+      : !(await hasHeroRunDungeonToday(hero.id))
+    result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
+    itemMap = await loadLootItemMap(result)
+    const settlement = await db.$transaction(async tx =>
+      persistRunResult(tx, {
+        runId, result, heroesData, totalHeroes,
+        dungeon: { id: dungeon.id, name: dungeon.name, slug: dungeon.slug },
+        clanMemberRec,
+      })
+    )
+    levelUps = settlement.levelUps
+  } catch (error) {
+    logger.error('dungeon-registration', 'Instant dungeon execution failed', error)
+    await db.dungeonRun.updateMany({
+      where: { id: runId, status: 'running' },
+      data: { status: 'failed', result: 'defeat', executedAt: new Date(), completesAt: new Date() },
+    }).catch(updateError => logger.error('dungeon-registration', 'Could not finalize failed instant run', updateError))
+    return { ok: false, error: 'No se pudo completar la expedición. Intentá nuevamente.', status: 500 }
+  }
+
+  const levelUp = levelUps.find(entry => entry.heroId === hero.id)?.result
+  await processDungeonRunPostProcessing(runId).catch(error => {
+    logger.error('dungeon-registration', 'Post-run processing failed; it remains queued for retry', error)
+  })
 
   return {
     ok: true,
@@ -100,7 +137,7 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
       heroesFinalState: result.heroesFinalState,
       loot: (result.loot ?? []).map(l => ({ itemId: l.itemId, qty: l.qty, name: itemMap.get(l.itemId)?.name ?? `#${l.itemId}` })),
       log: result.log.slice(-5).map(l => l.message),
-      levelUp: levelUp.leveledUp ? levelUp : undefined,
+      levelUp: levelUp?.leveledUp ? levelUp : undefined,
       firstOfDay,
     },
   }
@@ -109,32 +146,157 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
 export async function registerScheduledDungeon(params: InstantRunParams): Promise<{ ok: boolean; error?: string; status?: number; data?: { id: string; dungeon: string; status: string } }> {
   const hero = await db.hero.findFirst({
     where: { id: params.heroId },
-    include: { combatProfiles: { orderBy: { createdAt: 'asc' } } },
+    include: {
+      combatProfiles: { orderBy: { createdAt: 'asc' } },
+      skills: { include: { skill: true } },
+      items: { include: { item: true } },
+    },
   })
   if (!hero) return { ok: false, error: 'No tenés un héroe', status: 404 }
-  if (hero.hpCurrent <= 0) return { ok: false, error: 'Tu héroe está derribado. Esperá a que se recupere.', status: 400 }
-
   const dungeon = await db.dungeon.findUnique({ where: { id: params.dungeonId } })
   if (!dungeon) return { ok: false, error: 'Mazmorra no encontrada', status: 404 }
   if (dungeon.levelReq > hero.level) return { ok: false, error: 'Nivel insuficiente para esta mazmorra', status: 400 }
 
-  const profileId = params.profileId ?? hero.combatProfiles[0]?.id ?? null
+  const profile = params.profileId
+    ? hero.combatProfiles.find(p => p.id === params.profileId) ?? null
+    : hero.combatProfiles.find(p => p.dungeonLevel === null) ?? hero.combatProfiles[0] ?? null
+  if (params.profileId && !profile) {
+    return { ok: false, error: 'Perfil de combate no válido', status: 404 }
+  }
+  const profileId = profile?.id ?? null
 
   const cm = await db.clanMember.findUnique({ where: { heroId: hero.id } })
   const effectiveGroupId = params.groupId ?? cm?.groupId ?? null
 
-  const prevRun = await db.dungeonRun.findFirst({ where: { heroId: hero.id, status: 'registered' } })
-  if (prevRun) {
-    await db.dungeonRun.update({ where: { id: prevRun.id }, data: { status: 'failed', result: 'defeat' } })
+  const groupResult = await loadCombatGroup(effectiveGroupId, hero, profile, dungeon.levelReq)
+  if (!groupResult.ok) return { ok: false, error: groupResult.error!, status: groupResult.status! }
+  if (groupResult.isGroup && !groupResult.heroesData.some(h => (h.combatProfile?.levelOverrides?.[1]?.position ?? h.combatProfile?.position) === 'front')) {
+    return { ok: false, error: 'El grupo necesita al menos un héroe en posición frontal', status: 400 }
   }
 
-  const run = await db.dungeonRun.create({
-    data: { heroId: hero.id, dungeonId: dungeon.id, profileId, groupId: effectiveGroupId, status: 'registered' },
+  const participantIds = groupResult.heroesData.map(participant => participant.id)
+  const run = await db.$transaction(async tx => {
+    // Lock participants in a stable order so overlapping group registrations serialize safely.
+    for (const participantId of [...participantIds].sort()) {
+      await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${participantId} FOR UPDATE`
+    }
+
+    // Reconcile the preloaded snapshot after acquiring participant locks. A potion
+    // may have been consumed between loadCombatGroup() and this transaction.
+    if (!(await snapshotConsumablesStillExist(tx, groupResult.heroesData))) {
+      return { snapshotConflict: true as const }
+    }
+
+    const otherParticipantIds = participantIds.filter(participantId => participantId !== hero.id)
+    const prevRun = await tx.dungeonRun.findFirst({
+      where: { heroId: hero.id, status: 'registered' },
+    })
+
+    const runningOwnRun = await tx.dungeonRun.findFirst({
+      where: { heroId: hero.id, status: 'running' },
+      select: { id: true },
+    })
+    if (runningOwnRun) return null
+
+    const participatingInOtherRun = await tx.dungeonRunParticipant.findFirst({
+      where: {
+        heroId: hero.id,
+        run: {
+          is: {
+            heroId: { not: hero.id },
+            status: { in: ['registered', 'running'] },
+          },
+        },
+      },
+      select: { id: true },
+    })
+    if (participatingInOtherRun) return null
+
+    if (otherParticipantIds.length > 0) {
+      const occupiedParticipant = await tx.dungeonRunParticipant.findFirst({
+        where: {
+          heroId: { in: otherParticipantIds },
+          run: {
+            is: {
+              status: { in: ['registered', 'running'] },
+              ...(prevRun ? { id: { not: prevRun.id } } : {}),
+            },
+          },
+        },
+        select: { heroId: true },
+      })
+      if (occupiedParticipant) return null
+
+      const legacyActiveRun = await tx.dungeonRun.findFirst({
+        where: {
+          heroId: { in: otherParticipantIds },
+          status: { in: ['registered', 'running'] },
+          ...(prevRun ? { id: { not: prevRun.id } } : {}),
+        },
+        select: { id: true },
+      })
+      if (legacyActiveRun) return null
+    }
+
+    if (prevRun) {
+      await tx.dungeonRun.update({
+        where: { id: prevRun.id },
+        data: { status: 'failed', result: 'defeat' },
+      })
+    }
+
+    const createdRun = await tx.dungeonRun.create({
+      data: {
+        heroId: hero.id,
+        dungeonId: dungeon.id,
+        profileId,
+        groupId: effectiveGroupId,
+        status: 'registered',
+        participants: {
+          create: groupResult.heroesData.map(participant => ({
+            heroId: participant.id,
+            profileId: participant.profileId ?? null,
+            snapshot: JSON.parse(JSON.stringify(snapshotDungeonParticipant(participant))),
+          })),
+        },
+      },
+    })
+
+    await tx.hero.update({
+      where: { id: hero.id },
+      data: { dungeonRegisteredId: createdRun.id },
+    })
+    return createdRun
   })
 
-  await db.hero.update({ where: { id: hero.id }, data: { dungeonRegisteredId: run.id } })
+  if (!run) {
+    return { ok: false, error: 'Uno de los héroes ya está comprometido en otra expedición', status: 409 }
+  }
+  if ('snapshotConflict' in run) {
+    return { ok: false, error: 'El inventario cambió mientras preparabas la expedición. Actualizá y volvé a registrarte.', status: 409 }
+  }
 
   return { ok: true, data: { id: run.id, dungeon: dungeon.name, status: 'registered' } }
+}
+
+async function snapshotConsumablesStillExist(
+  tx: Prisma.TransactionClient,
+  heroesData: HeroData[],
+): Promise<boolean> {
+  const consumables = heroesData.flatMap(participant =>
+    (participant.consumables ?? []).map(item => ({ id: item.heroItemId, heroId: participant.id }))
+  )
+  if (consumables.length === 0) return true
+
+  const existingItems = await tx.heroItem.findMany({
+    where: {
+      id: { in: consumables.map(item => item.id) },
+      heroId: { in: [...new Set(consumables.map(item => item.heroId))] },
+    },
+    select: { id: true, heroId: true },
+  })
+  const existingKeys = new Set(existingItems.map(item => `${item.heroId}:${item.id}`))
+  return consumables.every(item => existingKeys.has(`${item.heroId}:${item.id}`))
 }
 
 interface CombatGroupResult {
@@ -146,97 +308,89 @@ interface CombatGroupResult {
   isGroup: boolean
 }
 
-async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero: any, profile: any, levelReq: number): Promise<CombatGroupResult> {
+async function loadCombatGroup(effectiveGroupId: string | null | undefined, hero: CombatHero, profile: CombatProfile | null, levelReq: number): Promise<CombatGroupResult> {
   if (effectiveGroupId) {
     const groupResult = await loadGroupParticipants(effectiveGroupId)
     if (groupResult.heroesData.length === 0) return { ok: false, error: 'Grupo vacío o no encontrado', status: 404, heroesData: [], totalHeroes: 0, isGroup: false }
+    if (!groupResult.heroIds.includes(hero.id)) return { ok: false, error: 'Tu héroe no pertenece a este grupo', status: 403, heroesData: [], totalHeroes: 0, isGroup: false }
     for (const h of groupResult.heroesData) {
-      if (h.hpCurrent !== undefined && h.hpCurrent <= 0) return { ok: false, error: `${h.name} está derribado y no puede participar`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
       if (h.level < levelReq) return { ok: false, error: `${h.name} no tiene nivel suficiente (min ${levelReq})`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
     }
-    return { ok: true, heroesData: groupResult.heroesData, totalHeroes: groupResult.heroesData.length, isGroup: groupResult.heroesData.length > 1 }
+    // The initiating hero may explicitly choose a combat profile. Group loading
+    // uses each member's default profile, so replace only the leader's snapshot
+    // with the already-authorized selection before freezing the party.
+    const heroesData = await Promise.all(groupResult.heroesData.map(participant =>
+      participant.id === hero.id
+        ? buildHeroData(hero, profile ?? hero.combatProfiles?.find(p => p.dungeonLevel === null) ?? hero.combatProfiles?.[0] ?? null)
+        : Promise.resolve(participant)
+    ))
+    const downedHero = heroesData.find(participant => (participant.hpCurrent ?? 0) <= 0)
+    if (downedHero) return { ok: false, error: `${downedHero.name} no tiene vida suficiente para iniciar otra expedición`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
+    return { ok: true, heroesData, totalHeroes: heroesData.length, isGroup: heroesData.length > 1 }
   }
   const heroesData = [await buildHeroData(hero, profile)]
+  if ((heroesData[0].hpCurrent ?? 0) <= 0) return { ok: false, error: `${heroesData[0].name} no tiene vida suficiente para iniciar otra expedición`, status: 400, heroesData: [], totalHeroes: 0, isGroup: false }
   return { ok: true, heroesData, totalHeroes: 1, isGroup: false }
 }
 
-async function loadClanBonuses(heroId: string) {
-  const full = await db.clanMember.findUnique({
-    where: { heroId },
-    include: { clan: { include: { upgrades: true } } },
-  })
-  return full ? calcClanBonuses(full.clan.upgrades) : undefined
-}
-
-async function loadLootItemMap(result: any) {
-  const lootItemIds = [...new Set((result.loot ?? []).map((l: any) => l.itemId))] as number[]
+async function loadLootItemMap(result: RunResult): Promise<Map<number, LootItem>> {
+  const lootItemIds = [...new Set(result.loot.map(l => l.itemId))]
   if (lootItemIds.length === 0) return new Map()
   const lootItems = await db.item.findMany({ where: { id: { in: lootItemIds } } })
-  return new Map(lootItems.map((i: any) => [i.id, i]))
+  return new Map(lootItems.map(i => [i.id, i] as const))
 }
 
-async function createRunTransaction(heroId: string, dungeon: any, profile: any, effectiveGroupId: string | null | undefined, result: any, heroesData: HeroData[], totalHeroes: number) {
-  let runId = ''
-  await db.$transaction(async (tx) => {
+async function createInstantRunReservation(
+  heroId: string,
+  dungeon: DungeonRecord,
+  profile: CombatProfile | null,
+  groupId: string | null | undefined,
+  heroesData: HeroData[],
+): Promise<string | null> {
+  return db.$transaction(async tx => {
+    const participantIds = heroesData.map(participant => participant.id)
+    for (const participantId of [...participantIds].sort()) {
+      await tx.$queryRaw`SELECT "id" FROM "heroes" WHERE "id" = ${participantId} FOR UPDATE`
+    }
+
+    // Do not persist a stale consumable snapshot if inventory changed before locks.
+    if (!(await snapshotConsumablesStillExist(tx, heroesData))) return null
+
+    const activeParticipant = await tx.dungeonRunParticipant.findFirst({
+      where: {
+        heroId: { in: participantIds },
+        run: { is: { status: { in: ['registered', 'running'] } } },
+      },
+      select: { id: true },
+    })
+    if (activeParticipant) return null
+
+    const legacyActiveRun = await tx.dungeonRun.findFirst({
+      where: {
+        heroId: { in: participantIds },
+        status: { in: ['registered', 'running'] },
+      },
+      select: { id: true },
+    })
+    if (legacyActiveRun) return null
+
     const run = await tx.dungeonRun.create({
       data: {
-        heroId, dungeonId: dungeon.id,
+        heroId,
+        dungeonId: dungeon.id,
         profileId: profile?.id ?? null,
-        groupId: effectiveGroupId ?? null,
-        status: result.victory ? 'done' : 'failed',
-        result: result.victory ? 'victory' : 'defeat',
-        report: result.log as unknown as any,
-        levelReports: result.levelReports as unknown as any,
-        levelsCleared: result.levelsCleared,
-        epGained: result.epGained,
-        goldGained: result.goldGained,
-        fameGained: result.fameGained,
-        loot: result.loot,
-        executedAt: new Date(),
-        completesAt: new Date(),
-      },
-    })
-    runId = run.id
-
-    for (const heroData of heroesData) {
-      const consumedIds = heroData.consumedConsumableIds ?? []
-      if (consumedIds.length === 0) continue
-      const consumed = await tx.heroItem.deleteMany({ where: { id: { in: consumedIds }, heroId: heroData.id } })
-      if (consumed.count !== consumedIds.length) throw new Error('DUNGEON_CONSUMABLE_INVENTORY_MISMATCH')
-    }
-
-    for (const fs of result.heroesFinalState) {
-      const hData = heroesData.find((h: any) => h.id === fs.id)
-      if (!hData) continue
-      await tx.hero.update({
-        where: { id: fs.id },
-        data: {
-          epTotal: { increment: result.epGained / totalHeroes },
-          gold: { increment: result.goldGained / totalHeroes },
-          fame: { increment: Math.ceil(result.fameGained / totalHeroes) },
-          hpCurrent: hData.hpMax, mpCurrent: hData.mpMax,
+        groupId: groupId ?? null,
+        status: 'running',
+        participants: {
+          create: heroesData.map(participant => ({
+            heroId: participant.id,
+            profileId: participant.profileId ?? null,
+            snapshot: JSON.parse(JSON.stringify(snapshotDungeonParticipant(participant))),
+          })),
         },
-      })
-    }
-
-    if (result.loot && result.loot.length > 0) {
-      const lootByHero = new Map<string, Array<{ itemId: number; qty: number }>>()
-      for (const l of result.loot) {
-        const hId = (l as any).heroId ?? result.heroesFinalState[0]?.id
-        if (!hId) continue
-        if (!lootByHero.has(hId)) lootByHero.set(hId, [])
-        lootByHero.get(hId)!.push({ itemId: l.itemId, qty: l.qty })
-      }
-      for (const [hId, items] of lootByHero) {
-        await tx.heroItem.createMany({
-          data: items.flatMap(l =>
-            Array.from({ length: l.qty }, () => ({
-              heroId: hId, itemId: l.itemId, equipped: false,
-            }))
-          ),
-        })
-      }
-    }
+      },
+      select: { id: true },
+    })
+    return run.id
   })
-  return runId
 }

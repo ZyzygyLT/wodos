@@ -25,7 +25,7 @@ export function applyStatModifiers(baseValue: number, modifiers: readonly StatMo
     .filter(modifier => modifier.operation === 'percent')
     .reduce((total, modifier) => total + modifier.value, 0)
 
-  return (baseValue + flat) * (1 + percentage / 100)
+  return (baseValue + flat) * (100 + percentage) / 100
 }
 
 export function modifiersForStat(

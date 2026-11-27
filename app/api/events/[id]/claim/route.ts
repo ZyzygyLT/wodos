@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { checkClanLevelUp } from "@/lib/clan/leveling"
 
 function findEventRewardTier(rewards: any[], rank: number, total: number) {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 })
 
-  const hero = await db.hero.findFirst({ where: { userId: session.user.id } })
+  const hero = await getActiveHeroByUserId(session.user.id)
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
 
   const { id } = await params

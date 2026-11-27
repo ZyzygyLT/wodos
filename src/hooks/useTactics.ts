@@ -20,6 +20,7 @@ export interface CombatProfile {
   id: string; heroId: string
   name: string; dungeonLevel: number | null
   position: string
+  initiativeSkill?: string
   defenseSkills: Record<string, number | null>
   prelimRules: PrelimRule[]
   roundRules: RoundRule[]
@@ -27,6 +28,7 @@ export interface CombatProfile {
 
 export interface HeroSkillDef {
   id: number; name: string; icon: string
+  slug?: string; effect?: string
   type: string; timing: string; tier: number
   goldCost: number; manaCost: number
   multiplier: number; unlocked: boolean
@@ -81,7 +83,7 @@ export function useTactics() {
     } catch (e) { logger.error('tactics', 'Failed to load data', e) }
   }, [router])
 
-  useEffect(() => { fetchProfiles() }, [fetchProfiles])
+  useEffect(() => { void Promise.resolve().then(fetchProfiles) }, [fetchProfiles])
 
   useEffect(() => {
     fetch("/api/hero/skills").then(r => r.json()).then(setHeroSkills).catch(e => logger.error("useTactics", "Failed to fetch data", e))
@@ -160,21 +162,30 @@ export function useTactics() {
     setSaving(true)
     try {
       for (const p of profiles) {
-        await fetch("/api/tactics", {
+        const response = await fetch("/api/tactics", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             dungeonLevel: p.dungeonLevel,
             position: p.position,
+            initiativeSkill: p.initiativeSkill ?? '',
             defenseSkills: p.defenseSkills,
             prelimRules: p.prelimRules,
             roundRules: p.roundRules,
           }),
         })
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          const reason = typeof data.error === "string" ? data.error : `HTTP ${response.status}`
+          throw new Error(`No se pudo guardar el perfil "${p.name}": ${reason}. Los perfiles anteriores podrían haberse guardado.`)
+        }
       }
       show("Tácticas guardadas")
-    } catch { show("Error de red") }
-    setSaving(false)
+    } catch (error) {
+      show(error instanceof Error ? error.message : "Error de red al guardar tácticas")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return {

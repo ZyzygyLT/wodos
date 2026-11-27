@@ -1,17 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const { activeHeroMock } = vi.hoisted(() => ({ activeHeroMock: vi.fn() }))
+
 vi.mock('@/lib/combat-engine/arena-runner', () => ({
   runArenaDuel: vi.fn(),
 }))
-vi.mock('@/lib/hero-utils', () => ({
-  getHeroByUserId: vi.fn(),
-}))
+vi.mock('@/lib/hero-utils', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/hero-utils')>('@/lib/hero-utils')
+  return { ...actual, getHeroByUserId: vi.fn(), getActiveHeroByUserId: activeHeroMock }
+})
+vi.mock('@/lib/dungeon-helpers', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/dungeon-helpers')>('@/lib/dungeon-helpers')
+  return { ...actual, buildHeroData: vi.fn(async () => ({ equipStats: {}, skills: [] })) }
+})
+vi.mock('@/lib/combat-engine/hero-stats', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/combat-engine/hero-stats')>('@/lib/combat-engine/hero-stats')
+  return { ...actual, computeDefenseForHero: vi.fn(() => ({ values: {}, breakdown: {} })) }
+})
+vi.mock('@/engine/core/stats/derived-stats', async () => {
+  const actual = await vi.importActual<typeof import('@/engine/core/stats/derived-stats')>('@/engine/core/stats/derived-stats')
+  return { ...actual, calculateEffectiveResourceMaxima: vi.fn(() => ({ hpMax: 10, mpMax: 10 })) }
+})
 import { mockDb } from '../setup'
 import { auth } from '@/auth'
 import type { Mock } from 'vitest'
 
 const FAKE_USER_ID = 'user-1'
 const FAKE_HERO_ID = 'hero-1'
+
 
 function mockSession() {
   ;(auth as Mock).mockResolvedValue({ user: { id: FAKE_USER_ID } })
@@ -25,9 +41,32 @@ function jsonResponse(res: Response): Promise<any> {
   return res.json()
 }
 
+function mockActiveHeroDefault() {
+  activeHeroMock.mockImplementation(async (userId: string, options: { include?: unknown; select?: unknown } = {}) => {
+    const hero = await mockDb.hero.findFirst({
+      where: { userId },
+      ...(options.include ? { include: options.include } : {}),
+      ...(options.select ? { select: options.select } : {}),
+    })
+    if (!hero) return null
+    return {
+      ...hero,
+      items: hero.items ?? [],
+      materials: hero.materials ?? [],
+      heroQuests: hero.heroQuests ?? [],
+      skills: hero.skills ?? [],
+      combatProfiles: hero.combatProfiles ?? [],
+      clanMember: hero.clanMember ?? null,
+    }
+  })
+  ;(mockDb.user.findUnique as Mock).mockResolvedValue({ currentHeroId: null })
+  ;(mockDb.user.updateMany as Mock).mockResolvedValue({ count: 1 })
+  ;(mockDb.hero.updateMany as Mock).mockResolvedValue({ count: 1 })
+}
+
 // ─── GET /api/hero ─────────────────────────────────────────────────────────────
 describe('GET /api/hero', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
@@ -39,8 +78,8 @@ describe('GET /api/hero', () => {
 
   it('returns 404 if no hero exists', async () => {
     mockSession()
-    const { getHeroByUserId } = await import('@/lib/hero-utils')
-    ;(getHeroByUserId as Mock).mockResolvedValue(null)
+    const { getActiveHeroByUserId } = await import('@/lib/hero-utils')
+    ;(getActiveHeroByUserId as Mock).mockResolvedValue(null)
     const { GET } = await import('@/app/api/hero/route')
     const res = await GET()
     expect(res.status).toBe(404)
@@ -48,9 +87,9 @@ describe('GET /api/hero', () => {
 
   it('returns hero when found', async () => {
     mockSession()
-    const fakeHero = { id: FAKE_HERO_ID, name: 'TestHero', level: 5 }
-    const { getHeroByUserId } = await import('@/lib/hero-utils')
-    ;(getHeroByUserId as Mock).mockResolvedValue(fakeHero)
+    const fakeHero = { id: FAKE_HERO_ID, name: 'TestHero', level: 5, hpMax: 10, mpMax: 10, attrs: {}, skills: [], items: [], combatProfiles: [] }
+    const { getActiveHeroByUserId } = await import('@/lib/hero-utils')
+    ;(getActiveHeroByUserId as Mock).mockResolvedValue(fakeHero)
     const { GET } = await import('@/app/api/hero/route')
     const res = await GET()
     expect(res.status).toBe(200)
@@ -62,7 +101,7 @@ describe('GET /api/hero', () => {
 
 // ─── POST /api/bazar ───────────────────────────────────────────────────────────
 describe('POST /api/bazar', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
@@ -87,7 +126,8 @@ describe('POST /api/bazar', () => {
   it('creates a fixed listing', async () => {
     mockSession()
     const heroItem = { id: 'hi-1', itemId: 1, equipped: false, item: { name: 'Espada', category: 'weapon' } }
-    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID, items: [heroItem] })
+    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroItem.findFirst as Mock).mockResolvedValue({ ...heroItem, heroId: FAKE_HERO_ID })
     ;(mockDb.bazarListing.findUnique as Mock).mockResolvedValue(null)
     ;(mockDb.bazarListing.create as Mock).mockResolvedValue({ id: 'listing-1', listingType: 'fixed', price: 500 })
 
@@ -105,7 +145,8 @@ describe('POST /api/bazar', () => {
   it('rejects listing an equipped item', async () => {
     mockSession()
     const heroItem = { id: 'hi-1', itemId: 1, equipped: true, item: { name: 'Espada' } }
-    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID, items: [heroItem] })
+    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroItem.findFirst as Mock).mockResolvedValue({ ...heroItem, heroId: FAKE_HERO_ID })
     const { POST } = await import('@/app/api/bazar/route')
     const req = new Request('http://localhost/api/bazar', {
       method: 'POST',
@@ -119,7 +160,8 @@ describe('POST /api/bazar', () => {
   it('rejects duplicate listing', async () => {
     mockSession()
     const heroItem = { id: 'hi-1', itemId: 1, equipped: false, item: { name: 'Espada' } }
-    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID, items: [heroItem] })
+    ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroItem.findFirst as Mock).mockResolvedValue({ ...heroItem, heroId: FAKE_HERO_ID })
     ;(mockDb.bazarListing.findUnique as Mock).mockResolvedValue({ id: 'existing', status: 'active' })
     const { POST } = await import('@/app/api/bazar/route')
     const req = new Request('http://localhost/api/bazar', {
@@ -134,7 +176,7 @@ describe('POST /api/bazar', () => {
 
 // ─── POST /api/bazar/bid ──────────────────────────────────────────────────────
 describe('POST /api/bazar/bid', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
@@ -166,6 +208,7 @@ describe('POST /api/bazar/bid', () => {
     ;(mockDb.bazarListing.findUnique as Mock).mockResolvedValue({
       id: 'listing-1', status: 'active', sellerId: 'seller-1',
       listingType: 'auction', startPrice: 100, price: 100, purchases: [],
+      seller: { userId: 'seller-user' },
       heroItem: { item: { name: 'Test Item' } },
     })
     ;(mockDb.bazarPurchase.create as Mock).mockResolvedValue({ id: 'purchase-1' })
@@ -200,7 +243,7 @@ describe('POST /api/bazar/bid', () => {
 
 // ─── POST /api/clan ────────────────────────────────────────────────────────────
 describe('POST /api/clan', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('creates a clan', async () => {
     mockSession()
@@ -244,7 +287,7 @@ describe('POST /api/clan', () => {
 
 // ─── POST /api/clan/join ───────────────────────────────────────────────────────
 describe('POST /api/clan/join', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('joins a clan', async () => {
     mockSession()
@@ -276,7 +319,7 @@ describe('POST /api/clan/join', () => {
 
 // ─── POST /api/quests/accept ───────────────────────────────────────────────────
 describe('POST /api/quests/accept', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('accepts a quest', async () => {
     mockSession()
@@ -316,13 +359,14 @@ describe('POST /api/quests/accept', () => {
 
 // ─── POST /api/quests/complete ─────────────────────────────────────────────────
 describe('POST /api/quests/complete', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('completes a quest with all objectives done', async () => {
     mockSession()
     ;(mockDb.hero.findFirst as Mock).mockResolvedValue({ id: FAKE_HERO_ID })
+    ;(mockDb.heroQuest.updateMany as Mock).mockResolvedValue({ count: 1 })
     ;(mockDb.heroQuest.findUnique as Mock).mockResolvedValue({
-      id: 'hq-1', status: 'active', questId: 1,
+      id: 'hq-1', heroId: FAKE_HERO_ID, status: 'active', questId: 1,
       progress: { obj1: 10 },
       quest: {
         name: 'Test Quest', type: 'daily', chainNext: null,
@@ -366,7 +410,7 @@ describe('POST /api/quests/complete', () => {
 
 // ─── POST /api/arena/duel ──────────────────────────────────────────────────────
 describe('POST /api/arena/duel', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('returns 401 without auth', async () => {
     mockNoSession()
@@ -410,7 +454,7 @@ describe('POST /api/arena/duel', () => {
 
 // ─── POST /api/craft ───────────────────────────────────────────────────────────
 describe('POST /api/craft', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+  beforeEach(() => { vi.clearAllMocks(); mockActiveHeroDefault() })
 
   it('crafts an item', async () => {
     mockSession()

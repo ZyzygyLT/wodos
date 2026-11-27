@@ -3,7 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockDb = {
   heroQuest: {
     findMany: vi.fn(),
+    findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     upsert: vi.fn(),
   },
   hero: {
@@ -12,9 +14,14 @@ const mockDb = {
   },
   quest: { findUnique: vi.fn() },
   $transaction: vi.fn(),
+  $queryRaw: vi.fn(),
 }
 
 vi.mock('@/lib/db', () => ({ default: mockDb }))
+vi.mock('@/lib/analytics/events', () => ({ trackQuestCompleted: vi.fn() }))
+vi.mock('@/lib/level-up', () => ({ checkLevelUp: vi.fn().mockResolvedValue(null) }))
+vi.mock('@/lib/notifications/emitter', () => ({ notify: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/services/faction.service', () => ({ adjustRep: vi.fn().mockResolvedValue(undefined) }))
 vi.unmock('@/lib/quests/progress')
 
 const { updateQuestProgress } = await import('@/lib/quests/progress')
@@ -25,6 +32,10 @@ function getUpdateData(): Record<string, any> {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockDb.$queryRaw.mockResolvedValue(undefined)
+  mockDb.$transaction.mockImplementation(async (callback: (tx: typeof mockDb) => unknown) => callback(mockDb))
+  mockDb.heroQuest.updateMany.mockResolvedValue({ count: 1 })
+  mockDb.hero.findFirst.mockResolvedValue({ userId: 'user-1' })
 })
 
 describe('updateQuestProgress', () => {
@@ -52,6 +63,7 @@ describe('updateQuestProgress', () => {
 
   it('advances dungeon_complete progress when slug matches', async () => {
     mockDb.heroQuest.findMany.mockResolvedValue([baseHq()])
+    mockDb.heroQuest.findUnique.mockResolvedValue(baseHq())
     await updateQuestProgress('hero-1', { type: 'dungeon_complete', dungeonSlug: 'cueva-aranyas' })
 
     expect(mockDb.heroQuest.update).toHaveBeenCalled()
@@ -62,6 +74,7 @@ describe('updateQuestProgress', () => {
 
   it('does NOT advance progress when slug does not match', async () => {
     mockDb.heroQuest.findMany.mockResolvedValue([baseHq()])
+    mockDb.heroQuest.findUnique.mockResolvedValue(baseHq())
     await updateQuestProgress('hero-1', { type: 'dungeon_complete', dungeonSlug: 'ruinas-abandonadas' })
 
     expect(mockDb.heroQuest.update).not.toHaveBeenCalled()
@@ -69,6 +82,7 @@ describe('updateQuestProgress', () => {
 
   it('advances kills progress with correct increment', async () => {
     mockDb.heroQuest.findMany.mockResolvedValue([baseHq()])
+    mockDb.heroQuest.findUnique.mockResolvedValue(baseHq())
     await updateQuestProgress('hero-1', { type: 'total_kills', kills: 10 })
 
     expect(mockDb.heroQuest.update).toHaveBeenCalled()
@@ -81,16 +95,18 @@ describe('updateQuestProgress', () => {
       objectives: [{ id: 'o1', type: 'dungeon_complete', dungeonSlug: 'cueva-aranyas', required: 1 }],
     })])
     mockDb.hero.findFirst.mockResolvedValue({ userId: 'user-1' })
-    mockDb.$transaction.mockImplementation(async (promises: any) => Promise.all(promises))
+    mockDb.heroQuest.findUnique.mockResolvedValue(baseHq({
+      objectives: [{ id: 'o1', type: 'dungeon_complete', dungeonSlug: 'cueva-aranyas', required: 1 }],
+    }))
     mockDb.heroQuest.update.mockImplementation(async (args: any) => args)
     mockDb.hero.update.mockImplementation(async (args: any) => args)
 
     await updateQuestProgress('hero-1', { type: 'dungeon_complete', dungeonSlug: 'cueva-aranyas' })
 
     expect(mockDb.$transaction).toHaveBeenCalled()
-    expect(mockDb.heroQuest.update).toHaveBeenCalledWith(
+    expect(mockDb.heroQuest.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'hq-1' },
+        where: { id: 'hq-1', status: 'active' },
         data: expect.objectContaining({ status: 'completed' }),
       })
     )
@@ -104,6 +120,13 @@ describe('updateQuestProgress', () => {
         { id: 'o2', type: 'total_kills', required: 50 },
       ],
     })])
+    mockDb.heroQuest.findUnique.mockResolvedValue(baseHq({
+      progress: { o1: 0, o2: 45 },
+      objectives: [
+        { id: 'o1', type: 'dungeon_complete', dungeonSlug: 'cueva-aranyas', required: 1 },
+        { id: 'o2', type: 'total_kills', required: 50 },
+      ],
+    }))
     await updateQuestProgress('hero-1', { type: 'total_kills', kills: 10 })
 
     const data = getUpdateData()

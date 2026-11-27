@@ -17,6 +17,14 @@ export interface AdventureChoice {
   nextStep: number
   flavor?: string
   skillCheck?: { attr: string; dc: number; passStep: number; failStep: number }
+  costs?: { hp?: number; mp?: number }
+  nextStepName?: string | null
+  nextStepDescription?: string | null
+  passStepName?: string | null
+  passStepDescription?: string | null
+  failStepName?: string | null
+  failStepDescription?: string | null
+  rewards?: StepRewards
 }
 
 export interface StepRewards {
@@ -31,6 +39,8 @@ export interface AdventureStep {
   type: 'narrative' | 'choice' | 'combat' | 'reward'
   name: string
   description: string
+  /** Ends this route after the step is resolved, even when later branches exist. */
+  endsAdventure?: boolean
   image?: string
   enemies?: AdventureStepEnemy[]
   choices?: AdventureChoice[]
@@ -46,6 +56,8 @@ export interface AdventureRewardTable {
   materials?: Array<{ materialId: number; chance: number; qty: number }>
 }
 
+import type { RunResult } from '@/lib/combat-engine/dungeon-runner'
+
 export interface CombatStepResult {
   type: 'combat'
   victory: boolean
@@ -53,25 +65,38 @@ export interface CombatStepResult {
   totalEnemies: number
   heroHpLost: number
   heroMpLost: number
+  heroHpRemaining: number
+  heroMpRemaining: number
   log: string[]
+  replay?: Pick<RunResult, 'victory' | 'totalRounds' | 'epGained' | 'goldGained' | 'levelReports'>
 }
 
 export interface NarrativeStepResult {
   type: 'narrative'
+  description: string
 }
 
 export interface ChoiceStepResult {
   type: 'choice'
   chosenIndex: number
+  chosen: string
   nextStep: number
+  nextStepName?: string | null
+  nextStepDescription?: string | null
+  flavor?: string
+  skillCheck?: { attr: string; dc: number; value: number; passed: boolean }
+  costs?: { hp: number; mp: number }
+  rewards?: StepRewards
 }
 
 export interface RewardStepResult {
   type: 'reward'
   rewards: StepRewards
+  /** Item rewards were added to inventory when this step was resolved. */
+  itemsGranted?: boolean
 }
 
-export type StepResult = CombatStepResult | NarrativeStepResult | ChoiceStepResult | RewardStepResult
+export type StepResult = (CombatStepResult | NarrativeStepResult | ChoiceStepResult | RewardStepResult) & { stepName?: string }
 
 export type StepAction = 'continue' | 'choose' | 'fight' | 'claim'
 

@@ -1,4 +1,5 @@
 import db from '@/lib/db'
+import { getActiveHeroByUserId } from '@/lib/hero-utils'
 import { updateQuestProgress } from '@/lib/quests/progress'
 import { checkAchievements } from '@/lib/achievements/checker'
 import { notify } from '@/lib/notifications/emitter'
@@ -19,9 +20,7 @@ export interface EnchantResult {
 }
 
 export async function processEnchant(userId: string, heroItemId: string): Promise<{ ok: boolean; error?: string; status?: number; data?: EnchantResult }> {
-  const hero = await db.hero.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(userId, {
     include: { items: { include: { item: true } }, materials: true },
   })
   if (!hero) return { ok: false, error: 'Héroe no encontrado', status: 404 }

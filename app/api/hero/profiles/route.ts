@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
+import { getActiveHeroByUserId } from "@/lib/hero-utils"
+import { getDefaultCombatSkillId } from "@/engine/core/skills/skill-availability"
 import { z } from "zod"
 import { formatZodError } from "@/lib/zod-error"
 
@@ -17,9 +19,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'asc' },
+  const hero = await getActiveHeroByUserId(session.user.id, {
     include: { combatProfiles: { orderBy: { createdAt: "asc" } } },
   })
   if (!hero) {
@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 })
   }
 
-  const hero = await db.hero.findFirst({ where: { userId: session.user.id } })
+  const hero = await getActiveHeroByUserId(session.user.id, {
+    include: { skills: { include: { skill: true } } },
+  })
   if (!hero) {
     return NextResponse.json({ error: "No tenés un héroe" }, { status: 404 })
   }
@@ -46,23 +48,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: formatZodError(parsed.error) }, { status: 400 })
   }
 
+  const skills = (hero.skills ?? []).map(({ skill }) => ({
+    skillId: skill.id,
+    type: skill.type,
+    effect: skill.effect,
+    manaCost: skill.manaCost,
+  }))
+  const defaultSkillId = getDefaultCombatSkillId(skills)
+  const healingSkill = skills.find(skill => skill.type !== 'passive' && skill.effect === 'heal')
+  const roundRules = [
+    ...(healingSkill ? [{
+      priority: 1,
+      condition: { type: "hp_self_lt", value: 30 },
+      action: { skillId: healingSkill.skillId, targetPos: "auto", targetType: "most_injured_ally" },
+    }] : []),
+    {
+      priority: healingSkill ? 2 : 1,
+      condition: { type: "always" },
+      action: { skillId: defaultSkillId, targetPos: "auto", targetType: "weakest" },
+    },
+  ]
+
   const profile = await db.combatProfile.create({
     data: {
       heroId: hero.id,
       name: parsed.data.name,
       position: parsed.data.position,
-      roundRules: [
-        {
-          priority: 1,
-          condition: { type: "hp_self_lt", value: 30 },
-          action: { skillId: 1, targetPos: "auto", targetType: "most_injured_ally" }
-        },
-        {
-          priority: 2,
-          condition: { type: "always" },
-          action: { skillId: 1, targetPos: "front", targetType: "weakest" }
-        }
-      ],
+      roundRules,
     }
   })
 

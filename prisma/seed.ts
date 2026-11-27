@@ -1,4 +1,5 @@
-import { PrismaClient } from '../src/generated/prisma'
+import { Prisma, PrismaClient } from '../src/generated/prisma'
+import { getAdventureStepGraphErrors } from '../src/lib/adventures/step-graph'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 import bcrypt from 'bcryptjs'
@@ -52,7 +53,7 @@ async function main() {
   await seedForumCategories()
   await seedFactions()
   await seedFactionShops()
-  await seedAdventures()
+  await seedAdventures(itemSlugMap)
   await seedTestDungeon(itemSlugMap)
 console.log('✅ Seed completado')
 }
@@ -194,6 +195,7 @@ async function seedSkills(): Promise<Record<string, number>> {
   // Each skill belongs to a path. T1=starter, T2=mid, T3=capstone.
   // requiresSlugs chains skills within a path — resolves to IDs after creation.
   const skills: any[] = [
+    { classId: null, slug: 'organization', name: 'Organización', icon: '🧭', type: 'passive' as const, timing: 'passive' as const, tier: 1, description: 'Mejora la coordinación y la iniciativa del héroe.', effect: 'speed_up', epCost: 0, goldCost: 0, manaCost: 0, multiplier: 1.0, cooldownRounds: 0, tags: ['initiative'], formula: null },
     // ═══════════ GUERRERO (clase 1) ═══════════
     // Path DPS: Golpe Básico → Golpe Poderoso → Tajo Profundo
     { classId: classMap.guerrero, slug: 'golpe-basico', name: 'Golpe Básico', icon: '⚔️', type: 'active' as const, timing: 'round' as const, tier: 1, description: 'Ataque cuerpo a cuerpo básico.', effect: 'attack', epCost: 0, goldCost: 0, manaCost: 0, multiplier: 1.2, cooldownRounds: 0, tags: ['melee'], formula: { damageType: 'physical', diceCount: 1, diceSides: 6, diceDivisor: 2 } },
@@ -327,6 +329,33 @@ async function seedSkills(): Promise<Record<string, number>> {
     })
     skillMap[s.slug] = created.id
   }
+  const potionSkill: Prisma.SkillUncheckedCreateInput = {
+    classId: null,
+    slug: 'tomar-pocion',
+    name: 'Tomar poción',
+    icon: '🧪',
+    type: 'active' as const,
+    timing: 'round' as const,
+    tier: 1,
+    description: 'Permite usar pociones. La curación aumenta con el rango y la Sabiduría.',
+    effect: 'use_potion',
+    epCost: 0,
+    goldCost: 0,
+    manaCost: 0,
+    multiplier: 1.0,
+    cooldownRounds: 0,
+    tags: ['consumable', 'healing'],
+    attackCategory: null,
+    maxRank: 10,
+    requiresSkills: [],
+    formula: { attrCoeffs: { wi: 1 }, skillRankCoeff: 2, diceSides: 0, diceCount: 0, flatBonus: 0 },
+  }
+  const existingPotionSkill = await db.skill.findFirst({ where: { classId: null, slug: potionSkill.slug } })
+  const savedPotionSkill = existingPotionSkill
+    ? await db.skill.update({ where: { id: existingPotionSkill.id }, data: potionSkill })
+    : await db.skill.create({ data: potionSkill })
+  skillMap[potionSkill.slug] = savedPotionSkill.id
+
   return classMap
 }
 
@@ -485,7 +514,7 @@ async function seedEarlyDungeons(itemSlugMap: Record<string, number>) {
   for (const d of dungeons) {
     await db.dungeon.upsert({
       where: { slug: d.slug },
-      update: {},
+      update: { scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
       create: { ...d, isInstant: false, isEventOnly: false, scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
     })
   }
@@ -493,27 +522,27 @@ async function seedEarlyDungeons(itemSlugMap: Record<string, number>) {
 
 async function seedInitialEnemies() {
   const enemies = [
-    { id: 1, name: 'Lobo Hambriento', icon: '🐺', hp: 30, mp: 0, atk: 8, def: 4, dx: 12, ag: 10, level: 1, baseLevel: 1, growthFactor: 1.2, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 5, goldMax: 15 }, faction: null, conditions: null },
-    { id: 2, name: 'Oso Menor', icon: '🐻', hp: 50, mp: 0, atk: 10, def: 6, dx: 6, ag: 4, level: 2, baseLevel: 2, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 10, goldMax: 25 }, faction: null, conditions: null },
-    { id: 3, name: 'Murciélago Gigante', icon: '🦇', hp: 25, mp: 0, atk: 9, def: 3, dx: 14, ag: 12, level: 2, baseLevel: 2, growthFactor: 1.2, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 8, goldMax: 20 }, faction: null, conditions: null },
-    { id: 4, name: 'Escorpión de Arena', icon: '🦂', hp: 40, mp: 5, atk: 12, def: 8, dx: 8, ag: 6, level: 3, baseLevel: 3, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 15, goldMax: 30 }, faction: null, conditions: null },
-    { id: 5, name: 'Esqueleto Guerrero', icon: '💀', hp: 45, mp: 0, atk: 11, def: 10, dx: 6, ag: 4, level: 4, baseLevel: 4, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 20, goldMax: 40 }, faction: null, conditions: null },
-    { id: 6, name: 'Espectro Menor', icon: '👻', hp: 30, mp: 20, atk: 14, def: 5, dx: 10, ag: 8, level: 5, baseLevel: 5, growthFactor: 1.4, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 25, goldMax: 50 }, faction: null, conditions: null },
+    { id: 1, name: 'Lobo Hambriento', icon: '🐺', hp: 30, mp: 0, atk: 8, def: 4, dx: 12, ag: 10, pe: 8, level: 1, baseLevel: 1, growthFactor: 1.2, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 5, goldMax: 15 }, faction: null, conditions: null },
+    { id: 2, name: 'Oso Menor', icon: '🐻', hp: 50, mp: 0, atk: 10, def: 6, dx: 6, ag: 4, pe: 4, level: 2, baseLevel: 2, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 10, goldMax: 25 }, faction: null, conditions: null },
+    { id: 3, name: 'Murciélago Gigante', icon: '🦇', hp: 25, mp: 0, atk: 9, def: 3, dx: 14, ag: 12, pe: 14, level: 2, baseLevel: 2, growthFactor: 1.2, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 8, goldMax: 20 }, faction: null, conditions: null },
+    { id: 4, name: 'Escorpión de Arena', icon: '🦂', hp: 40, mp: 5, atk: 12, def: 8, dx: 8, ag: 6, pe: 7, level: 3, baseLevel: 3, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 15, goldMax: 30 }, faction: null, conditions: null },
+    { id: 5, name: 'Esqueleto Guerrero', icon: '💀', hp: 45, mp: 0, atk: 11, def: 10, dx: 6, ag: 4, pe: 5, level: 4, baseLevel: 4, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 20, goldMax: 40 }, faction: null, conditions: null },
+    { id: 6, name: 'Espectro Menor', icon: '👻', hp: 30, mp: 20, atk: 14, def: 5, dx: 10, ag: 8, pe: 10, level: 5, baseLevel: 5, growthFactor: 1.4, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 25, goldMax: 50 }, faction: null, conditions: null },
   ]
   for (const e of enemies) {
-    await db.enemy.upsert({ where: { id: e.id }, update: {}, create: stripNulls(e) as any })
+    await db.enemy.upsert({ where: { id: e.id }, update: { pe: e.pe }, create: stripNulls(e) as any })
   }
 }
 
 async function seedLateGameEnemies() {
   const enemies = [
-    { id: 7, name: 'Troll del Pantano', icon: '🧌', hp: 120, mp: 0, atk: 18, def: 12, dx: 4, ag: 3, level: 8, baseLevel: 8, growthFactor: 1.4, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 40, goldMax: 80 }, faction: null, conditions: null },
-    { id: 8, name: 'Araña Sombría', icon: '🕷️', hp: 60, mp: 15, atk: 16, def: 6, dx: 14, ag: 12, level: 7, baseLevel: 7, growthFactor: 1.3, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: { goldMin: 35, goldMax: 70 }, faction: null, conditions: null },
-    { id: 9, name: 'Gólem de Piedra', icon: '🗿', hp: 200, mp: 0, atk: 22, def: 20, dx: 2, ag: 2, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 60, goldMax: 120 }, faction: null, conditions: null },
-    { id: 10, name: 'Nigromante', icon: '🧙', hp: 80, mp: 50, atk: 20, def: 8, dx: 10, ag: 8, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 50, goldMax: 100 }, faction: null, conditions: null },
-    { id: 11, name: 'Dragón Joven', icon: '🐉', hp: 300, mp: 40, atk: 28, def: 18, dx: 8, ag: 6, level: 15, baseLevel: 15, growthFactor: 1.6, position: 'front' as const, damageType: 'fire', ai: { type: 'strongest' }, lootTable: { goldMin: 100, goldMax: 200 }, faction: null, conditions: null },
-    { id: 12, name: 'Caballero Oscuro', icon: '⚫', hp: 180, mp: 30, atk: 24, def: 16, dx: 8, ag: 6, level: 12, baseLevel: 12, growthFactor: 1.5, position: 'front' as const, damageType: 'dark', ai: { type: 'strongest' }, lootTable: { goldMin: 80, goldMax: 160 }, faction: null, conditions: null },
-    { id: 13, name: 'Elemental de Hielo', icon: '❄️', hp: 100, mp: 40, atk: 22, def: 10, dx: 8, ag: 6, level: 9, baseLevel: 9, growthFactor: 1.4, position: 'rear' as const, damageType: 'ice', ai: { type: 'weakest' }, lootTable: { goldMin: 45, goldMax: 90 }, faction: null, conditions: null },
+    { id: 7, name: 'Troll del Pantano', icon: '🧌', hp: 120, mp: 0, atk: 18, def: 12, dx: 4, ag: 3, pe: 3, level: 8, baseLevel: 8, growthFactor: 1.4, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 40, goldMax: 80 }, faction: null, conditions: null },
+    { id: 8, name: 'Araña Sombría', icon: '🕷️', hp: 60, mp: 15, atk: 16, def: 6, dx: 14, ag: 12, pe: 13, level: 7, baseLevel: 7, growthFactor: 1.3, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: { goldMin: 35, goldMax: 70 }, faction: null, conditions: null },
+    { id: 9, name: 'Gólem de Piedra', icon: '🗿', hp: 200, mp: 0, atk: 22, def: 20, dx: 2, ag: 2, pe: 2, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 60, goldMax: 120 }, faction: null, conditions: null },
+    { id: 10, name: 'Nigromante', icon: '🧙', hp: 80, mp: 50, atk: 20, def: 8, dx: 10, ag: 8, pe: 10, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 50, goldMax: 100 }, faction: null, conditions: null },
+    { id: 11, name: 'Dragón Joven', icon: '🐉', hp: 300, mp: 40, atk: 28, def: 18, dx: 8, ag: 6, pe: 9, level: 15, baseLevel: 15, growthFactor: 1.6, position: 'front' as const, damageType: 'fire', ai: { type: 'strongest' }, lootTable: { goldMin: 100, goldMax: 200 }, faction: null, conditions: null },
+    { id: 12, name: 'Caballero Oscuro', icon: '⚫', hp: 180, mp: 30, atk: 24, def: 16, dx: 8, ag: 6, pe: 7, level: 12, baseLevel: 12, growthFactor: 1.5, position: 'front' as const, damageType: 'dark', ai: { type: 'strongest' }, lootTable: { goldMin: 80, goldMax: 160 }, faction: null, conditions: null },
+    { id: 13, name: 'Elemental de Hielo', icon: '❄️', hp: 100, mp: 40, atk: 22, def: 10, dx: 8, ag: 6, pe: 8, level: 9, baseLevel: 9, growthFactor: 1.4, position: 'rear' as const, damageType: 'ice', ai: { type: 'weakest' }, lootTable: { goldMin: 45, goldMax: 90 }, faction: null, conditions: null },
   ]
   for (const e of enemies) {
     await db.enemy.upsert({ where: { id: e.id }, update: {}, create: stripNulls(e) as any })
@@ -522,12 +551,12 @@ async function seedLateGameEnemies() {
 
 async function seedTrapEnemies() {
   const traps = [
-    { id: 14, name: 'Trampa de Pinchos', icon: '🪤', hp: 1, mp: 0, atk: 15, def: 0, dx: 0, ag: 0, level: 3, baseLevel: 3, growthFactor: 1.0, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
-    { id: 15, name: 'Trampa de Fuego', icon: '🔥', hp: 1, mp: 0, atk: 20, def: 0, dx: 0, ag: 0, level: 5, baseLevel: 5, growthFactor: 1.0, position: 'center' as const, damageType: 'fire', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
-    { id: 16, name: 'Trampa de Veneno', icon: '☠️', hp: 1, mp: 0, atk: 18, def: 0, dx: 0, ag: 0, level: 6, baseLevel: 6, growthFactor: 1.0, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
+    { id: 14, name: 'Trampa de Pinchos', icon: '🪤', hp: 1, mp: 0, atk: 15, def: 0, dx: 0, ag: 0, pe: 0, level: 3, baseLevel: 3, growthFactor: 1.0, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
+    { id: 15, name: 'Trampa de Fuego', icon: '🔥', hp: 1, mp: 0, atk: 20, def: 0, dx: 0, ag: 0, pe: 0, level: 5, baseLevel: 5, growthFactor: 1.0, position: 'center' as const, damageType: 'fire', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
+    { id: 16, name: 'Trampa de Veneno', icon: '☠️', hp: 1, mp: 0, atk: 18, def: 0, dx: 0, ag: 0, pe: 0, level: 6, baseLevel: 6, growthFactor: 1.0, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
   ]
   for (const t of traps) {
-    await db.enemy.upsert({ where: { id: t.id }, update: {}, create: stripNulls(t) as any })
+    await db.enemy.upsert({ where: { id: t.id }, update: { pe: t.pe }, create: stripNulls(t) as any })
   }
 }
 
@@ -544,13 +573,14 @@ async function assignEnemyDefenseSkills2(_skillBySlug: Record<string, number>) {
     12: ['bloquear', 'interponer'],
   }
   const posMap: Record<string, string> = { front: 'bloquear', center: 'esquivar', rear: 'escudo-magico' }
+  const initiativeEnemies = new Set([1, 3, 8])
   const allEnemies = await db.enemy.findMany()
   for (const e of allEnemies) {
-    if (e.level < 3) continue
     const override = defOverrides[e.id] ?? []
-    const defSlugs = override.length > 0 ? override : [posMap[e.position] ?? 'esquivar']
+    const defSlugs = e.level >= 3 ? (override.length > 0 ? override : [posMap[e.position] ?? 'esquivar']) : []
     const defIds = defSlugs.map(slug => _skillBySlug[slug]).filter(Boolean)
-    const combined = [...new Set([...(e.skillIds ?? []), ...defIds])]
+    const initiativeId = initiativeEnemies.has(e.id) ? _skillBySlug.organization : undefined
+    const combined = [...new Set([...(e.skillIds ?? []), ...defIds, ...(initiativeId ? [initiativeId] : [])])]
     if (combined.length !== (e.skillIds ?? []).length) {
       await db.enemy.update({ where: { id: e.id }, data: { skillIds: combined } })
     }
@@ -594,7 +624,7 @@ async function seedMoreDungeons(itemSlugMap: Record<string, number>) {
   for (const d of dungeons) {
     await db.dungeon.upsert({
       where: { slug: d.slug },
-      update: {},
+      update: { scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
       create: { ...d, isInstant: false, isEventOnly: false, scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
     })
   }
@@ -846,7 +876,7 @@ async function seedFactionShops() {
   }
 }
 
-async function seedAdventures() {
+async function seedAdventures(itemSlugMap: Record<string, number>) {
   const factions = await db.faction.findMany()
   const fm: Record<string, number> = {}
   for (const f of factions) fm[f.slug] = f.id
@@ -868,8 +898,8 @@ async function seedAdventures() {
           type: 'choice', name: 'El Cruce de Caminos',
           description: 'Dos senderos se abren frente a ti. El de la izquierda es angosto y está cubierto de musgo brillante. El de la derecha es más ancho, pero huellas recientes de grandes garras marcan el barro.',
           choices: [
-            { text: 'Tomar el sendero angosto y cubierto de musgo', nextStep: 2, flavor: 'El musgo brilla con una luz tenue, como si señalara el camino. Sientes una presencia antigua observándote.' },
-            { text: 'Seguir las huellas de garras por el camino ancho', nextStep: 3, flavor: 'Las huellas son frescas. El olor a bestia se mezcla con el de la tierra húmeda.' },
+            { text: 'Tomar el sendero angosto y cubierto de musgo', nextStep: 2, flavor: 'El musgo brilla con una luz tenue, como si señalara el camino. Sientes una presencia antigua observándote.', skillCheck: { attr: 'pe', dc: 5, passStep: 2, failStep: 6 } },
+            { text: 'Seguir las huellas de garras por el camino ancho', nextStep: 6, flavor: 'Las huellas son frescas. El olor a bestia se mezcla con el de la tierra húmeda.' },
           ],
         },
         {
@@ -880,8 +910,8 @@ async function seedAdventures() {
           type: 'choice', name: 'El Meditante Misterioso',
           description: 'La figura no se mueve. El musgo brilla más intensamente a su alrededor. Puedes distinguir un báculo de madera retorcida apoyado a su lado.',
           choices: [
-            { text: 'Saludar a la figura', nextStep: 4, flavor: 'Tu voz rompe el silencio. La figura se incorpora lentamente...' },
-            { text: 'Tomar el báculo sigilosamente', nextStep: 5, flavor: 'Te acercas con cuidado, pero al tocar el báculo, una descarga de energía te sacude.' },
+            { text: 'Saludar a la figura', nextStep: 4, flavor: 'Tu voz rompe el silencio. La figura se incorpora lentamente...', skillCheck: { attr: 'ch', dc: 7, passStep: 5, failStep: 4 } },
+            { text: 'Tomar el báculo sigilosamente', nextStep: 4, flavor: 'Te acercas con cuidado, pero al tocar el báculo, una descarga de energía te sacude y despierta al druida.' },
           ],
         },
         {
@@ -893,14 +923,17 @@ async function seedAdventures() {
           ],
         },
         {
-          type: 'narrative', name: 'La Purificación',
-          description: 'Al derrotar a Eldrin, la energía verde que lo corrompía se disipa. El musgo deja de brillar, pero los árboles ya no susurran. El bosque queda en calma por primera vez en décadas. Eldrin, ya libre, te entrega una semilla brillante antes de desvanecerse. "Plántala en el claro central... el bosque renacerá".',
+          type: 'choice', name: 'El Camino al Corazón',
+          description: 'Eldrin recupera la lucidez y te revela que la corrupción aún late en el corazón del bosque. La semilla que te entrega puede restaurarlo, pero primero debes llegar al altar.',
+          choices: [
+            { text: 'Seguir las indicaciones de Eldrin', nextStep: 10, flavor: 'La semilla palpita en tu mano mientras las raíces se apartan para mostrarte el camino.' },
+          ],
         },
         {
           type: 'combat', name: 'Emboscada en el Camino Ancho',
           description: 'Las huellas te llevan directamente a una madriguera. Un oso de sombra emerge rugiendo, sus ojos son pozos de oscuridad.',
           enemies: [
-            { name: 'Oso de Sombra', icon: '🐻', hp: 70, mp: 10, atk: 15, def: 8, dx: 6, ag: 6, level: 3, damageType: 'dark' },
+            { name: 'Oso de Sombra', icon: '🐻', hp: 70, mp: 10, atk: 12, def: 8, dx: 6, ag: 6, level: 3, damageType: 'dark' },
           ],
         },
         {
@@ -914,7 +947,14 @@ async function seedAdventures() {
         {
           type: 'reward', name: 'Tesoro del Explorador',
           description: 'Siguiendo el mapa llegas a un viejo roble con una cavidad en su tronco. Dentro encuentras una bolsa con monedas y una poción guardada para emergencias.',
-          rewards: { gold: 30, ep: 10 },
+          rewards: { gold: 30, ep: 10, items: [{ itemId: itemSlugMap['pocion-vida'], qty: 1 }] },
+        },
+        {
+          type: 'choice', name: 'La Ruta hacia el Altar',
+          description: 'El mapa del explorador señala el corazón del bosque. La llave de bronce abre una antigua compuerta entre las raíces.',
+          choices: [
+            { text: 'Abrir la compuerta y avanzar', nextStep: 10, flavor: 'Tras la compuerta, las raíces convergen alrededor de un altar cubierto de símbolos.' },
+          ],
         },
         {
           type: 'narrative', name: 'El Corazón del Bosque',
@@ -924,12 +964,12 @@ async function seedAdventures() {
           type: 'combat', name: 'La Corrupción Primigenia',
           description: 'Del altar emerge una figura de sombra y maleza: el último vestigio de la maldición del Rey Brujo. "No puedes purificar lo que ya está podrido", ruge mientras las raíces del gran árbol se retuercen para atacarte.',
           enemies: [
-            { name: 'Corrupción Primigenia', icon: '👾', hp: 90, mp: 40, atk: 18, def: 6, dx: 8, ag: 6, level: 4, damageType: 'dark' },
+            { name: 'Corrupción Primigenia', icon: '👾', hp: 80, mp: 40, atk: 14, def: 5, dx: 8, ag: 6, level: 4, damageType: 'dark' },
           ],
         },
         {
           type: 'narrative', name: 'El Bosque Renace',
-          description: 'Con la corrupción derrotada, las runas en el gran árbol comienzan a brillar con una luz dorada. La semilla que te dio Eldrin palpita en tu mano. La entierras en el altar, y al instante un nuevo brote emerge, creciendo hasta entrelazarse con el árbol antiguo. El bosque entero parece suspirar en alivio. Los colores vuelven, los susurros cesan. Has devuelto la vida al Bosque Susurrante. Los Guardianes de Valdheim estarán orgullosos.',
+          description: 'Con la corrupción derrotada, las runas del gran árbol brillan con una luz dorada. Depositas la semilla druídica en el altar y un brote nuevo se entrelaza con las raíces antiguas. El bosque entero parece suspirar en alivio: los colores regresan y los susurros cesan. Has devuelto la vida al Bosque Susurrante. Los Guardianes de Valdheim estarán orgullosos.',
         },
       ],
       rewards: { goldMin: 30, goldMax: 60, ep: 30, fame: 5, items: [{ itemId: 3, chance: 20, qty: 1 }], materials: [{ materialId: 4, chance: 40, qty: 1 }, { materialId: 1, chance: 60, qty: 3 }] },
@@ -950,11 +990,11 @@ async function seedAdventures() {
         },
         {
           type: 'choice', name: 'Tres Caminos',
-          description: 'El pasillo de la izquierda tiene marcas de garras en las paredes. El del centro está iluminado por antorchas que nunca se apagan. El de la derecha tiene un suelo cubierto de ceniza.',
+          description: 'El pasillo de la izquierda está cubierto de marcas de garras y conduce a una guarida. El del centro, iluminado por antorchas azules, parece una ruta despejada. El de la derecha, cubierto de ceniza, permite rodear la guarida.',
           choices: [
             { text: 'El pasillo con marcas de garras', nextStep: 2, flavor: 'Las marcas son recientes. Grandes, como de algo que camina en dos patas pero tiene garras de bestia.' },
-            { text: 'El pasillo iluminado con antorchas', nextStep: 3, flavor: 'Las antorchas parpadean con una llama azulada. El calor que desprenden es extrañamente frío.' },
-            { text: 'El pasillo de ceniza', nextStep: 4, flavor: 'Cada paso levanta nubes de ceniza. Algo ardió aquí. Algo grande.' },
+            { text: 'El pasillo iluminado con antorchas', nextStep: 5, flavor: 'Sigues las antorchas azules y dejas atrás la guarida de los gnolls.' },
+            { text: 'El pasillo de ceniza', nextStep: 5, flavor: 'La ceniza cubre huellas antiguas. Avanzas con cautela y rodeas la guarida.' },
           ],
         },
         {
@@ -976,8 +1016,8 @@ async function seedAdventures() {
           rewards: { gold: 45, ep: 8, items: [{ itemId: 3, qty: 1 }] },
         },
         {
-          type: 'choice', name: 'El Camino del Mapa',
-          description: 'El mapa de las catacumbas marca dos rutas hacia la cámara central. Un camino corto pero peligroso, y otro largo pero supuestamente seguro.',
+          type: 'choice', name: 'La Bifurcación de la Cámara Central',
+          description: 'Los túneles convergen en una bifurcación. Dos rutas conducen a la cámara central: un atajo peligroso que atraviesa la Sala de la Hambruna y un rodeo que bordea una fosa subterránea.',
           choices: [
             { text: 'Tomar el atajo peligroso', nextStep: 6, flavor: 'El atajo cruza por una cámara que el mapa marca como "Sala de la Hambruna".' },
             { text: 'Ir por el camino largo', nextStep: 7, flavor: 'El camino largo rodea una fosa subterránea. Seguro, pero te tomará más tiempo.' },
@@ -994,31 +1034,27 @@ async function seedAdventures() {
         },
         {
           type: 'narrative', name: 'La Fosa Subterránea',
-          description: 'El camino largo bordea una fosa natural donde el agua gotea desde el techo. El sonido reverbera en la oscuridad. Cruzas por un puente de piedra estrecho que cruje bajo tus pies. Del otro lado, una puerta de hierro con un acertijo grabado te espera.',
+          description: 'Tanto el atajo de la Sala de la Hambruna como el rodeo desembocan ante una fosa natural. Cruzas por un puente de piedra estrecho que cruje bajo tus pies. Del otro lado, una puerta de hierro con un acertijo grabado te espera.',
         },
         {
           type: 'choice', name: 'El Acertijo de Hierro',
-          description: 'La puerta tiene grabado: "No tengo voz, pero hablo. No tengo piernas, pero camino. No estoy vivo, pero crezco. ¿Qué soy?"',
+          description: 'La puerta tiene grabado: "Nací de una chispa, devoro madera sin tener boca y muero cuando bebo agua. ¿Qué soy?"',
           choices: [
-            { text: '"El fuego"', nextStep: 9, flavor: 'Las runas en la puerta brillan en rojo. La puerta se abre lentamente...' },
-            { text: '"La sombra"', nextStep: 11, flavor: 'La puerta no se mueve. Pero escuchas un rugido detrás de ti.' },
-            { text: '"El río"', nextStep: 10, flavor: 'Las runas parpadean. La puerta parece dudar...' },
+            { text: '"El fuego"', nextStep: 11, flavor: 'Las runas en la puerta brillan en rojo. La puerta se abre lentamente...' },
+            { text: '"La sombra"', nextStep: 10, flavor: 'La puerta no se mueve. Pero escuchas un rugido detrás de ti.' },
+            { text: '"El río"', nextStep: 9, flavor: 'Las runas parpadean. La puerta parece dudar...' },
           ],
         },
         {
-          type: 'narrative', name: 'Respuesta Correcta',
-          description: '"No tengo voz, pero hablo. No tengo piernas, pero camino. No estoy vivo, pero crezco." La respuesta es "el fuego". La puerta de hierro se abre con un chirrido, revelando la cámara central más allá.',
-        },
-        {
           type: 'combat', name: 'El Guardián de Hierro',
-          description: '"El río" no era la respuesta correcta. La puerta se activa y un golem de hierro se desprende de la pared para castigar tu error.',
+          description: 'La respuesta incorrecta activa el mecanismo de defensa. Un golem de hierro se desprende de la pared para impedirte avanzar.',
           enemies: [
             { name: 'Gólem de Hierro', icon: '🗿', hp: 80, mp: 0, atk: 18, def: 14, dx: 4, ag: 2, level: 7 },
           ],
         },
         {
           type: 'combat', name: 'La Ira de las Catacumbas',
-          description: '"La sombra" era una afrenta al guardián. Un espectro emerge de las paredes, su forma etérea llena la cámara de un frío penetrante.',
+          description: 'El guardián espiritual despierta y emerge de las paredes; su forma etérea llena la cámara de un frío penetrante.',
           enemies: [
             { name: 'Espectro Guardián', icon: '👻', hp: 60, mp: 40, atk: 20, def: 5, dx: 12, ag: 10, level: 7, damageType: 'dark' },
           ],
@@ -1031,8 +1067,8 @@ async function seedAdventures() {
           type: 'choice', name: 'El Libro del Obispo',
           description: 'El libro del obispo contiene ritos de sellado y una última página en blanco. Frente al altar, hay dos objetos: un incensario de oro y un cuchillo de obsidiana.',
           choices: [
-            { text: 'Tomar el incensario y realizar el rito de sellado', nextStep: 14, flavor: 'El incienso arde con una luz blanca. Las paredes tiemblan mientras el sello se refuerza.' },
-            { text: 'Tomar el cuchillo de obsidiana', nextStep: 15, flavor: 'El cuchillo vibra en tu mano. Algo despierta en las profundidades bajo la capilla.' },
+            { text: 'Tomar el incensario y realizar el rito de sellado', nextStep: 13, flavor: 'El incienso arde con una luz blanca. Las paredes tiemblan mientras el sello se refuerza.' },
+            { text: 'Tomar el cuchillo de obsidiana', nextStep: 15, flavor: 'El cuchillo vibra en tu mano. Su filo te abre la palma y la sangre despierta algo en las profundidades bajo la capilla.', costs: { hp: 6 } },
           ],
         },
         {
@@ -1043,6 +1079,7 @@ async function seedAdventures() {
           type: 'reward', name: 'Recompensa del Obispo',
           description: 'Al deshacerse el esqueleto, queda un anillo episcopal de oro y zafiro. Vale una fortuna.',
           rewards: { gold: 80, ep: 15, fame: 5 },
+          endsAdventure: true,
         },
         {
           type: 'combat', name: 'Lo Que Despierta Abajo',
@@ -1059,7 +1096,7 @@ async function seedAdventures() {
           type: 'reward', name: 'Trofeo de Guerra',
           description: 'Del vestigio derrotado recoges un fragmento de sombra sólida, un material raro que los herreros del norte pagan bien.',
           rewards: { gold: 60, ep: 20, fame: 8, materials: [{ materialId: 7, qty: 1 }] },
-        },
+        }
       ],
       rewards: { goldMin: 50, goldMax: 120, ep: 45, fame: 6, items: [{ itemId: 4, chance: 20, qty: 1 }], materials: [{ materialId: 2, chance: 50, qty: 3 }, { materialId: 5, chance: 30, qty: 1 }] },
       factionId: null, factionRep: 0,
@@ -1079,11 +1116,11 @@ async function seedAdventures() {
         },
         {
           type: 'choice', name: 'Preparativos de Ascensión',
-          description: 'Bjorn el Viejo tiene su puesto en el campamento. Sobre su mostrador: cuerdas resistentes, antorchas especiales que queman incluso en tormenta, y un mapa hecho con piel de yeti. También hay un báculo de madera blanca con runas grabadas.',
+          description: 'Bjorn el Viejo ofrece tres formas de afrontar la montaña: equipo para resistir la tormenta, el mapa y el báculo del antiguo mago, o la ayuda de una cazadora local.',
           choices: [
             { text: 'Comprar las cuerdas y antorchas', nextStep: 2, flavor: 'Bjorn asiente con aprobación. "Sabio. La montaña no perdona a los imprudentes."' },
-            { text: 'Comprar el mapa y el báculo rúnico', nextStep: 3, flavor: 'Bjorn duda antes de venderte el báculo. "Eso perteneció al último mago que intentó la cumbre. Que tengas más suerte."' },
-            { text: 'Aceptar la ayuda de una cazadora local', nextStep: 4, flavor: 'Una joven con pieles blancas se acerca. "Yo conozco un camino que no está en ningún mapa."' },
+            { text: 'Comprar el mapa y el báculo rúnico', nextStep: 5, flavor: 'Bjorn duda antes de venderte el báculo. "Eso perteneció al último mago que intentó la cumbre. Que tengas más suerte."' },
+            { text: 'Aceptar la ayuda de una cazadora local', nextStep: 8, flavor: 'Una joven con pieles blancas se acerca. "Yo conozco un camino que no está en ningún mapa."' },
           ],
         },
         {
@@ -1101,6 +1138,13 @@ async function seedAdventures() {
           rewards: { gold: 25, ep: 10, materials: [{ materialId: 3, qty: 2 }] },
         },
         {
+          type: 'choice', name: 'Cruce de la Ascensión',
+          description: 'El sendero protegido por las cuerdas desemboca en la misma entrada del templo que los otros caminos.',
+          choices: [
+            { text: 'Continuar hacia el templo', nextStep: 14, flavor: 'Dejas atrás la tormenta y avanzas hacia las puertas de Frostvorn.' },
+          ],
+        },
+        {
           type: 'narrative', name: 'El Camino del Mago',
           description: 'El báculo rúnico te guía por un camino oculto que los mapas convencionales no marcan: un puente de hielo natural que cruza un abismo profundo. Las runas brillan cuando te acercas al borde. Del otro lado, la entrada al templo te espera, custodiada por estatuas de dragones que parecen observarte.',
         },
@@ -1110,11 +1154,18 @@ async function seedAdventures() {
           rewards: { gold: 50, ep: 12 },
         },
         {
+          type: 'choice', name: 'Cruce del Puente de Hielo',
+          description: 'El puente natural te deja frente a la entrada del templo.',
+          choices: [
+            { text: 'Entrar en el templo', nextStep: 14, flavor: 'Guardas el mapa y el báculo, y cruzas el umbral.' },
+          ],
+        },
+        {
           type: 'choice', name: 'La Guía del Norte',
           description: 'Sigrid, la cazadora, conoce un secreto: un paso de gigantes que los dragones no sellaron. "A cambio, quiero una parte del tesoro. Trato justo."',
           choices: [
-            { text: 'Aceptar el trato de Sigrid', nextStep: 6, flavor: '"Sabia decisión. Los gigantes dejaron marcas en las rocas. Yo sé leerlas."' },
-            { text: 'Rechazar e ir por tu cuenta', nextStep: 7, flavor: '"Como quieras. Pero recuerda: la montaña siempre cobra su precio."' },
+            { text: 'Aceptar el trato de Sigrid', nextStep: 9, flavor: '"Sabia decisión. Los gigantes dejaron marcas en las rocas. Yo sé leerlas."' },
+            { text: 'Rechazar e ir por tu cuenta', nextStep: 12, flavor: '"Como quieras. Pero recuerda: la montaña siempre cobra su precio."' },
           ],
         },
         {
@@ -1127,12 +1178,23 @@ async function seedAdventures() {
           rewards: { gold: 80, ep: 15, items: [{ itemId: 5, qty: 1 }] },
         },
         {
+          type: 'choice', name: 'Entrada del Paso de los Gigantes',
+          description: 'Tras repartir el botín, Sigrid te espera junto a la entrada lateral.',
+          choices: [
+            { text: 'Entrar en el templo', nextStep: 14, flavor: 'Te despides de Sigrid y cruzas la entrada lateral.' },
+          ],
+        },
+        {
           type: 'combat', name: 'El Precio de la Soledad',
           description: 'Sin Sigrid, caes en una trampa de hielo. Dos yetis, alertados por tu torpeza, emergen de la nieve.',
           enemies: [
             { name: 'Yeti', icon: '❄️', hp: 90, mp: 5, atk: 20, def: 12, dx: 6, ag: 4, level: 13 },
             { name: 'Yeti', icon: '❄️', hp: 90, mp: 5, atk: 20, def: 12, dx: 6, ag: 4, level: 13 },
           ],
+        },
+        {
+          type: 'narrative', name: 'La Senda Solitaria',
+          description: 'Superas la emboscada de los yetis y encuentras una ruta estrecha que conduce hasta las puertas del templo.',
         },
         {
           type: 'narrative', name: 'La Entrada al Templo',
@@ -1142,9 +1204,9 @@ async function seedAdventures() {
           type: 'choice', name: 'El Vestíbulo de Hielo',
           description: 'Dentro del templo, el vestíbulo tiene tres altares dedicados a aspectos del dragón: el Ala (sabiduría), la Garra (poder) y el Ojo (conocimiento). En cada altar hay un acertijo que, de resolverse, otorga una bendición. Pero solo puedes elegir uno.',
           choices: [
-            { text: 'Resolver el acertijo del Ala', nextStep: 12, flavor: 'El acertijo del Ala trata sobre el viento y el tiempo. Sientes que la respuesta te dará visión más allá de lo visible.' },
-            { text: 'Resolver el acertijo de la Garra', nextStep: 13, flavor: 'El acertijo de la Garra es sobre la fuerza y el sacrificio. El poder fluye hacia ti.' },
-            { text: 'Resolver el acertijo del Ojo', nextStep: 13, flavor: 'El acertijo del Ojo es sobre la verdad y las mentiras. El conocimiento te envuelve.' },
+            { text: 'Resolver el acertijo del Ala', nextStep: 16, flavor: 'El acertijo del Ala trata sobre el viento y el tiempo. Sientes que la respuesta te dará visión más allá de lo visible.' },
+            { text: 'Resolver el acertijo de la Garra', nextStep: 17, flavor: 'El acertijo de la Garra es sobre la fuerza y el sacrificio. El poder fluye hacia ti.' },
+            { text: 'Resolver el acertijo del Ojo', nextStep: 17, flavor: 'El acertijo del Ojo es sobre la verdad y las mentiras. El conocimiento te envuelve.' },
           ],
         },
         {
@@ -1164,9 +1226,9 @@ async function seedAdventures() {
           type: 'choice', name: 'El Guerrero de Escarcha',
           description: 'El guerrero empuña un hacha de hielo. Su armadura está hecha de escamas de dragón. "Vete, o comparte el destino de los otros."',
           choices: [
-            { text: 'Enfrentarlo en combate', nextStep: 16, flavor: 'Desenvainas tu arma. El guerrero sonríe. "Como todos los demás."' },
-            { text: 'Negociar: el martillo para ti, el tesoro para él', nextStep: 15, flavor: 'El guerrero ríe. "¿Y qué me dices de la gloria? La gloria no se negocia."' },
-            { text: 'Ofrecerle un duelo ceremonial por el martillo', nextStep: 17, flavor: 'El guerrero se detiene. "Un duelo... como en los tiempos antiguos. Acepto."' },
+            { text: 'Enfrentarlo en combate', nextStep: 20, flavor: 'Desenvainas tu arma. El guerrero sonríe. "Como todos los demás."' },
+            { text: 'Negociar: el martillo para ti, el tesoro para él', nextStep: 24, flavor: 'El guerrero ríe. "¿Y qué me dices de la gloria? La gloria no se negocia."' },
+            { text: 'Ofrecerle un duelo ceremonial por el martillo', nextStep: 29, flavor: 'El guerrero se detiene. "Un duelo... como en los tiempos antiguos. Acepto."' },
           ],
         },
         {
@@ -1178,8 +1240,51 @@ async function seedAdventures() {
           ],
         },
         {
+          type: 'narrative', name: 'Victoria en la Cumbre',
+          description: 'El guerrero cae de rodillas. "Mer... mérito tienes", jadea. Se levanta trabajosamente y se marcha, dejándote frente al martillo Rompehielos. La montaña te ha reconocido como digno portador.',
+        },
+        {
+          type: 'reward', name: 'El Rompehielos',
+          description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
+          rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
+        },
+        {
+          type: 'choice', name: 'Fin del combate directo',
+          description: 'El enfrentamiento ha terminado. Te preparas para abandonar la cámara del trono.',
+          choices: [
+            { text: 'Continuar', nextStep: 34, flavor: 'Guardas el Rompehielos y dejas atrás el templo.' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'Negociación Fallida',
+          description: '"No entiendes", dice el guerrero. "No se trata del tesoro ni del martillo. Mientras yo guarde este lugar, Frostvorn vive en mí. No puedo permitir que te lo lleves." Desenvaina su hacha y carga.',
+        },
+        {
+          type: 'combat', name: 'Combate tras la Negociación',
+          description: 'La negociación ha fracasado. El guerrero de escarcha lucha para proteger el legado de Frostvorn.',
+          enemies: [
+            { name: 'Guerrero de Escarcha', icon: '⚔️', hp: 130, mp: 30, atk: 24, def: 14, dx: 10, ag: 8, level: 15, damageType: 'ice' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'Victoria tras la Negociación',
+          description: 'El guerrero baja su arma. "Has demostrado tu fuerza. Quizá puedas llevar el martillo sin borrar nuestro legado." Se aparta del pedestal y te permite tomar el Rompehielos.',
+        },
+        {
+          type: 'reward', name: 'El Rompehielos',
+          description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
+          rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
+        },
+        {
+          type: 'choice', name: 'Fin de la negociación',
+          description: 'El guerrero ha aceptado tu victoria y el acuerdo queda sellado.',
+          choices: [
+            { text: 'Continuar', nextStep: 34, flavor: 'Te despides del guerrero y abandonas el templo.' },
+          ],
+        },
+        {
           type: 'narrative', name: 'Duelo de Campeones',
-          description: 'El guerrero acepta el duelo. Os enfrentáis en el círculo de hielo, bajo la mirada vacía del esqueleto del dragón. Intercambiáis golpes, cada uno midiendo al otro. Es una lucha limpia, sin trucos. El mejor gana.',
+          description: 'El guerrero acepta el duelo ceremonial. Os enfrentáis en el círculo de hielo, bajo la mirada del esqueleto del dragón. "Que Frostvorn juzgue al vencedor", declara.',
         },
         {
           type: 'combat', name: 'Combate Singular',
@@ -1189,29 +1294,241 @@ async function seedAdventures() {
           ],
         },
         {
-          type: 'narrative', name: 'Victoria en la Cumbre',
-          description: 'El guerrero cae de rodillas. "Mer... mérito tienes", jadea. "El Rompehielos es tuyo." Se leverta trabajosamente y se marcha por donde vino, dejándote solo frente al martillo legendario. Al empuñarlo, sientes el peso de siglos de historia draconiana. El hielo del templo cruje, pero no se rompe. La montaña te ha aceptado como digno portador del Rompehielos. Los herreros del norte te recibirán como a un héroe.',
-        },
-        {
-          type: 'narrative', name: 'Negociación Fallida',
-          description: '"No entiendes", dice el guerrero, su voz cargada de tristeza. "No se trata del tesoro ni del martillo. Se trata de lo que representa. Mientras yo guarde este lugar, Frostvorn vive en mí. Si te lo llevas... él muere de verdad." Suspira. "No puedo permitirlo." Y carga.',
+          type: 'narrative', name: 'Victoria en el Duelo',
+          description: 'El guerrero cae de rodillas y acepta el veredicto. "Has luchado con honor. El Rompehielos es tuyo." Se aparta del pedestal y te deja tomar el martillo.',
         },
         {
           type: 'reward', name: 'El Rompehielos',
-          description: 'El martillo es tuyo. Pesa más de lo que parece, y al sostenerlo sientes el poder del dragón de hielo recorrer tu brazo. Un herrero del norte podría hacer maravillas con esto.',
+          description: 'El martillo es tuyo. Sientes el poder del dragón de hielo recorrer tu brazo.',
           rewards: { gold: 100, ep: 25, fame: 10, items: [{ itemId: 7, qty: 1 }] },
+        },
+        {
+          type: 'choice', name: 'Fin del duelo',
+          description: 'El duelo ha concluido y el Rompehielos tiene un nuevo portador.',
+          choices: [
+            { text: 'Continuar', nextStep: 34, flavor: 'Abandonas la cámara con el martillo.' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'El Legado de Frostvorn',
+          description: 'Con el Rompehielos en tus manos, dejas atrás el templo. La montaña guarda silencio, pero las historias sobre tu expedición llegarán a todos los clanes del norte.',
         },
       ],
       rewards: { goldMin: 120, goldMax: 250, ep: 70, fame: 10, items: [{ itemId: 7, chance: 25, qty: 1 }], materials: [{ materialId: 3, chance: 60, qty: 3 }, { materialId: 6, chance: 20, qty: 1 }] },
       factionId: fm['herreria-del-norte'] ?? null, factionRep: 20,
       minGoldReward: 120, maxGoldReward: 250, epReward: 70, fameReward: 10, isActive: true,
     },
+    {
+      name: 'La Caravana de los Cuervos',
+      slug: 'caravana-cuervos',
+      icon: '🐎',
+      description: 'Una caravana desaparecida bloquea la ruta comercial entre Valdheim y los pueblos del este.',
+      lore: 'Durante tres noches, las fogatas de la ruta oriental han permanecido apagadas. Los mercaderes hablan de ruedas rotas, caballos sueltos y una señal pintada con plumas negras. La caravana de Maese Orven transportaba medicinas y provisiones para los asentamientos del río. La guardia no puede abandonar las murallas, así que el gremio ofrece una recompensa a quien encuentre a los viajeros. Algunos aseguran que los Cuervos solo roban mercancías; otros dicen que su capitán busca algo que Orven lleva oculto desde hace años.',
+      levelReq: 2, maxLevel: 8, duration: 20, energyCost: 12,
+      steps: [
+        {
+          type: 'narrative', name: 'La Ruta en Silencio',
+          description: 'La calzada oriental está desierta. Una carreta volcada bloquea el camino y varias cajas aparecen abiertas en la cuneta. No hay cuerpos, pero sí huellas recientes: unas se dirigen hacia el bosque y otras continúan por la calzada. En una rueda alguien ha dibujado una pluma negra.',
+        },
+        {
+          type: 'choice', name: 'Seguir el Rastro',
+          description: 'Puedes buscar primero a los supervivientes o perseguir las huellas de los asaltantes antes de que desaparezcan.',
+          choices: [
+            { text: 'Examinar la carreta y buscar supervivientes', nextStep: 2, flavor: 'Te agachas junto a las cajas. Alguien ha dejado marcas de uñas en la madera desde dentro.' },
+            { text: 'Seguir las huellas hacia el bosque', nextStep: 5, flavor: 'Las pisadas se internan entre los árboles. Aún puedes escuchar ramas quebrándose a lo lejos.' },
+          ],
+        },
+        {
+          type: 'choice', name: 'El Testimonio del Cochero',
+          description: 'Encuentras al cochero herido bajo la carreta. Está asustado y apenas puede hablar. Si consigues tranquilizarlo, quizá recuerde dónde llevaron a los demás.',
+          choices: [
+            { text: 'Hablar con calma y ganarte su confianza', nextStep: 4, flavor: 'El hombre tiembla, pero parece dispuesto a contarte lo que vio.', skillCheck: { attr: 'ch', dc: 7, passStep: 3, failStep: 4 } },
+          ],
+        },
+        {
+          type: 'reward', name: 'La Gratitud del Cochero',
+          description: 'El cochero recuerda un sendero junto al río y te entrega las monedas que escondió para que no cayeran en manos de los asaltantes.',
+          rewards: { gold: 20, ep: 5 },
+        },
+        {
+          type: 'choice', name: 'El Sendero del Río',
+          description: 'El cochero señala un paso entre los juncos. Puedes cruzar directamente hacia el campamento o registrar una vieja caseta de peaje antes de continuar.',
+          choices: [
+            { text: 'Avanzar sin detenerte', nextStep: 7, flavor: 'No quieres perder la ventaja. El humo de una fogata aparece entre los árboles.' },
+            { text: 'Registrar la caseta de peaje', nextStep: 6, flavor: 'La puerta está entreabierta. Encuentras una pequeña bolsa de monedas escondida bajo el mostrador.', rewards: { gold: 10 } },
+          ],
+        },
+        {
+          type: 'combat', name: 'Los Rastros de los Cuervos',
+          description: 'Tres salteadores salen de entre los árboles. Llevan capas oscuras y brazaletes con una pluma pintada. Uno silba para avisar al resto mientras los otros desenvainan sus armas.',
+          enemies: [
+            { name: 'Saqueador Cuervo', icon: '🗡️', hp: 28, mp: 0, atk: 8, def: 3, dx: 7, ag: 7, level: 2 },
+            { name: 'Saqueador Cuervo', icon: '🗡️', hp: 28, mp: 0, atk: 8, def: 3, dx: 7, ag: 7, level: 2 },
+            { name: 'Vigía Cuervo', icon: '🏹', hp: 24, mp: 0, atk: 9, def: 2, dx: 10, ag: 9, level: 2 },
+          ],
+        },
+        {
+          type: 'reward', name: 'El Alijo de los Salteadores',
+          description: 'Entre las mochilas abandonadas encuentras parte de las provisiones robadas y una bolsa con monedas. Los mercaderes podrán recuperar lo que queda.',
+          rewards: { gold: 35, ep: 8 },
+        },
+        {
+          type: 'choice', name: 'El Campamento de las Plumas Negras',
+          description: 'El campamento está al otro lado del río. Desde aquí distingues al capitán y a dos guardias junto a una carreta cerrada. Puedes abrirte paso o rodear el puesto por una zanja.',
+          choices: [
+            { text: 'Entrar por el puente y enfrentarte a los guardias', nextStep: 8, flavor: 'Los guardias te ven venir y levantan sus armas.' },
+            { text: 'Rodear el puesto por la zanja', nextStep: 9, flavor: 'Te cubres con los juncos y alcanzas la parte trasera del campamento.' },
+          ],
+        },
+        {
+          type: 'combat', name: 'La Guardia del Campamento',
+          description: 'Dos miembros de los Cuervos protegen el puente. No parecen dispuestos a dejarte pasar sin luchar.',
+          enemies: [
+            { name: 'Guardia Cuervo', icon: '🛡️', hp: 32, mp: 0, atk: 10, def: 5, dx: 7, ag: 5, level: 3 },
+            { name: 'Ballestero Cuervo', icon: '🏹', hp: 26, mp: 0, atk: 11, def: 3, dx: 11, ag: 7, level: 3 },
+          ],
+        },
+        {
+          type: 'narrative', name: 'La Retaguardia del Campamento',
+          description: 'La zanja te deja detrás de las tiendas. Ves a los supervivientes atados junto a la carreta cerrada. El capitán lleva una llave al cuello y discute con sus hombres sobre una caja que no figura en el manifiesto comercial.',
+        },
+        {
+          type: 'combat', name: 'El Capitán de los Cuervos',
+          description: 'El capitán descubre tu presencia y se interpone entre tú y los prisioneros. «No sabes lo que transportaba Orven. Esa caja no debe llegar a Valdheim». Desenvaina una espada corta y ordena a sus hombres que no dejen testigos.',
+          enemies: [
+            { name: 'Capitán de los Cuervos', icon: '🐦‍⬛', hp: 58, mp: 10, atk: 13, def: 6, dx: 10, ag: 8, level: 4 },
+            { name: 'Matón Cuervo', icon: '⚔️', hp: 30, mp: 0, atk: 10, def: 4, dx: 7, ag: 6, level: 3 },
+          ],
+        },
+        {
+          type: 'narrative', name: 'La Caja Sellada',
+          description: 'Con el capitán derrotado, liberas a los viajeros. Orven abre la caja: contiene cartas y un sello antiguo, no mercancía. Te explica que alguien pagó a los Cuervos para recuperar esos documentos. Decide confiarte una copia, mientras la caravana prepara el regreso.',
+        },
+        {
+          type: 'reward', name: 'El Regreso de la Caravana',
+          description: 'Los mercaderes reúnen una recompensa entre todos. Has recuperado las provisiones y evitado que los viajeros desaparezcan en el bosque.',
+          rewards: { gold: 30, ep: 12, fame: 1 },
+        },
+        {
+          type: 'narrative', name: 'Una Pluma en el Camino',
+          description: 'Al despedirte, encuentras una pluma negra clavada en el marco de la caja. No pertenece a ningún ave de la región. En el reverso del sello aparece una marca que reconoces de los viejos relatos sobre el Rey Brujo. La desaparición de la caravana quizá solo sea el principio.',
+        },
+      ],
+      rewards: { goldMin: 40, goldMax: 70, ep: 25, fame: 3 },
+      factionId: null, factionRep: 0,
+      minGoldReward: 40, maxGoldReward: 70, epReward: 25, fameReward: 3, isActive: true,
+    },
+
+    {
+      name: 'El Sello de Ceniza',
+      slug: 'sello-de-ceniza',
+      icon: '🕯️',
+      description: 'La pluma negra de los Cuervos conduce a una red clandestina que opera bajo las calles de Valdheim.',
+      lore: 'La copia de los documentos recuperados de la caravana contiene una dirección, tres nombres tachados y la impresión de un sello cubierto de ceniza. El escribano que podría descifrarlo desapareció la misma noche en que recibiste la carta. Los Guardianes de Valdheim sospechan que los Cuervos no eran más que mensajeros de una organización mucho mayor. Su símbolo aparece en archivos prohibidos desde los últimos días del Rey Brujo. Debes encontrar al escribano, descubrir qué protege el sello y decidir cuánto estás dispuesto a arriesgar para conocer la verdad.',
+      levelReq: 6, maxLevel: 12, duration: 25, energyCost: 14,
+      steps: [
+        {
+          type: 'narrative', name: 'La Carta sin Remitente',
+          description: 'Al caer la noche, alguien desliza un sobre bajo la puerta de tu alojamiento. Dentro encuentras una copia de la marca que viste en la caja de Orven y una nota escrita con pulso tembloroso: «El sello no debe abrirse. Busca al escribano en el barrio de los curtidores. Ven solo». La tinta todavía huele a humo.',
+        },
+        {
+          type: 'choice', name: 'Rastros en el Barrio de los Curtidores',
+          description: 'El barrio está casi desierto. Una puerta acaba de cerrarse al fondo de un callejón, mientras unas pisadas embarradas se alejan hacia los almacenes.',
+          choices: [
+            { text: 'Perseguir las pisadas antes de que se enfríen', nextStep: 2, flavor: 'Aceleras el paso. Dos figuras encapuchadas se separan para cerrarte el camino.' },
+            { text: 'Registrar la puerta y buscar una entrada discreta', nextStep: 4, flavor: 'La cerradura está forzada desde dentro. Alguien ha salido con prisa.' },
+          ],
+        },
+        {
+          type: 'combat', name: 'Emboscada en el Callejón',
+          description: 'Los desconocidos dejan caer sus capas. Uno lleva el brazalete de una pluma negra; el otro, una máscara cubierta de polvo gris. No quieren que sigas buscando al escribano.',
+          enemies: [
+            { name: 'Cobrador de los Cuervos', icon: '🗡️', hp: 42, mp: 0, atk: 13, def: 5, dx: 9, ag: 8, level: 6 },
+            { name: 'Tirador de Ceniza', icon: '🏹', hp: 34, mp: 5, atk: 14, def: 3, dx: 12, ag: 9, level: 6 },
+          ],
+        },
+        {
+          type: 'narrative', name: 'El Testigo del Callejón',
+          description: 'Entre las pertenencias de los atacantes encuentras una llave de hierro y un recibo de los almacenes del puerto. La máscara gris no lleva insignias, pero en su interior hay una frase grabada: «La memoria es combustible».',
+        },
+        {
+          type: 'choice', name: 'El Escondite del Escribano',
+          description: 'La llave abre una trampilla detrás de los curtidores. Bajo el suelo hay una habitación llena de papeles quemados. El escribano está vivo, aunque apenas puede mantenerse en pie. Un mecanismo protege el compartimento donde guarda sus notas.',
+          choices: [
+            { text: 'Estudiar las marcas y descifrar el mecanismo', nextStep: 5, flavor: 'Reconoces patrones repetidos en el sello. Si encuentras la secuencia, evitarás activar la alarma.', skillCheck: { attr: 'pe', dc: 9, passStep: 5, failStep: 6 } },
+            { text: 'Romper el mecanismo antes de que lleguen más perseguidores', nextStep: 6, flavor: 'No hay tiempo para acertijos. Preparas el arma y fuerzas el compartimento.' },
+          ],
+        },
+        {
+          type: 'reward', name: 'El Código Oculto',
+          description: 'Descifras la secuencia y abres el compartimento sin hacer ruido. El escribano te entrega una bolsa que había reservado para quien lograra encontrarlo.',
+          rewards: { gold: 25, ep: 8 },
+        },
+        {
+          type: 'combat', name: 'Los Guardianes del Archivo',
+          description: 'El mecanismo emite un chasquido y las lámparas se apagan. Tres figuras con máscaras de ceniza irrumpen en la habitación para recuperar los documentos.',
+          enemies: [
+            { name: 'Iniciado de Ceniza', icon: '🕯️', hp: 38, mp: 12, atk: 12, def: 4, dx: 8, ag: 7, level: 6, damageType: 'fire' },
+            { name: 'Custodio de Ceniza', icon: '🛡️', hp: 62, mp: 10, atk: 15, def: 8, dx: 7, ag: 5, level: 7 },
+            { name: 'Iniciado de Ceniza', icon: '🕯️', hp: 38, mp: 12, atk: 12, def: 4, dx: 8, ag: 7, level: 6, damageType: 'fire' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'Los Nombres Borrados',
+          description: 'El escribano te muestra los documentos. El sello pertenece al Círculo de la Ceniza, una sociedad que compra reliquias, destruye testimonios y borra nombres de los registros oficiales. Entre las páginas aparece una lista de entregas: la última está fechada para esta misma noche, en los antiguos baños bajo la plaza.',
+        },
+        {
+          type: 'choice', name: 'La Entrada a los Baños',
+          description: 'La entrada principal está vigilada. Desde el callejón puedes bajar por una rejilla estrecha, o puedes cruzar la plaza y exigir que los guardias se aparten.',
+          choices: [
+            { text: 'Entrar por la rejilla de servicio', nextStep: 9, flavor: 'Te deslizas por el conducto. El olor a ceniza y agua estancada se vuelve insoportable.' },
+            { text: 'Cruzar la plaza y abrirte paso', nextStep: 10, flavor: 'Los vigilantes reconocen el sello que llevas y desenvainan sus armas.' },
+          ],
+        },
+        {
+          type: 'combat', name: 'Vigilantes del Subsuelo',
+          description: 'La rejilla desemboca en una cámara de mantenimiento. Dos vigilantes descubren tu presencia y bloquean el único pasillo hacia los baños antiguos.',
+          enemies: [
+            { name: 'Vigilante del Círculo', icon: '⚔️', hp: 52, mp: 0, atk: 16, def: 6, dx: 9, ag: 8, level: 7 },
+            { name: 'Acólito de la Brasa', icon: '🔥', hp: 44, mp: 18, atk: 15, def: 4, dx: 10, ag: 7, level: 7, damageType: 'fire' },
+          ],
+        },
+        {
+          type: 'narrative', name: 'La Cámara de las Brasas',
+          description: 'Las dos rutas conducen a una sala circular. En el centro, un brasero arde sin consumir leña. Un hombre con máscara blanca sostiene el sello original y lee en voz alta los nombres que han sido borrados de los archivos de Valdheim. Al verte, cierra el libro.',
+        },
+        {
+          type: 'combat', name: 'El Heraldo sin Rostro',
+          description: 'El Heraldo arroja el libro al brasero y ordena que nadie salga con vida. La ceniza se levanta del suelo y toma forma alrededor de sus brazos. Debes detenerlo antes de que destruya la última prueba.',
+          enemies: [
+            { name: 'Heraldo sin Rostro', icon: '🎭', hp: 96, mp: 28, atk: 20, def: 8, dx: 11, ag: 9, level: 9, damageType: 'fire' },
+            { name: 'Centinela de Ceniza', icon: '🛡️', hp: 58, mp: 0, atk: 16, def: 9, dx: 7, ag: 5, level: 8 },
+          ],
+        },
+        {
+          type: 'reward', name: 'Pruebas entre las Cenizas',
+          description: 'Recuperas el sello y rescatas varias páginas que no llegaron a quemarse. El escribano podrá identificar los nombres y los Guardianes tendrán por fin una pista sólida para investigar al Círculo.',
+          rewards: { gold: 45, ep: 18, fame: 3 },
+        },
+        {
+          type: 'narrative', name: 'Una Red Mucho Más Antigua',
+          description: 'Cuando el brasero se apaga, descubres que el sello tiene una inscripción en su reverso: «La primera puerta ya está abierta». El Círculo de la Ceniza no nació con los Cuervos ni con la caída del Rey Brujo. Alguien lleva generaciones preparando algo bajo Valdheim. Entregas las pruebas a los Guardianes, pero conservas una página: en ella aparece el nombre de una ciudad que no figura en ningún mapa.',
+        },
+      ],
+      rewards: { goldMin: 55, goldMax: 90, ep: 40, fame: 5 },
+      factionId: fm['guardianes-valdheim'] ?? null, factionRep: 8,
+      minGoldReward: 55, maxGoldReward: 90, epReward: 40, fameReward: 5, isActive: true,
+    },
   ]
 
   for (const a of adventures) {
+    const graphErrors = getAdventureStepGraphErrors(a.steps)
+    if (graphErrors.length > 0) {
+      throw new Error(`Adventure "${a.slug}" has an invalid step graph: ${graphErrors.join('; ')}`)
+    }
     await db.adventure.upsert({
       where: { slug: a.slug },
-      update: {},
+      update: { steps: a.steps as Prisma.InputJsonValue },
       create: a as any,
     })
   }

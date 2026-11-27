@@ -63,19 +63,19 @@ describe('evaluateFormula', () => {
   })
 
   it('evaluates attr coefficients', () => {
-    const formula = { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 0, diceSides: 0, diceCount: 0, diceDivisor: 0, flatBonus: 0 }
+    const formula = { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 0 }
     const result = evaluateFormula(formula, { st: 10, dx: 8 }, 1)
     expect(result.base).toBe(10 * 2 + 8 * 1)
   })
 
   it('adds skill rank coefficient', () => {
-    const formula = { attrCoeffs: { st: 1 }, skillRankCoeff: 3, diceSides: 0, diceCount: 0, diceDivisor: 0, flatBonus: 0 }
+    const formula = { attrCoeffs: { st: 1 }, skillRankCoeff: 3, diceSides: 0, diceCount: 0, flatBonus: 0 }
     const result = evaluateFormula(formula, { st: 10 }, 5)
     expect(result.base).toBe(10 + 5 * 3)
   })
 
   it('adds flat bonus', () => {
-    const formula = { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, diceDivisor: 0, flatBonus: 50 }
+    const formula = { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 50 }
     expect(evaluateFormula(formula, {}, 1).base).toBe(50)
   })
 
@@ -88,7 +88,7 @@ describe('evaluateFormula', () => {
   })
 
   it('base is never negative', () => {
-    const formula = { attrCoeffs: { st: -1 }, skillRankCoeff: 0, diceSides: 0, diceCount: 0, diceDivisor: 0, flatBonus: 0 }
+    const formula = { attrCoeffs: { st: -1 }, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 0 }
     expect(evaluateFormula(formula, { st: 100 }, 1).base).toBe(0)
   })
 })

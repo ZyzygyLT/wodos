@@ -35,6 +35,14 @@ export async function GET(req: NextRequest) {
   results.events = await tickEvents().then(() => ({ ok: true })).catch(e => ({ ok: false, error: String(e) }))
 
   const elapsed = Date.now() - start
+  const hasFailure = Object.values(results).some(result =>
+    typeof result === "object" &&
+    result !== null &&
+    (("ok" in result && result.ok === false) || "error" in result),
+  )
 
-  return NextResponse.json({ ok: true, elapsed: `${elapsed}ms`, results })
+  return NextResponse.json(
+    { ok: !hasFailure, elapsed: `${elapsed}ms`, results },
+    { status: hasFailure ? 500 : 200 },
+  )
 }

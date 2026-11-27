@@ -27,11 +27,6 @@ export default function ClanPage() {
       { goldCost: 1200, effect: "+10% EP" },
       { goldCost: 3000, effect: "+15% EP" },
     ]},
-    time_altar: { name: "Altar del tiempo", icon: "⏳", tiers: [
-      { goldCost: 800, effect: "Timer -1h" },
-      { goldCost: 2000, effect: "Timer -2h" },
-      { goldCost: 5000, effect: "Timer -3h" },
-    ]},
     storage: { name: "Almacén compartido", icon: "📦", tiers: [
       { goldCost: 400, effect: "500 slots" },
       { goldCost: 1000, effect: "1500 slots" },
@@ -78,7 +73,25 @@ export default function ClanPage() {
     } catch { setMessage("❌ Error al cargar datos del clan") }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    let active = true
+    Promise.all([fetch("/api/hero"), fetch("/api/clan")])
+      .then(async ([heroRes, clanRes]) => {
+        if (heroRes.status === 401 || heroRes.status === 404) return null
+        const [heroData, clanData] = await Promise.all([heroRes.json(), clanRes.json()])
+        return { heroData, clanData }
+      })
+      .then(data => {
+        if (!active || !data) return
+        setHero(data.heroData)
+        setClan(data.clanData)
+        if (data.clanData) setTab("view")
+      })
+      .catch(() => {
+        if (active) setMessage("❌ Error al cargar datos del clan")
+      })
+    return () => { active = false }
+  }, [setMessage])
 
   async function createClan() {
     if (!createName || !createTag) { setMessage("❌ Nombre y tag requeridos"); return }
@@ -211,6 +224,7 @@ export default function ClanPage() {
   }
 
   const myMember = clan?.members?.find((m: any) => m.heroId === hero?.id)
+  const unassignedMembers = clan?.members?.filter((m: any) => !m.groupId) ?? []
   const canKick = myMember?.role === "leader" || myMember?.role === "officer"
   const canChangeRoles = myMember?.role === "leader"
   const [groups, setGroups] = useState<any[]>([])
@@ -220,7 +234,7 @@ export default function ClanPage() {
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [pendingInvites, setPendingInvites] = useState<any[]>([])
   const [invitingHero, setInvitingHero] = useState<string | null>(null)
-  const [unassignedMembers, setUnassignedMembers] = useState<any[]>([])
+
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -240,11 +254,24 @@ export default function ClanPage() {
   }, [])
 
   useEffect(() => {
-    if (clan) {
-      fetchGroups()
-      setUnassignedMembers(clan.members?.filter((m: any) => !m.groupId) ?? [])
-    }
-  }, [clan, fetchGroups])
+    if (!clan) return
+    let active = true
+    Promise.all([fetch("/api/clan/groups"), fetch("/api/clan/groups/invites")])
+      .then(async ([groupsRes, invitesRes]) => {
+        const [groupData, inviteData] = await Promise.all([
+          groupsRes.ok ? groupsRes.json() : Promise.resolve(null),
+          invitesRes.ok ? invitesRes.json() : Promise.resolve(null),
+        ])
+        return { groupData, inviteData }
+      })
+      .then(({ groupData, inviteData }) => {
+        if (!active) return
+        if (groupData) setGroups(groupData)
+        if (inviteData) setPendingInvites(inviteData)
+      })
+      .catch(error => logger.error("clan", "Error fetching data", error))
+    return () => { active = false }
+  }, [clan])
 
   async function createGroup() {
     if (!newGroupName) { setMessage("❌ Nombre requerido"); return }
