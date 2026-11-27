@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import type { HeroData, RunResult } from "@/lib/combat-engine/dungeon-runner"
 import { mockDb } from "@/__tests__/setup"
 import { persistRunResult, processDungeonRunPostProcessing } from "@/services/dungeon-execution.service"
 
@@ -31,12 +32,12 @@ describe("dungeon post-processing outbox", () => {
       loot: [],
       heroesFinalState: [{ id: "hero-1", hp: 10, mp: 2 }],
       consumedConsumables: [],
-    } as any
+    } as unknown as RunResult
 
-    await persistRunResult(tx as any, {
+    await persistRunResult(tx as unknown as Parameters<typeof persistRunResult>[0], {
       runId: "run-outbox",
       result,
-      heroesData: [{ id: "hero-1" }] as any,
+      heroesData: [{ id: "hero-1" } as HeroData],
       totalHeroes: 1,
       dungeon: { id: 1, name: "Test Dungeon", slug: "test-dungeon" },
       clanMemberRec: null,
@@ -46,7 +47,7 @@ describe("dungeon post-processing outbox", () => {
       data: expect.objectContaining({
         runId: "run-outbox",
         payload: expect.objectContaining({
-          heroIds: [],
+          heroIds: ["hero-1"],
           dungeon: { id: 1, name: "Test Dungeon", slug: "test-dungeon" },
         }),
       }),

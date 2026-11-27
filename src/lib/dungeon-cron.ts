@@ -6,7 +6,6 @@ import { persistRunResult, processDungeonRunPostProcessing, processPendingDungeo
 import { tickTournament } from '@/lib/arena/tournament-cron'
 import logger from '@/lib/logger'
 import { recoverStaleDungeonRuns } from '@/lib/dungeon-run-recovery'
-import { processPendingDungeonRunPostProcessing } from '@/services/dungeon-execution.service'
 
 function getNextScheduledTime(times: string[]): Date | null {
   if (!times || times.length === 0) return null
