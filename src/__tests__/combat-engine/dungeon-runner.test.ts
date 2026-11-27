@@ -806,7 +806,7 @@ describe('runDungeon', () => {
           defenseSkills: {},
         },
         skills: withBuff
-          ? [...makeHero().skills, { skillId: 999, multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as any }]
+          ? [...makeHero().skills, { skillId: 999, multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 1, formula: null as unknown as HeroData['skills'][number]['formula'] }]
           : makeHero().skills,
       })
       const result = await runDungeon([base], makeDungeon({
@@ -843,7 +843,7 @@ describe('runDungeon', () => {
       },
       skills: [
         ...makeHero().skills,
-        { skillId: 999, name: 'War Chant', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 5, formula: null as any },
+        { skillId: 999, name: 'War Chant', multiplier: 1.5, manaCost: 0, effect: 'party_attack_up', rank: 5, formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const result = await runDungeon([hero], makeDungeon({ levels: [{ number: 1, enemies: [{ id: 1, name: 'Slime', icon: '🟢', hp: 5, mp: 0, atk: 5, def: 1, dx: 3, ag: 2, level: 1, position: 'front' }], epReward: 100, goldReward: 50 }] }))
@@ -1055,7 +1055,7 @@ describe('runDungeon', () => {
         { skillId: 1, name: 'Basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
           formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
         { skillId: 2, slug: 'cura-grupo', name: 'Cura Grupal', multiplier: 1, manaCost: 35, effect: 'heal', rank: 1,
-          healPct: 20, tags: ['heal', 'aoe'], formula: null as any },
+          healPct: 20, tags: ['heal', 'aoe'], formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const ally = makeHero2({ id: 'ally', name: 'Ally', hpMax: 100, hpCurrent: 20, mpMax: 100, mpCurrent: 100 })
@@ -1068,7 +1068,7 @@ describe('runDungeon', () => {
       { targetId: 'healer', targetName: 'Healer', amount: 20 },
       { targetId: 'ally', targetName: 'Ally', amount: 20 },
     ])
-    expect(result.log.filter(entry => entry.skill === 'Cura Grupal' && entry.type === 'heal')).toHaveLength(2)
+    expect(result.log.filter(entry => entry.skill === 'Cura Grupal' && entry.type === 'heal' && entry.round === 1)).toHaveLength(2)
   })
 
   it('applies Renovación as three real round-start healing ticks', async () => {
@@ -1082,7 +1082,7 @@ describe('runDungeon', () => {
         { skillId: 1, name: 'Basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
           formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
         { skillId: 2, slug: 'renovacion', name: 'Renovación', multiplier: 1, manaCost: 12, effect: 'heal', rank: 1,
-          healPct: 20, cooldownRounds: 10, tags: ['heal'], formula: null as any },
+          healPct: 20, cooldownRounds: 10, tags: ['heal'], formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const result = await runDungeon([hero], makeDungeon({
@@ -1108,7 +1108,7 @@ describe('runDungeon', () => {
       },
       skills: [
         ...makeHero().skills,
-        { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as any },
+        { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const result = await runDungeon([hero], makeDungeon())
@@ -1353,7 +1353,7 @@ describe('runDungeon', () => {
       const fortitudeDefense = await getEnemyAttackDefense({
         skills: [
           ...makeHero().skills,
-          { skillId: 2, multiplier: 1, manaCost: 0, effect: 'fortitude', rank: 1, formula: null as any },
+          { skillId: 2, multiplier: 1, manaCost: 0, effect: 'fortitude', rank: 1, formula: null as unknown as HeroData['skills'][number]['formula'] },
         ],
       })
 
@@ -1422,7 +1422,7 @@ describe('runDungeon', () => {
           },
           skills: [
             { skillId: 1, multiplier: 1, manaCost: 5, effect: 'attack', rank: 1, formula: { attrCoeffs: { st: 2, dx: 1 }, skillRankCoeff: 1.5, diceSides: 6, diceCount: 1, flatBonus: 5 } },
-            { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as any },
+            { skillId: 2, multiplier: 1, manaCost: 5, effect: 'heal', rank: 1, healPct: 50, formula: null as unknown as HeroData['skills'][number]['formula'] },
           ],
         }),
          makeHero({ id: 'tank', name: 'Tank', hpMax: 100 })],

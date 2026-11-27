@@ -158,7 +158,7 @@ export function advanceLegacyNonPeriodicStatusRound(
   statuses: readonly LegacyCombatStatusEffect[]
 ): readonly LegacyCombatStatusEffect[] {
   return advanceSelectedLegacyStatuses(statuses, status =>
-    status.type !== 'poison' && status.type !== 'burn' && status.type !== 'bleed'
+    status.type !== 'poison' && status.type !== 'burn' && status.type !== 'bleed' && status.type !== 'regen'
   )
 }
 

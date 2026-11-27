@@ -20,25 +20,35 @@ describe('skill execution plan dispatch', () => {
   it('routes group healing plans with all selected targets', () => {
     const targets = [{ id: 'a' }, { id: 'b' }]
     const plan: SkillExecutionPlan<typeof targets[number]> = { kind: 'group_heal', targets, healPct: 20 }
+    let receivedTargets: readonly typeof targets[number][] = []
+    let receivedPct = 0
     const result = dispatchSkillExecutionPlan(plan, {
       heal: () => 'single',
-      group_heal: (units, pct) => ({ units, pct }),
+      group_heal: (units, pct) => { receivedTargets = units; receivedPct = pct; return 'group' },
       party_buff: () => 'buff', self_buff: () => 'self', area_attack: () => 'area',
       single_attack: () => 'attack', unsupported: effect => effect,
     })
-    expect(result).toEqual({ units: targets, pct: 20 })
+    expect(result).toBe('group')
+    expect(receivedTargets).toEqual(targets)
+    expect(receivedPct).toBe(20)
   })
 
   it('routes periodic healing plans with their target, percentage and tick count', () => {
     const target = { id: 'ally' }
     const plan: SkillExecutionPlan<typeof target> = { kind: 'heal_over_time', target, healPct: 28, ticks: 3 }
+    let receivedTarget: typeof target | null = null
+    let receivedPct = 0
+    let receivedTicks = 0
     const result = dispatchSkillExecutionPlan(plan, {
       heal: () => 'single',
-      heal_over_time: (unit, pct, ticks) => ({ unit, pct, ticks }),
+      heal_over_time: (unit, pct, ticks) => { receivedTarget = unit; receivedPct = pct; receivedTicks = ticks; return 'periodic' },
       party_buff: () => 'buff', self_buff: () => 'self', area_attack: () => 'area',
       single_attack: () => 'attack', unsupported: effect => effect,
     })
-    expect(result).toEqual({ unit: target, pct: 28, ticks: 3 })
+    expect(result).toBe('periodic')
+    expect(receivedTarget).toEqual(target)
+    expect(receivedPct).toBe(28)
+    expect(receivedTicks).toBe(3)
   })
 
   it('routes party buffs and forwards buff type and bonus', () => {
