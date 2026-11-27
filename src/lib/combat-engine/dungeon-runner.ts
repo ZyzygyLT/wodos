@@ -565,7 +565,7 @@ function scaleEnemy(enemy: EnemyData, effectiveLevel: number, difficultyMod: num
     def: Math.round(enemy.def * clamped),
     dx: Math.round(enemy.dx * clamped),
     ag: Math.round(enemy.ag * clamped),
-    pe: Math.round((enemy.pe ?? 10) * clamped),
+    ...(typeof enemy.pe === 'number' ? { pe: Math.round(enemy.pe * clamped) } : {}),
     level: Math.ceil(enemy.isBoss ? Math.max(effectiveLevel, baseLevel) : effectiveLevel),
   }
 }
@@ -750,10 +750,12 @@ function enemyToUnit(e: EnemyData, idx: number, random: RandomSource): CombatUni
     passiveEffects: e.passiveEffects,
     position: e.position ?? 'front',
     condition: 'ready',
-    attrs: applyInitiativeSkillModifiers(
-      { ag: e.attrs?.ag ?? e.ag ?? 0, pe: e.attrs?.pe ?? e.pe ?? 10 },
-      (e.skills ?? []).filter(skill => skill.type === 'passive').map(skill => skill.effect)
-    ),
+    attrs: (e.attrs || typeof e.pe === 'number')
+      ? applyInitiativeSkillModifiers(
+          e.attrs ?? { ag: e.ag ?? 0, pe: e.pe! },
+          (e.skills ?? []).filter(skill => skill.type === 'passive').map(skill => skill.effect)
+        )
+      : undefined,
     def: e.def ?? 5,
     armorName: e.armorName,
     attackSkillName: e.skillName,

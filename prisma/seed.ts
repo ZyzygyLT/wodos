@@ -580,7 +580,7 @@ async function assignEnemyDefenseSkills2(_skillBySlug: Record<string, number>) {
     const defSlugs = e.level >= 3 ? (override.length > 0 ? override : [posMap[e.position] ?? 'esquivar']) : []
     const defIds = defSlugs.map(slug => _skillBySlug[slug]).filter(Boolean)
     const initiativeId = initiativeEnemies.has(e.id) ? _skillBySlug.organization : undefined
-    const combined = [...new Set([...(e.skillIds ?? []), ...defIds, ...(initiativeId ? [initiativeId] : [])])
+    const combined = [...new Set([...(e.skillIds ?? []), ...defIds, ...(initiativeId ? [initiativeId] : [])])]
     if (combined.length !== (e.skillIds ?? []).length) {
       await db.enemy.update({ where: { id: e.id }, data: { skillIds: combined } })
     }
