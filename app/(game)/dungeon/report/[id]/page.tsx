@@ -261,10 +261,16 @@ export default function DungeonReport() {
         </div>
       )}
 
-      <div className="flex justify-end border-t border-gray-800 pt-5">
+      <div className="flex flex-wrap justify-between gap-3 border-t border-gray-800 pt-5">
+        <button
+          onClick={() => router.push("/dungeon/reports")}
+          className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:bg-gray-700"
+        >
+          ← Historial de expediciones
+        </button>
         <button
           onClick={() => router.push("/dungeon")}
-          className="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-gray-950 font-semibold text-sm transition"
+          className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-gray-950 transition hover:bg-amber-500"
         >
           Volver al mapa de expediciones →
         </button>
