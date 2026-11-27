@@ -4,7 +4,7 @@ import db from '@/lib/db'
 import { runDungeon, HeroData } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, restoreDungeonParticipantSnapshots, reconcileDungeonParticipantConsumables } from '@/lib/dungeon-helpers'
 import { calcClanBonuses } from '@/lib/clan/upgrades'
-import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
+import { persistRunResult, processDungeonRunPostProcessing } from '@/services/dungeon-execution.service'
 import logger from '@/lib/logger'
 
 let connection: Redis | null = null
@@ -101,11 +101,15 @@ async function executeRun(runId: string, heroId: string, dungeonId: number) {
 
   const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
 
-  const settlement = await db.$transaction(async (tx) =>
-    persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
+  await db.$transaction(async (tx) =>
+    persistRunResult(tx, {
+      runId: run.id, result, heroesData, totalHeroes,
+      dungeon: { id: dungeon.id, name: dungeon.name, slug: dungeon.slug },
+      clanMemberRec,
+    })
   )
 
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id, clanMemberRec, levelUps: settlement.levelUps })
+  await processDungeonRunPostProcessing(run.id)
 
   return result
   } catch (error) {

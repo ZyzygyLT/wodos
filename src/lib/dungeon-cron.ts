@@ -2,10 +2,11 @@ import db from '@/lib/db'
 import { runDungeon, HeroData } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, restoreDungeonParticipantSnapshots, reconcileDungeonParticipantConsumables } from '@/lib/dungeon-helpers'
 import { calcClanBonuses } from '@/lib/clan/upgrades'
-import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
+import { persistRunResult, processDungeonRunPostProcessing, processPendingDungeonRunPostProcessing } from '@/services/dungeon-execution.service'
 import { tickTournament } from '@/lib/arena/tournament-cron'
 import logger from '@/lib/logger'
 import { recoverStaleDungeonRuns } from '@/lib/dungeon-run-recovery'
+import { processPendingDungeonRunPostProcessing } from '@/services/dungeon-execution.service'
 
 function getNextScheduledTime(times: string[]): Date | null {
   if (!times || times.length === 0) return null
@@ -47,6 +48,7 @@ function hasPassed(scheduledTimes: string[], since: Date, timerReductionHours = 
 }
 
 export async function tick() {
+  await processPendingDungeonRunPostProcessing()
   await recoverStaleDungeonRuns()
   const pending = await db.dungeonRun.findMany({
     where: { status: 'registered' },
@@ -139,11 +141,15 @@ async function processScheduledRun(run: any) {
 
     const result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
 
-    const settlement = await db.$transaction(async (tx) =>
-      persistRunResult(tx, { runId: run.id, result, heroesData, totalHeroes })
+    await db.$transaction(async (tx) =>
+      persistRunResult(tx, {
+        runId: run.id, result, heroesData, totalHeroes,
+        dungeon: { id: dungeon.id, name: dungeon.name, slug: dungeon.slug },
+        clanMemberRec,
+      })
     )
 
-    await processPostRun({ result, heroesData, totalHeroes, dungeon, runId: run.id, clanMemberRec, levelUps: settlement.levelUps })
+    await processDungeonRunPostProcessing(run.id)
   } catch (err) {
     // If simulation or persistence fails, release only this still-running claim.
     // A completed run is never reset, so committed rewards cannot be replayed.

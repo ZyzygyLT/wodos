@@ -3,7 +3,7 @@ import type { Prisma } from '@/generated/prisma'
 import { runDungeon, HeroData, RunResult } from '@/lib/combat-engine/dungeon-runner'
 import { buildHeroData, enrichDungeonLevels, loadGroupParticipants, hasHeroRunDungeonToday, hasGroupRunDungeonToday, snapshotDungeonParticipant } from '@/lib/dungeon-helpers'
 import type { LevelUpResult } from '@/lib/level-up'
-import { persistRunResult, processPostRun } from '@/services/dungeon-execution.service'
+import { persistRunResult, processDungeonRunPostProcessing } from '@/services/dungeon-execution.service'
 import { calcClanBonuses } from "@/lib/clan/upgrades"
 import logger from "@/lib/logger"
 
@@ -101,7 +101,11 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
     result = await runDungeon(heroesData, dungeonData, { clanBonuses, groupBonus: isGroup, firstOfDay })
     itemMap = await loadLootItemMap(result)
     const settlement = await db.$transaction(async tx =>
-      persistRunResult(tx, { runId, result, heroesData, totalHeroes })
+      persistRunResult(tx, {
+        runId, result, heroesData, totalHeroes,
+        dungeon: { id: dungeon.id, name: dungeon.name, slug: dungeon.slug },
+        clanMemberRec,
+      })
     )
     levelUps = settlement.levelUps
   } catch (error) {
@@ -114,8 +118,8 @@ export async function processInstantDungeon(params: InstantRunParams): Promise<{
   }
 
   const levelUp = levelUps.find(entry => entry.heroId === hero.id)?.result
-  await processPostRun({ result, heroesData, totalHeroes, dungeon, runId, clanMemberRec, levelUps }).catch(error => {
-    logger.error('dungeon-registration', 'Post-run processing failed', error)
+  await processDungeonRunPostProcessing(runId).catch(error => {
+    logger.error('dungeon-registration', 'Post-run processing failed; it remains queued for retry', error)
   })
 
   return {

@@ -8,18 +8,25 @@ type NotificationInput = {
   title: string
   body: string
   data?: Record<string, unknown>
+  dedupeKey?: string
 }
 
 export async function notify(input: NotificationInput) {
-  await db.notification.create({
-    data: {
-      heroId: input.heroId,
-      type: input.type,
-      title: input.title,
-      body: input.body,
-      data: (input.data ?? {}) as any,
-    },
-  })
+  try {
+    await db.notification.create({
+      data: {
+        heroId: input.heroId,
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        data: (input.data ?? {}) as any,
+        ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
+      },
+    })
+  } catch (error) {
+    if (input.dedupeKey && typeof error === "object" && error !== null && "code" in error && error.code === "P2002") return
+    throw error
+  }
 
   sendPush({
     heroId: input.heroId,

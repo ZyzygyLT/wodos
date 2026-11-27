@@ -370,6 +370,7 @@ model DungeonRun {
   group         ClanGroup? @relation(fields: [groupId], references: [id])
   hero          Hero       @relation(fields: [heroId], references: [id], onDelete: Cascade)
   participants  DungeonRunParticipant[]
+  postProcessing DungeonRunPostProcessing?
 
   @@index([heroId, status])
   @@index([heroId, createdAt])
@@ -393,6 +394,24 @@ model DungeonRunParticipant {
   @@unique([runId, heroId])
   @@index([heroId, createdAt])
   @@map("dungeon_run_participants")
+}
+
+model DungeonRunPostProcessing {
+  id            String     @id @default(uuid())
+  runId         String     @unique
+  payload       Json
+  status        String     @default("pending")
+  attempts      Int        @default(0)
+  startedAt     DateTime?
+  nextAttemptAt DateTime   @default(now())
+  lastError     String?
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  run           DungeonRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@map("dungeon_run_post_processing")
 }
 
 model BazarListing {
@@ -769,6 +788,7 @@ model Notification {
   title     String
   body      String
   data      Json?
+  dedupeKey String?   @unique
   readAt    DateTime?
   createdAt DateTime  @default(now())
   hero      Hero      @relation(fields: [heroId], references: [id], onDelete: Cascade)
