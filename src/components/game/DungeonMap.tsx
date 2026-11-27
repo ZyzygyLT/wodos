@@ -417,30 +417,38 @@ export default function DungeonMap({ dungeons, heroLevel, heroHp, selectedProfil
 
             {/* Group selector */}
             {groups && groups.length > 0 && (
-              <div className="relative">
-                <button onClick={() => setGroupDropdown(!groupDropdown)}
-                  className="flex items-center justify-between w-full bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition">
-                  <span>👥 {groups.find(g => g.id === selectedGroupId)?.name ?? "Seleccionar grupo"}</span>
-                  <span className="text-gray-500">▼</span>
-                </button>
-                {groupDropdown && (
-                  <>
-                    <button type="button" className="fixed inset-0 z-10" onClick={() => setGroupDropdown(false)} />
-                    <div className="absolute bottom-full left-0 mb-1 z-20 bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-[200px]">
-                      {groups.map(g => (
-                        <div key={g.id} className={`flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-700 transition ${selectedGroupId === g.id ? "text-yellow-400" : "text-gray-200"}`}>
-                          <button onClick={() => { onSelectGroup?.(g.id); setGroupDropdown(false) }} className="flex-1 text-left">
-                            {g.name}
-                            <span className="text-gray-500 ml-2">({g.members?.length ?? g.groupMembers?.length ?? 0})</span>
-                          </button>
-                          <a href={`/groups/${g.id}`} onClick={e => e.stopPropagation()}
-                            className="text-gray-500 hover:text-amber-400 ml-2 shrink-0" title="Administrar grupo">
-                            ⚙️
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </>
+              <div className="space-y-2">
+                <div className="relative">
+                  <button onClick={() => setGroupDropdown(!groupDropdown)}
+                    className="flex items-center justify-between w-full bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition">
+                    <span>👥 {groups.find(g => g.id === selectedGroupId)?.name ?? "Seleccionar grupo"}</span>
+                    <span className="text-gray-500">▼</span>
+                  </button>
+                  {groupDropdown && (
+                    <>
+                      <button type="button" className="fixed inset-0 z-10" onClick={() => setGroupDropdown(false)} />
+                      <div className="absolute bottom-full left-0 mb-1 z-20 bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-[200px]">
+                        {groups.map(g => (
+                          <div key={g.id} className={`flex items-center justify-between px-3 py-2 text-xs hover:bg-gray-700 transition ${selectedGroupId === g.id ? "text-yellow-400" : "text-gray-200"}`}>
+                            <button onClick={() => { onSelectGroup?.(g.id); setGroupDropdown(false) }} className="flex-1 text-left">
+                              {g.name}
+                              <span className="text-gray-500 ml-2">({g.members?.length ?? g.groupMembers?.length ?? 0})</span>
+                            </button>
+                            <a href={`/groups/${g.id}`} onClick={e => e.stopPropagation()}
+                              className="text-gray-500 hover:text-amber-400 ml-2 shrink-0" title="Administrar grupo">
+                              ⚙️
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {onCreateGroup && (
+                  <button onClick={onCreateGroup}
+                    className="w-full text-xs px-3 py-2 rounded bg-green-800 hover:bg-green-700 transition">
+                    + Crear grupo
+                  </button>
                 )}
               </div>
             )}
