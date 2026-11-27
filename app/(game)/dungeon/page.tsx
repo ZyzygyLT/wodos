@@ -172,6 +172,7 @@ export default function DungeonPage() {
   }, [fetchData, loadAttempt])
 
   const activeRunStatus = runStatus?.status
+  const activeRunId = runStatus?.runId
 
   useEffect(() => {
     if (!activeRunStatus || !["registered", "running"].includes(activeRunStatus)) return
@@ -180,14 +181,14 @@ export default function DungeonPage() {
   }, [activeRunStatus, fetchRunStatus])
 
   useEffect(() => {
-    if (!runStatus || ["registered", "running"].includes(runStatus.status)) return
+    if (!activeRunStatus || ["registered", "running"].includes(activeRunStatus) || !activeRunId) return
     const refreshTimer = setTimeout(() => {
       void fetchHeroAndDungeons().catch(error => {
         logger.error("dungeon", "Failed to refresh hero after expedition", error)
       })
     }, 0)
     return () => clearTimeout(refreshTimer)
-  }, [runStatus?.status, runStatus?.runId, fetchHeroAndDungeons])
+  }, [activeRunStatus, activeRunId, fetchHeroAndDungeons])
 
   async function createGroup() {
     if (!newGroupName.trim() || newGroupName.length < 2) return
