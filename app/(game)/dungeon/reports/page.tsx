@@ -42,17 +42,28 @@ export default function DungeonHistory() {
         ) : (
           <div className="space-y-2">
             {runs.map(r => {
-              const isVictory = r.result === 'victory'
+              const isVictory = r.result === "victory"
+              const isDefeat = r.result === "defeat"
+              const resultLabel = isVictory ? "Victoria"
+                : isDefeat ? "Derrota"
+                : r.status === "failed" ? "Ejecución fallida"
+                : "Resultado pendiente"
+              const resultColor = isVictory ? "text-green-400"
+                : isDefeat || r.status === "failed" ? "text-red-400"
+                : "text-gray-400"
+              const borderColor = isVictory ? "border-green-800"
+                : isDefeat || r.status === "failed" ? "border-red-800"
+                : "border-gray-700"
               return (
                 <a key={r.id} href={`/dungeon/report/${r.id}`}
-                  className={`block bg-gray-900 rounded-xl border p-4 transition hover:bg-gray-800 ${isVictory ? 'border-green-800' : 'border-red-800'}`}>
+                  className={`block bg-gray-900 rounded-xl border p-4 transition hover:bg-gray-800 ${borderColor}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <span className="text-xl">{r.dungeonIcon}</span>
                       <div>
                         <span className="font-semibold">{r.dungeonName}</span>
-                        <span className={`ml-2 text-xs ${isVictory ? 'text-green-400' : 'text-red-400'}`}>
-                          {isVictory ? 'Victoria' : 'Derrota'}
+                        <span className={`ml-2 text-xs ${resultColor}`}>
+                          {resultLabel}
                         </span>
                       </div>
                     </div>
