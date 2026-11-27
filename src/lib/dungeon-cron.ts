@@ -6,6 +6,7 @@ import { persistRunResult, processDungeonRunPostProcessing, processPendingDungeo
 import { tickTournament } from '@/lib/arena/tournament-cron'
 import logger from '@/lib/logger'
 import { recoverStaleDungeonRuns } from '@/lib/dungeon-run-recovery'
+import { hasScheduledTimePassed } from '@/lib/dungeon-schedule'
 
 function getNextScheduledTime(times: string[]): Date | null {
   if (!times || times.length === 0) return null
@@ -22,28 +23,6 @@ function getNextScheduledTime(times: string[]): Date | null {
   }
   candidates.sort((a, b) => a.getTime() - b.getTime())
   return candidates[0] ?? null
-}
-
-function hasPassed(scheduledTimes: string[], since: Date, timerReductionHours = 0): boolean {
-  const now = new Date()
-  // Aplicar reducción del Altar del Tiempo
-  const effectiveSince = new Date(since.getTime() + timerReductionHours * 3600000)
-  const todayStr = now.toISOString().slice(0, 10)
-
-  for (const t of scheduledTimes) {
-    const dt = new Date(`${todayStr}T${t}:00Z`)
-    if (dt > effectiveSince && dt <= now) return true
-  }
-
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = yesterday.toISOString().slice(0, 10)
-  for (const t of scheduledTimes) {
-    const dt = new Date(`${yesterdayStr}T${t}:00Z`)
-    if (dt > effectiveSince && dt <= now) return true
-  }
-
-  return false
 }
 
 export async function tick() {
@@ -96,7 +75,7 @@ async function processScheduledRun(run: any) {
   const clanMemberRec = clanInfo?.memberRec ?? null
 
   const timerReduction = clanBonuses.timer_reduction_hours ?? 0
-  if (!hasPassed(times, run.registeredAt, timerReduction)) return
+  if (!hasScheduledTimePassed(times, run.registeredAt, timerReduction)) return
 
   // Scheduled runs must enforce the same downed-hero rule as instant runs.
   // Do this before claiming the run so invalid registrations remain unexecuted.
