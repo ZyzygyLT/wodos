@@ -158,9 +158,16 @@ export async function trackHeroEventProgress(
   amount: number = 1,
   sourceRunId?: string,
 ): Promise<void> {
+  // Keep the execution vocabulary aligned with both generated and legacy event types.
+  const eventTypeAliases: Record<string, string[]> = {
+    invasion: ['invasion', 'kill_enemies'],
+    dungeon: ['dungeon', 'dungeon_challenge'],
+    boss: ['boss', 'boss_hunt', 'kill_boss'],
+  }
+  const matchingTypes = eventTypeAliases[eventType] ?? [eventType]
   const activeEvents = await db.weeklyEvent.findMany({
     where: {
-      type: eventType,
+      type: matchingTypes.length === 1 ? matchingTypes[0] : { in: matchingTypes },
       isActive: true,
       startsAt: { lte: new Date() },
       endsAt: { gte: new Date() },
@@ -179,7 +186,7 @@ export async function trackHeroEventProgress(
           const participation = await tx.heroEventParticipation.upsert({
             where: { heroId_eventId: { heroId, eventId: event.id } },
             update: { progress: { increment: amount } },
-            create: { heroId, eventId: event.id, progress: amount, target: getTargetForType(eventType) },
+            create: { heroId, eventId: event.id, progress: amount, target: getTargetForType(event.type) },
           })
           if (participation.progress >= participation.target && !participation.completed) {
             await tx.heroEventParticipation.update({
@@ -193,7 +200,7 @@ export async function trackHeroEventProgress(
         const participation = await db.heroEventParticipation.upsert({
           where: { heroId_eventId: { heroId, eventId: event.id } },
           update: { progress: { increment: amount } },
-          create: { heroId, eventId: event.id, progress: amount, target: getTargetForType(eventType) },
+          create: { heroId, eventId: event.id, progress: amount, target: getTargetForType(event.type) },
         })
         if (participation.progress >= participation.target && !participation.completed) {
           await db.heroEventParticipation.update({

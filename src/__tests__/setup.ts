@@ -53,6 +53,7 @@ const mockDb = {
   forumReply: createMock(),
   forumCategory: createMock(),
   weeklyEvent: createMock(),
+  heroEventParticipation: createMock(),
   clanEventParticipation: createMock(),
   tournament: createMock(),
   tournamentParticipant: createMock(),
