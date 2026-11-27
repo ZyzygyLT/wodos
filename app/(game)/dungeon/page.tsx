@@ -193,13 +193,14 @@ export default function DungeonPage() {
   }, [activeRunStatus, activeRunId, fetchHeroAndDungeons])
 
   async function createGroup() {
-    if (!newGroupName.trim() || newGroupName.length < 2) return
+    const groupName = newGroupName.trim()
+    if (groupName.length < 2) return
     setCreatingGroup(true)
     try {
       const res = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newGroupName.trim() }),
+        body: JSON.stringify({ name: groupName }),
       })
       if (res.ok) {
         const group = await res.json()
@@ -389,7 +390,7 @@ export default function DungeonPage() {
                 onKeyDown={e => { if (e.key === "Enter") createGroup() }}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm mb-4" />
               <div className="flex gap-2">
-                <button onClick={createGroup} disabled={creatingGroup || newGroupName.length < 2}
+                <button onClick={createGroup} disabled={creatingGroup || newGroupName.trim().length < 2}
                   className="flex-1 px-4 py-2 rounded bg-green-700 hover:bg-green-600 disabled:opacity-50 text-sm transition">
                   {creatingGroup ? "..." : "Crear"}
                 </button>
