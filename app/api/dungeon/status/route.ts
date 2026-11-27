@@ -59,6 +59,7 @@ export async function GET() {
     levelsCleared: lastRun.levelsCleared,
     epGained: lastRun.epGained,
     goldGained: lastRun.goldGained,
+    fameGained: lastRun.fameGained,
     loot: lastRun.loot,
   })
 }

@@ -41,6 +41,7 @@ export default function DungeonPage() {
     levelsCleared?: number | null
     epGained?: number | null
     goldGained?: number | null
+    fameGained?: number | null
   } | null>(null)
 
   const fetchHeroAndDungeons = useCallback(async () => {
@@ -359,7 +360,7 @@ export default function DungeonPage() {
                 {!["registered", "running"].includes(runStatus.status) && (
                   <>
                     <p className="mt-1 text-xs text-gray-400">{runStatus.result === "victory" ? "Victoria" : runStatus.result === "defeat" ? "Derrota" : "Resultado disponible"} · {runStatus.levelsCleared ?? 0} niveles superados</p>
-                    <p className="mt-1 text-xs text-amber-300">Recompensas: +{runStatus.epGained ?? 0} PE · +{runStatus.goldGained ?? 0} oro</p>
+                    <p className="mt-1 text-xs text-amber-300">Recompensas: +{runStatus.epGained ?? 0} PE · +{runStatus.goldGained ?? 0} oro · +{runStatus.fameGained ?? 0} fama</p>
                   </>
                 )}
               </div>
