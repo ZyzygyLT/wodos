@@ -4,6 +4,7 @@ import { vi } from 'vitest'
 // Extend db mock for all models used in API routes
 const mockDb = {
   $transaction: vi.fn(async (cb: any) => cb(mockDb)),
+  $queryRaw: vi.fn(),
   user: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn(), create: vi.fn() },
   hero: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn(), create: vi.fn() },
   heroItem: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn(), create: vi.fn(), createMany: vi.fn() },
@@ -14,6 +15,9 @@ const mockDb = {
   bazarPurchase: { create: vi.fn(), findMany: vi.fn() },
   clan: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   clanMember: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
+  clanGroup: { findUnique: vi.fn() },
+  groupInvite: { findUnique: vi.fn(), updateMany: vi.fn() },
+  groupMember: { findUnique: vi.fn(), create: vi.fn() },
   quest: { findUnique: vi.fn(), findMany: vi.fn() },
   item: { findUnique: vi.fn(), findMany: vi.fn() },
   material: { findMany: vi.fn() },
