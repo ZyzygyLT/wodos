@@ -6,7 +6,6 @@ describe('hasScheduledTimePassed', () => {
     expect(hasScheduledTimePassed(
       ['19:00'],
       new Date('2026-11-27T18:00:00.000Z'),
-      0,
       new Date('2026-11-27T20:00:00.000Z'),
     )).toBe(true)
   })
@@ -15,7 +14,6 @@ describe('hasScheduledTimePassed', () => {
     expect(hasScheduledTimePassed(
       ['19:00'],
       new Date('2026-11-27T09:00:00.000Z'),
-      0,
       new Date('2026-11-27T10:00:00.000Z'),
     )).toBe(false)
   })
@@ -24,7 +22,6 @@ describe('hasScheduledTimePassed', () => {
     expect(hasScheduledTimePassed(
       ['19:00'],
       new Date('2026-11-23T18:00:00.000Z'),
-      0,
       new Date('2026-11-27T20:00:00.000Z'),
     )).toBe(true)
   })
@@ -33,7 +30,6 @@ describe('hasScheduledTimePassed', () => {
     expect(hasScheduledTimePassed(
       ['19:00'],
       new Date('2026-11-24T18:00:00.000Z'),
-      0,
       new Date('2026-11-27T10:00:00.000Z'),
     )).toBe(true)
   })
@@ -51,7 +47,6 @@ describe('hasScheduledTimePassed', () => {
     expect(hasScheduledTimePassed(
       ['19:00'],
       new Date('2026-11-27T19:30:00.000Z'),
-      0,
       new Date('2026-11-27T20:00:00.000Z'),
     )).toBe(false)
   })
