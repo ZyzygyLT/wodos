@@ -73,7 +73,25 @@ export default function ClanPage() {
     } catch { setMessage("❌ Error al cargar datos del clan") }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    let active = true
+    Promise.all([fetch("/api/hero"), fetch("/api/clan")])
+      .then(async ([heroRes, clanRes]) => {
+        if (heroRes.status === 401 || heroRes.status === 404) return null
+        const [heroData, clanData] = await Promise.all([heroRes.json(), clanRes.json()])
+        return { heroData, clanData }
+      })
+      .then(data => {
+        if (!active || !data) return
+        setHero(data.heroData)
+        setClan(data.clanData)
+        if (data.clanData) setTab("view")
+      })
+      .catch(() => {
+        if (active) setMessage("❌ Error al cargar datos del clan")
+      })
+    return () => { active = false }
+  }, [setMessage])
 
   async function createClan() {
     if (!createName || !createTag) { setMessage("❌ Nombre y tag requeridos"); return }
@@ -206,6 +224,7 @@ export default function ClanPage() {
   }
 
   const myMember = clan?.members?.find((m: any) => m.heroId === hero?.id)
+  const unassignedMembers = clan?.members?.filter((m: any) => !m.groupId) ?? []
   const canKick = myMember?.role === "leader" || myMember?.role === "officer"
   const canChangeRoles = myMember?.role === "leader"
   const [groups, setGroups] = useState<any[]>([])
@@ -215,7 +234,7 @@ export default function ClanPage() {
   const [creatingGroup, setCreatingGroup] = useState(false)
   const [pendingInvites, setPendingInvites] = useState<any[]>([])
   const [invitingHero, setInvitingHero] = useState<string | null>(null)
-  const [unassignedMembers, setUnassignedMembers] = useState<any[]>([])
+
 
   const fetchGroups = useCallback(async () => {
     try {
@@ -235,11 +254,24 @@ export default function ClanPage() {
   }, [])
 
   useEffect(() => {
-    if (clan) {
-      fetchGroups()
-      setUnassignedMembers(clan.members?.filter((m: any) => !m.groupId) ?? [])
-    }
-  }, [clan, fetchGroups])
+    if (!clan) return
+    let active = true
+    Promise.all([fetch("/api/clan/groups"), fetch("/api/clan/groups/invites")])
+      .then(async ([groupsRes, invitesRes]) => {
+        const [groupData, inviteData] = await Promise.all([
+          groupsRes.ok ? groupsRes.json() : Promise.resolve(null),
+          invitesRes.ok ? invitesRes.json() : Promise.resolve(null),
+        ])
+        return { groupData, inviteData }
+      })
+      .then(({ groupData, inviteData }) => {
+        if (!active) return
+        if (groupData) setGroups(groupData)
+        if (inviteData) setPendingInvites(inviteData)
+      })
+      .catch(error => logger.error("clan", "Error fetching data", error))
+    return () => { active = false }
+  }, [clan])
 
   async function createGroup() {
     if (!newGroupName) { setMessage("❌ Nombre requerido"); return }
