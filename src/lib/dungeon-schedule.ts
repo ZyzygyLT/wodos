@@ -3,7 +3,7 @@ export const DUNGEON_SCHEDULE_TIMES = ["02:00", "06:00", "10:00", "14:00", "18:0
 
 /**
  * Returns whether at least one daily scheduled slot has occurred since the
- * registration became eligible. Looking only at today and yesterday strands
+ * registration became eligible. The fixed four-hour cadence is not modified
  * runs when the cron worker is unavailable for more than 24 hours.
  *
  * Schedule times are stored and evaluated as UTC clock times, matching the
@@ -12,13 +12,11 @@ export const DUNGEON_SCHEDULE_TIMES = ["02:00", "06:00", "10:00", "14:00", "18:0
 export function hasScheduledTimePassed(
   scheduledTimes: string[],
   since: Date,
-  timerReductionHours = 0,
   now = new Date(),
 ): boolean {
   if (scheduledTimes.length === 0) return false
 
-  const effectiveSince = new Date(since.getTime() + timerReductionHours * 60 * 60 * 1000)
-  if (effectiveSince >= now) return false
+  if (since >= now) return false
 
   const today = now.toISOString().slice(0, 10)
   for (const time of scheduledTimes) {
@@ -30,7 +28,7 @@ export function hasScheduledTimePassed(
       scheduledAt.setUTCDate(scheduledAt.getUTCDate() - 1)
     }
 
-    if (scheduledAt > effectiveSince && scheduledAt <= now) return true
+    if (scheduledAt > since && scheduledAt <= now) return true
   }
 
   return false

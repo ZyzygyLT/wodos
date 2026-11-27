@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasScheduledTimePassed } from '@/lib/dungeon-schedule'
+import { DUNGEON_SCHEDULE_TIMES, hasScheduledTimePassed } from '@/lib/dungeon-schedule'
 
 describe('hasScheduledTimePassed', () => {
   it('recognizes a slot that passed today after registration', () => {
@@ -38,13 +38,13 @@ describe('hasScheduledTimePassed', () => {
     )).toBe(true)
   })
 
-  it('respects the timer reduction when deciding eligibility', () => {
+  it('keeps the fixed four-hour departure slots regardless of clan timer bonuses', () => {
+    expect(DUNGEON_SCHEDULE_TIMES).toEqual(['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'])
     expect(hasScheduledTimePassed(
-      ['19:00'],
-      new Date('2026-11-27T18:00:00.000Z'),
-      2,
-      new Date('2026-11-27T20:00:00.000Z'),
-    )).toBe(false)
+      DUNGEON_SCHEDULE_TIMES,
+      new Date('2026-11-27T10:01:00.000Z'),
+      new Date('2026-11-27T14:00:00.000Z'),
+    )).toBe(true)
   })
 
   it('does not execute a slot that occurred before registration', () => {

@@ -74,8 +74,7 @@ async function processScheduledRun(run: any) {
   const clanBonuses = clanInfo?.bonuses ?? {}
   const clanMemberRec = clanInfo?.memberRec ?? null
 
-  const timerReduction = clanBonuses.timer_reduction_hours ?? 0
-  if (!hasScheduledTimePassed(times, run.registeredAt, timerReduction)) return
+  if (!hasScheduledTimePassed(times, run.registeredAt)) return
 
   // Scheduled runs must enforce the same downed-hero rule as instant runs.
   // Do this before claiming the run so invalid registrations remain unexecuted.
