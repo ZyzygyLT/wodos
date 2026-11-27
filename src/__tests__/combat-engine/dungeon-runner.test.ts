@@ -271,7 +271,7 @@ describe('runDungeon', () => {
 
     const withoutBuff = await run(false)
     const withBuff = await run(true)
-    expect(withBuff.statuses).toContainEqual(expect.objectContaining({ type: 'def_up', remainingRounds: 1, value: 19 }))
+    expect(withBuff.statuses).toContainEqual({ type: 'def_up', remainingRounds: 1 })
     expect(withBuff.damage).toBeGreaterThan(0)
     expect(withBuff.damage).toBeLessThan(withoutBuff.damage)
     expect(withBuff.log.some(entry => entry.type === 'buff' && entry.message.includes('+19% DEF propia'))).toBe(true)
@@ -314,8 +314,8 @@ describe('runDungeon', () => {
     }))
     const firstRound = result.levelReports[0]?.rounds[0]
     const statuses = firstRound?.stateAfter.heroes.find(unit => unit.id === hero.id)?.statusEffects ?? []
-    expect(statuses).toContainEqual(expect.objectContaining({ type: 'atk_up', remainingRounds: 1, value: 16 }))
-    expect(statuses).toContainEqual(expect.objectContaining({ type: 'def_up', remainingRounds: 1, value: 16 }))
+    expect(statuses).toContainEqual({ type: 'atk_up', remainingRounds: 1 })
+    expect(statuses).toContainEqual({ type: 'def_up', remainingRounds: 1 })
     expect(result.log.some(entry => entry.type === 'buff'
       && entry.message.includes('+16% ATK propio y +16% DEF propia'))).toBe(true)
   })

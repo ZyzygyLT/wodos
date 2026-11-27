@@ -21,6 +21,7 @@ import {
   advanceLegacyNonPeriodicStatusRound,
   applyLegacyStatusEffect,
   calculateLegacyStatusDamage,
+  type LegacyCombatStatusEffect,
   isLegacyCombatUnitDisabled,
   applyLegacyStatusStatModifiers,
 } from '../../engine/adapters/combat/status-effect-adapter'
@@ -1224,13 +1225,17 @@ function executeHeroSelfBuffAction(
   // Two round ticks include the application round and preserve one complete
   // following hero turn, matching Venganza's one-turn design.
   const remainingRounds = 2
-  heroUnit.statusEffects = [...buffs.reduce((statuses, { buff, bonus }) => applyLegacyStatusEffect(statuses, {
-    type: buff === 'atk' ? 'atk_up' : 'def_up',
-    remainingRounds,
-    value: bonus,
-    source: skillName,
-    sourceName: skillName,
-  }), heroUnit.statusEffects ?? [])]
+  let statuses: readonly LegacyCombatStatusEffect[] = heroUnit.statusEffects ?? []
+  for (const { buff, bonus } of buffs) {
+    statuses = applyLegacyStatusEffect(statuses, {
+      type: buff === 'atk' ? 'atk_up' : 'def_up',
+      remainingRounds,
+      value: bonus,
+      source: skillName,
+      sourceName: skillName,
+    })
+  }
+  heroUnit.statusEffects = [...statuses]
   emitUnitStateChanged(ctx, heroUnit, { statusEffects: heroUnit.statusEffects.map(effect => ({ ...effect })) })
   const buffSummary = buffs.map(({ buff, bonus }) =>
     `+${bonus}% ${buff === 'atk' ? 'ATK propio' : 'DEF propia'}`
