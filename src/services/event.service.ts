@@ -155,7 +155,8 @@ function calculateRewards(type: string): any[] {
 export async function trackHeroEventProgress(
   heroId: string,
   eventType: string,
-  amount: number = 1
+  amount: number = 1,
+  sourceRunId?: string,
 ): Promise<void> {
   const activeEvents = await db.weeklyEvent.findMany({
     where: {
@@ -167,27 +168,49 @@ export async function trackHeroEventProgress(
   })
 
   for (const event of activeEvents) {
-    const participation = await db.heroEventParticipation.upsert({
-      where: {
-        heroId_eventId: { heroId, eventId: event.id },
-      },
-      update: {
-        progress: { increment: amount },
-      },
-      create: {
-        heroId,
-        eventId: event.id,
-        progress: amount,
-        target: getTargetForType(eventType),
-      },
-    })
+    let completedNow = false
+    try {
+      if (sourceRunId) {
+        await db.$transaction(async tx => {
+          // The unique reward-grant key makes a replay of this run a no-op.
+          await tx.dungeonRunRewardGrant.create({
+            data: { runId: sourceRunId, heroId, kind: `event_progress:${event.id}:${eventType}` },
+          })
+          const participation = await tx.heroEventParticipation.upsert({
+            where: { heroId_eventId: { heroId, eventId: event.id } },
+            update: { progress: { increment: amount } },
+            create: { heroId, eventId: event.id, progress: amount, target: getTargetForType(eventType) },
+          })
+          if (participation.progress >= participation.target && !participation.completed) {
+            await tx.heroEventParticipation.update({
+              where: { heroId_eventId: { heroId, eventId: event.id } },
+              data: { completed: true },
+            })
+            completedNow = true
+          }
+        })
+      } else {
+        const participation = await db.heroEventParticipation.upsert({
+          where: { heroId_eventId: { heroId, eventId: event.id } },
+          update: { progress: { increment: amount } },
+          create: { heroId, eventId: event.id, progress: amount, target: getTargetForType(eventType) },
+        })
+        if (participation.progress >= participation.target && !participation.completed) {
+          await db.heroEventParticipation.update({
+            where: { heroId_eventId: { heroId, eventId: event.id } },
+            data: { completed: true },
+          })
+          completedNow = true
+        }
+      }
+    } catch (error) {
+      if (sourceRunId && typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+        continue
+      }
+      throw error
+    }
 
-    if (participation.progress >= participation.target && !participation.completed) {
-      await db.heroEventParticipation.update({
-        where: { heroId_eventId: { heroId, eventId: event.id } },
-        data: { completed: true },
-      })
-
+    if (completedNow) {
       await notify({
         heroId,
         type: "event",

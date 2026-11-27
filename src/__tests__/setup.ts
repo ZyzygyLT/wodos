@@ -47,6 +47,7 @@ const mockDb = {
   dungeon: createMock(),
   enemy: createMock(),
   dungeonRun: createMock(),
+  dungeonRunRewardGrant: createMock(),
   combatProfile: createMock(),
   forumTopic: createMock(),
   forumReply: createMock(),

@@ -134,7 +134,7 @@ export async function processPostRun(params: PostRunParams) {
 
   // Clan event contribution belongs to the expedition, not to each participant.
   // Apply it once so group size cannot multiply the same kill count.
-  await contributeToEvent(clanMemberRec, kills)
+  await contributeToEvent(clanMemberRec, kills, runId, result.heroesFinalState[0]?.id)
 
   await trackAnalytics(result, heroesData, dungeon, runId)
 }
@@ -155,16 +155,21 @@ async function processPostRunForHero(heroId: string, ctx: PostRunHeroContext) {
   await grantMaterialDrops(heroId, dungeon.id, runId).catch(e => logger.error('dungeon-service', 'Error en material drops', e))
   await updateQuestProgressForHero(heroId, dungeon, kills, epShare, runId)
   checkAchievements(heroId, { type: 'dungeon_complete' }).catch(e => logger.error('dungeon-service', 'Error en achievements', e))
-  await trackEventProgressForHero(heroId, result)
+  await trackEventProgressForHero(heroId, result, runId)
   await adjustFactionRepForHero(heroId, result, runId)
   await sendNotificationForHero(heroId, result, dungeon, runId, epShare, goldShare)
 }
 
 type ClanMemberRecord = NonNullable<PostRunParams['clanMemberRec']>
 
-async function contributeToEvent(clanMemberRec: ClanMemberRecord | null | undefined, kills: number) {
+async function contributeToEvent(
+  clanMemberRec: ClanMemberRecord | null | undefined,
+  kills: number,
+  runId: string,
+  leaderHeroId?: string,
+) {
   try {
-    if (!clanMemberRec || kills <= 0) return
+    if (!clanMemberRec || kills <= 0 || !leaderHeroId) return
     const activeEvent = await db.weeklyEvent.findFirst({
       where: { isActive: true, startsAt: { lte: new Date() }, endsAt: { gte: new Date() } },
       select: { id: true },
@@ -172,12 +177,19 @@ async function contributeToEvent(clanMemberRec: ClanMemberRecord | null | undefi
     if (!activeEvent) return
 
     const score = Math.max(0, Math.min(Math.floor(kills), 1000))
-    await db.clanEventParticipation.upsert({
-      where: { clanId_eventId: { clanId: clanMemberRec.clanId, eventId: activeEvent.id } },
-      update: { score: { increment: score } },
-      create: { clanId: clanMemberRec.clanId, eventId: activeEvent.id, score },
+    await db.$transaction(async tx => {
+      // Reprocessing the same expedition must not add the clan score twice.
+      await tx.dungeonRunRewardGrant.create({
+        data: { runId, heroId: leaderHeroId, kind: `clan_event:${activeEvent.id}` },
+      })
+      await tx.clanEventParticipation.upsert({
+        where: { clanId_eventId: { clanId: clanMemberRec.clanId, eventId: activeEvent.id } },
+        update: { score: { increment: score } },
+        create: { clanId: clanMemberRec.clanId, eventId: activeEvent.id, score },
+      })
     })
   } catch (e) {
+    if (typeof e === 'object' && e !== null && 'code' in e && e.code === 'P2002') return
     logger.error('dungeon-service', 'Error en evento', e)
   }
 }
@@ -194,11 +206,11 @@ async function updateQuestProgressForHero(heroId: string, dungeon: { id: number;
   }
 }
 
-async function trackEventProgressForHero(heroId: string, result: RunResult) {
+async function trackEventProgressForHero(heroId: string, result: RunResult, runId: string) {
   try {
-    await trackHeroEventProgress(heroId, 'invasion', 1)
-    await trackHeroEventProgress(heroId, 'dungeon', 1)
-    if (result.victory) await trackHeroEventProgress(heroId, 'boss', 1)
+    await trackHeroEventProgress(heroId, 'invasion', 1, runId)
+    await trackHeroEventProgress(heroId, 'dungeon', 1, runId)
+    if (result.victory) await trackHeroEventProgress(heroId, 'boss', 1, runId)
   } catch (e) {
     logger.error('dungeon-service', 'Error en hero event progress', e)
   }

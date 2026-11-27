@@ -25,6 +25,7 @@ describe('dungeon post-run clan event contribution', () => {
     vi.clearAllMocks()
     mockDb.weeklyEvent.findFirst.mockResolvedValue({ id: 'event-1' })
     mockDb.clanEventParticipation.upsert.mockResolvedValue({})
+    mockDb.dungeonRunRewardGrant.create.mockResolvedValue({})
   })
 
   it('contributes group kills once per expedition, not once per participant', async () => {
@@ -58,6 +59,37 @@ describe('dungeon post-run clan event contribution', () => {
       update: { score: { increment: 1 } },
       create: { clanId: 'clan-1', eventId: 'event-1', score: 1 },
     })
+  })
+
+  it('does not add clan score twice when the same expedition is processed again', async () => {
+    mockDb.dungeonRunRewardGrant.create
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce({ code: 'P2002' })
+
+    const params = {
+      result: {
+        victory: true,
+        epGained: 0,
+        goldGained: 0,
+        fameGained: 0,
+        levelsCleared: 1,
+        loot: [],
+        log: [{ type: 'death', actorId: 'enemy-1' }],
+        heroesFinalState: [{ id: 'hero-1', hp: 10, mp: 5 }],
+      } as unknown as RunResult,
+      heroesData: [{ id: 'hero-1' }] as unknown as HeroData[],
+      totalHeroes: 1,
+      dungeon: { id: 1, name: 'Test Dungeon', slug: 'test-dungeon' },
+      runId: 'run-retry',
+      levelUps: [],
+      clanMemberRec: { clanId: 'clan-1', clan: { upgrades: [] } },
+    }
+
+    await processPostRun(params)
+    await processPostRun(params)
+
+    expect(mockDb.dungeonRunRewardGrant.create).toHaveBeenCalledTimes(2)
+    expect(mockDb.clanEventParticipation.upsert).toHaveBeenCalledTimes(1)
   })
 
   it('does not query or update clan events without a clan', async () => {
