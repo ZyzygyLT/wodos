@@ -34,6 +34,8 @@ const mockDb = {
   clan: createMock(),
   clanMember: createMock(),
   clanGroup: createMock(),
+  groupInvite: createMock(),
+  groupMember: createMock(),
   clanUpgrade: createMock(),
   quest: createMock(),
   item: createMock(),
@@ -90,8 +92,6 @@ vi.mock('@/lib/analytics/events', () => ({
   trackClanUpgrade: vi.fn(),
   trackQuestCompleted: vi.fn(),
 }))
-
-
 
 // ─── Mock quest progress ───────────────────────────────────────────────────────
 vi.mock('@/lib/quests/progress', () => ({

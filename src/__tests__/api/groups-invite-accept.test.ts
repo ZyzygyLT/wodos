@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Mock } from "vitest"
 import { auth } from "@/auth"
 import { getActiveHeroByUserId } from "@/lib/hero-utils"
-import { mockDb } from "./setup"
+import { mockDb } from "../setup"
 
 vi.mock("@/lib/hero-utils", async () => {
   const actual = await vi.importActual<typeof import("@/lib/hero-utils")>("@/lib/hero-utils")
