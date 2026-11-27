@@ -30,6 +30,17 @@ export default function DungeonPage() {
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
   const [creatingGroup, setCreatingGroup] = useState(false)
+  const [runStatus, setRunStatus] = useState<{
+    status: string
+    runId?: string
+    dungeon?: string
+    nextRunAt?: string | null
+    completesAt?: string | null
+    result?: string | null
+    levelsCleared?: number | null
+    epGained?: number | null
+    goldGained?: number | null
+  } | null>(null)
 
   const fetchHeroAndDungeons = useCallback(async () => {
     try {
@@ -119,6 +130,20 @@ export default function DungeonPage() {
     if (myGroup) setSelectedGroupId(myGroup.id)
   }, [selectedGroupId])
 
+  const fetchRunStatus = useCallback(async () => {
+    try {
+      const response = await fetch("/api/dungeon/status")
+      if (!response.ok) {
+        setRunStatus(null)
+        return
+      }
+      const data = await response.json()
+      setRunStatus(data?.status === "idle" ? null : data)
+    } catch (error) {
+      logger.error("dungeon", "Failed to fetch expedition status", error)
+    }
+  }, [])
+
   const fetchData = useCallback(async () => {
     setLoadError("")
     try {
@@ -135,15 +160,22 @@ export default function DungeonPage() {
 
       await fetchQuestSlugs()
       autoSelectGroup(mergedGroups, heroData.id)
+      await fetchRunStatus()
     } catch (error) {
       logger.error("dungeon", "Error loading expedition screen", error)
       setLoadError("No pudimos cargar las expediciones. Comprueba tu conexión e inténtalo de nuevo.")
     }
-  }, [fetchHeroAndDungeons, autoSelectGroup])
+  }, [fetchHeroAndDungeons, autoSelectGroup, fetchRunStatus])
 
   useEffect(() => {
     void Promise.resolve().then(fetchData)
   }, [fetchData, loadAttempt])
+
+  useEffect(() => {
+    if (!runStatus || !["registered", "running"].includes(runStatus.status)) return
+    const interval = setInterval(() => { void fetchRunStatus() }, 15_000)
+    return () => clearInterval(interval)
+  }, [runStatus?.status, fetchRunStatus])
 
   async function createGroup() {
     if (!newGroupName.trim() || newGroupName.length < 2) return
@@ -272,6 +304,32 @@ export default function DungeonPage() {
             <p className="mt-3 text-xs text-amber-300">Tu héroe no tiene vida suficiente para iniciar otra expedición. Recuperala con consumibles desde el inventario.</p>
           )}
         </section>
+        {runStatus && (
+          <section aria-live="polite" aria-label="Estado de la expedición" className="mb-5 rounded-xl border border-amber-800/60 bg-amber-950/30 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-amber-400">Expedición {runStatus.status === "registered" ? "registrada" : runStatus.status === "running" ? "en curso" : "finalizada"}</p>
+                <p className="mt-1 text-sm font-semibold text-gray-100">{runStatus.dungeon ?? "Última expedición"}</p>
+                {runStatus.status === "registered" && runStatus.nextRunAt && (
+                  <p className="mt-1 text-xs text-gray-400">Salida prevista: {new Date(runStatus.nextRunAt).toLocaleString()}</p>
+                )}
+                {runStatus.status === "running" && (
+                  <p className="mt-1 text-xs text-gray-400">La expedición está siendo resuelta. Este estado se actualizará automáticamente.</p>
+                )}
+                {!["registered", "running"].includes(runStatus.status) && (
+                  <p className="mt-1 text-xs text-gray-400">{runStatus.result === "victory" ? "Victoria" : runStatus.result === "defeat" ? "Derrota" : "Resultado disponible"} · {runStatus.levelsCleared ?? 0} niveles superados</p>
+                )}
+              </div>
+              {runStatus.runId && !["registered", "running"].includes(runStatus.status) && (
+                <button onClick={() => router.push("/dungeon/report/" + runStatus.runId)}
+                  className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-gray-950 hover:bg-amber-500">
+                  Ver informe
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
         {showCreateGroup && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateGroup(false)}>
             <div className="bg-gray-900 rounded-2xl border border-gray-700 p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>

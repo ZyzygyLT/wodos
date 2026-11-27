@@ -44,7 +44,9 @@ export async function GET() {
   if (lastRun.status === 'running') {
     return NextResponse.json({
       status: 'running',
+      runId: lastRun.id,
       dungeon: lastRun.dungeon.name,
+      completesAt: lastRun.completesAt,
     })
   }
 
