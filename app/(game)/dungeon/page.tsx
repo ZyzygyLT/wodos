@@ -181,10 +181,13 @@ export default function DungeonPage() {
 
   useEffect(() => {
     if (!runStatus || ["registered", "running"].includes(runStatus.status)) return
-    void fetchHeroAndDungeons().catch(error => {
-      logger.error("dungeon", "Failed to refresh hero after expedition", error)
-    })
-  }, [runStatus?.status, runStatus?.runId, fetchHeroAndDungeons])
+    const refreshTimer = setTimeout(() => {
+      void fetchHeroAndDungeons().catch(error => {
+        logger.error("dungeon", "Failed to refresh hero after expedition", error)
+      })
+    }, 0)
+    return () => clearTimeout(refreshTimer)
+  }, [runStatus, fetchHeroAndDungeons])
 
   async function createGroup() {
     if (!newGroupName.trim() || newGroupName.length < 2) return
