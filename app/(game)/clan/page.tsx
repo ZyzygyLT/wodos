@@ -27,11 +27,6 @@ export default function ClanPage() {
       { goldCost: 1200, effect: "+10% EP" },
       { goldCost: 3000, effect: "+15% EP" },
     ]},
-    time_altar: { name: "Altar del tiempo", icon: "⏳", tiers: [
-      { goldCost: 800, effect: "Timer -1h" },
-      { goldCost: 2000, effect: "Timer -2h" },
-      { goldCost: 5000, effect: "Timer -3h" },
-    ]},
     storage: { name: "Almacén compartido", icon: "📦", tiers: [
       { goldCost: 400, effect: "500 slots" },
       { goldCost: 1000, effect: "1500 slots" },
