@@ -10,20 +10,20 @@ const MAX_GROUP_SIZE = 10
 export async function GET() {
   try {
     const session = await auth()
-    if (!session?.user?.id) return fallbackGroups()
+    if (!session?.user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 })
+
     const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
-    if (!hero) return fallbackGroups()
+    if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
+
     const groups = await loadUserGroups(hero.id)
     return NextResponse.json(groups)
   } catch (e) {
-    logger.error('groups', "Error in GET /api/groups:", e)
-    return fallbackGroups()
+    logger.error("groups", "Error in GET /api/groups:", e)
+    return NextResponse.json({ error: "Error al cargar grupos" }, { status: 500 })
   }
 }
 
 async function loadUserGroups(heroId: string) {
-  const groups: any[] = []
-
   const memberships = await db.groupMember.findMany({
     where: { heroId },
     include: {
@@ -35,45 +35,8 @@ async function loadUserGroups(heroId: string) {
       },
     },
   })
-  groups.push(...memberships.map(m => m.group))
 
-  const testClan = await db.clan.findFirst({
-    where: { name: 'Clan de Prueba' },
-    select: {
-      groups: {
-        include: {
-          members: { include: { hero: { include: { class: true } } } },
-          _count: { select: { members: true } },
-        },
-      },
-    },
-  })
-  if (testClan) {
-    const existingIds = new Set(groups.map(g => g.id))
-    for (const g of testClan.groups) {
-      if (!existingIds.has(g.id)) {
-        groups.push(g)
-        existingIds.add(g.id)
-      }
-    }
-  }
-
-  return groups
-}
-
-async function fallbackGroups() {
-  const testClan = await db.clan.findFirst({
-    where: { name: 'Clan de Prueba' },
-    select: {
-      groups: {
-        include: {
-          members: { include: { hero: { include: { class: true } } } },
-          _count: { select: { members: true } },
-        },
-      },
-    },
-  })
-  return NextResponse.json(testClan?.groups ?? [])
+  return memberships.map(m => m.group)
 }
 
 export async function POST(req: NextRequest) {
