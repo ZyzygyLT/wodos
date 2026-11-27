@@ -31,6 +31,13 @@ function mockRun() {
       goldGained: 50,
       rounds: [{
         roundNumber: 1,
+        stateAfter: {
+          heroes: [
+            { id: 'hero-leader', name: 'Leader', hp: 12, maxHp: 100, mp: 8, maxMp: 40, isHero: true },
+            { id: 'hero-member', name: 'Former member', hp: 25, maxHp: 90, mp: 4, maxMp: 30, isHero: true },
+          ],
+          enemies: [],
+        },
         actions: [{
           actorId: 'hero-leader',
           tacticRuleEvaluationTrace: [
@@ -68,6 +75,10 @@ describe('GET /api/dungeon/report/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(data.fameGained).toBe(12)
+    expect(data.finalResources).toEqual([
+      { heroId: 'hero-leader', name: 'Leader', hpCurrent: 12, hpMax: 100, mpCurrent: 8, mpMax: 40 },
+      { heroId: 'hero-member', name: 'Former member', hpCurrent: 25, hpMax: 90, mpCurrent: 4, mpMax: 30 },
+    ])
     expect(data.levelReports[0].rounds[0].actions[0]).toEqual({
       actorId: 'hero-leader',
       tacticRuleEvaluationTrace: [

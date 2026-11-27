@@ -15,6 +15,11 @@ interface RunReport {
   fullReport: any[] | null; levelReports: LevelReport[] | null
   groupRun?: boolean; totalHeroes?: number
   participants?: { heroId: string; name: string }[]
+  finalResources?: Array<{
+    heroId: string; name: string
+    hpCurrent: number; hpMax: number
+    mpCurrent: number; mpMax: number
+  }>
 }
 
 export default function DungeonReport() {
@@ -24,14 +29,6 @@ export default function DungeonReport() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reportTab, setReportTab] = useState<'report' | 'stats' | 'loot'>('report')
-  const [heroStatus, setHeroStatus] = useState<{
-    name: string
-    hpCurrent: number
-    hpMax: number
-    mpCurrent: number
-    mpMax: number
-  } | null>(null)
-
   const levelReports = report?.levelReports
   const heroStats: HeroStats[] = useMemo(() => {
     if (!levelReports) return []
@@ -73,27 +70,6 @@ export default function DungeonReport() {
       })
   }, [params?.id, router])
 
-  useEffect(() => {
-    if (!report?.id) return
-    let cancelled = false
-    fetch("/api/hero")
-      .then(async response => response.ok ? response.json() : null)
-      .then(hero => {
-        if (cancelled || !hero?.id) return
-        setHeroStatus({
-          name: hero.name,
-          hpCurrent: Number(hero.hpCurrent ?? 0),
-          hpMax: Number(hero.computedHpMax ?? hero.hpMax ?? 0),
-          mpCurrent: Number(hero.mpCurrent ?? 0),
-          mpMax: Number(hero.computedMpMax ?? hero.mpMax ?? 0),
-        })
-      })
-      .catch(() => {
-        if (!cancelled) setHeroStatus(null)
-      })
-    return () => { cancelled = true }
-  }, [report?.id])
-
   if (loading) {
     return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-400">Cargando...</div>
   }
@@ -127,16 +103,6 @@ export default function DungeonReport() {
   }
 
   const totalRounds = report.levelReports?.reduce((s, l) => s + (l.rounds?.length ?? 0), 0) ?? null
-  const hpPercent = heroStatus && heroStatus.hpMax > 0
-    ? Math.max(0, Math.min(100, heroStatus.hpCurrent / heroStatus.hpMax * 100))
-    : 0
-  const mpPercent = heroStatus && heroStatus.mpMax > 0
-    ? Math.max(0, Math.min(100, heroStatus.mpCurrent / heroStatus.mpMax * 100))
-    : 0
-  const needsRecovery = heroStatus != null && (
-    heroStatus.hpCurrent < heroStatus.hpMax || heroStatus.mpCurrent < heroStatus.mpMax
-  )
-
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
       <ExpeditionHeader
@@ -152,38 +118,46 @@ export default function DungeonReport() {
         participants={report.participants}
       />
 
-      {heroStatus && (
-        <section aria-label="Estado actual del héroe" className="rounded-xl border border-gray-800 bg-gray-900/70 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div>
-              <h2 className="text-sm font-bold text-gray-200">Estado actual de {heroStatus.name}</h2>
-              <p className="text-xs text-gray-500">Recursos persistidos después de la expedición</p>
-            </div>
-            {needsRecovery && (
-              <a href="/inventory" className="rounded-lg border border-amber-700/50 bg-amber-950/40 px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-900/50">
-                Ir al inventario y recuperar →
-              </a>
-            )}
+      {report.finalResources && report.finalResources.length > 0 && (
+        <section aria-label="Recursos al finalizar la expedición" className="rounded-xl border border-gray-800 bg-gray-900/70 p-4">
+          <div className="mb-3">
+            <h2 className="text-sm font-bold text-gray-200">Recursos al finalizar la expedición</h2>
+            <p className="text-xs text-gray-500">Estado registrado al terminar el último combate, por participante</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <div className="mb-1 flex justify-between text-xs">
-                <span className="text-red-300">❤️ Vida</span>
-                <span className="tabular-nums text-gray-300">{heroStatus.hpCurrent} / {heroStatus.hpMax}</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-800">
-                <div className="h-full rounded-full bg-red-600" style={{ width: `${hpPercent}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 flex justify-between text-xs">
-                <span className="text-sky-300">💧 Maná</span>
-                <span className="tabular-nums text-gray-300">{heroStatus.mpCurrent} / {heroStatus.mpMax}</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-800">
-                <div className="h-full rounded-full bg-sky-600" style={{ width: `${mpPercent}%` }} />
-              </div>
-            </div>
+          <div className="space-y-4">
+            {report.finalResources.map(participant => {
+              const hpPercent = participant.hpMax > 0
+                ? Math.max(0, Math.min(100, participant.hpCurrent / participant.hpMax * 100))
+                : 0
+              const mpPercent = participant.mpMax > 0
+                ? Math.max(0, Math.min(100, participant.mpCurrent / participant.mpMax * 100))
+                : 0
+              return (
+                <div key={participant.heroId} className="rounded-lg border border-gray-800/80 p-3">
+                  <p className="mb-3 text-sm font-semibold text-gray-200">{participant.name}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="text-red-300">❤️ Vida</span>
+                        <span className="tabular-nums text-gray-300">{participant.hpCurrent} / {participant.hpMax}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+                        <div className="h-full rounded-full bg-red-600" style={{ width: `${hpPercent}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1 flex justify-between text-xs">
+                        <span className="text-sky-300">💧 Maná</span>
+                        <span className="tabular-nums text-gray-300">{participant.mpCurrent} / {participant.mpMax}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+                        <div className="h-full rounded-full bg-sky-600" style={{ width: `${mpPercent}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </section>
       )}

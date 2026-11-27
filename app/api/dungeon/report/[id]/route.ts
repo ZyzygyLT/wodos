@@ -71,6 +71,26 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   }
 
   const report = run.report as any[] | null
+  const rawLevelReports = Array.isArray(run.levelReports) ? run.levelReports as Array<{
+    rounds?: Array<{ stateAfter?: { heroes?: Array<{
+      id: string; name: string; hp: number; maxHp: number; mp: number; maxMp: number; isHero: boolean
+    }> } }>
+  }> : []
+  const lastCombatRound = [...rawLevelReports]
+    .reverse()
+    .flatMap(level => [...(level.rounds ?? [])].reverse())
+    .find(round => Array.isArray(round.stateAfter?.heroes))
+  const participantNames = new Map(respParticipants.map(participant => [participant.heroId, participant.name]))
+  const finalResources = (lastCombatRound?.stateAfter?.heroes ?? [])
+    .filter(unit => unit.isHero && participantNames.has(unit.id))
+    .map(unit => ({
+      heroId: unit.id,
+      name: participantNames.get(unit.id) ?? unit.name,
+      hpCurrent: unit.hp,
+      hpMax: unit.maxHp,
+      mpCurrent: unit.mp,
+      mpMax: unit.maxMp,
+    }))
   const rawLoot = (run.loot ?? []) as Array<{ itemId: number; qty: number; heroId?: string; heroName?: string }>
   let lootItems: Array<{ itemId: number; qty: number; name: string; heroId?: string; heroName?: string }> = []
   if (rawLoot.length > 0) {
@@ -97,5 +117,6 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     groupRun: isGroup,
     totalHeroes: respParticipants.length > 0 ? respParticipants.length : 1,
     participants: respParticipants,
+    finalResources,
   })
 }
