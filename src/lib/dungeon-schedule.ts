@@ -1,3 +1,6 @@
+/** The six fixed UTC departure slots shared by every scheduled dungeon. */
+export const DUNGEON_SCHEDULE_TIMES = ["02:00", "06:00", "10:00", "14:00", "18:00", "22:00"]
+
 /**
  * Returns whether at least one daily scheduled slot has occurred since the
  * registration became eligible. Looking only at today and yesterday strands

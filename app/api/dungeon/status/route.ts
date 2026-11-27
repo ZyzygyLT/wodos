@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import db from "@/lib/db"
 import { getActiveHeroByUserId } from "@/lib/hero-utils"
+import { DUNGEON_SCHEDULE_TIMES } from "@/lib/dungeon-schedule"
 
 export async function GET() {
   const session = await auth()
@@ -30,7 +31,7 @@ export async function GET() {
   }
 
   if (lastRun.status === 'registered') {
-    const times = lastRun.dungeon.scheduledTimes as string[]
+    const times = lastRun.dungeon.isInstant ? [] : DUNGEON_SCHEDULE_TIMES
     const nextTime = getNextScheduledTime(times)
     return NextResponse.json({
       status: 'registered',

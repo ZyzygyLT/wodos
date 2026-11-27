@@ -514,7 +514,7 @@ async function seedEarlyDungeons(itemSlugMap: Record<string, number>) {
   for (const d of dungeons) {
     await db.dungeon.upsert({
       where: { slug: d.slug },
-      update: {},
+      update: { scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
       create: { ...d, isInstant: false, isEventOnly: false, scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
     })
   }
@@ -624,7 +624,7 @@ async function seedMoreDungeons(itemSlugMap: Record<string, number>) {
   for (const d of dungeons) {
     await db.dungeon.upsert({
       where: { slug: d.slug },
-      update: {},
+      update: { scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
       create: { ...d, isInstant: false, isEventOnly: false, scheduledTimes: ['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'] },
     })
   }

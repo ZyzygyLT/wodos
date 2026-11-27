@@ -6,7 +6,7 @@ import { persistRunResult, processDungeonRunPostProcessing, processPendingDungeo
 import { tickTournament } from '@/lib/arena/tournament-cron'
 import logger from '@/lib/logger'
 import { recoverStaleDungeonRuns } from '@/lib/dungeon-run-recovery'
-import { hasScheduledTimePassed } from '@/lib/dungeon-schedule'
+import { DUNGEON_SCHEDULE_TIMES, hasScheduledTimePassed } from '@/lib/dungeon-schedule'
 
 function getNextScheduledTime(times: string[]): Date | null {
   if (!times || times.length === 0) return null
@@ -52,7 +52,7 @@ export async function tick() {
 }
 
 async function processScheduledRun(run: any) {
-  const times = run.dungeon.scheduledTimes as string[]
+  const times = DUNGEON_SCHEDULE_TIMES
   if (!times || times.length === 0) {
     await failRegisteredRun(run, 'La mazmorra no tiene horarios de ejecución configurados')
     return

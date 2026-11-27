@@ -50,6 +50,7 @@ describe('GET /api/dungeons', () => {
         status: { in: ['registered', 'running'] },
       },
     }))
+    expect(data[0].scheduledTimes).toEqual(['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'])
     expect(data[0]).toEqual(expect.objectContaining({
       isRegistered: true,
       registeredRunId: 'run-led-by-another-hero',
@@ -87,6 +88,7 @@ describe('GET /api/dungeons', () => {
     const data = await response.json()
 
     expect(response.status).toBe(200)
+    expect(data[0].scheduledTimes).toEqual(['02:00', '06:00', '10:00', '14:00', '18:00', '22:00'])
     expect(data[0].isRegistered).toBe(false)
     expect(data[0].registeredRunId).toBeNull()
   })

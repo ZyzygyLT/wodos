@@ -38,6 +38,7 @@ describe('GET /api/dungeon/status', () => {
       status: 'registered', runId: 'run-registered', dungeon: 'Crypt',
     }))
     expect(typeof data.nextRunAt).toBe('string')
+    expect([2, 6, 10, 14, 18, 22]).toContain(new Date(data.nextRunAt).getUTCHours())
   })
 
   it('returns the run identifier while the expedition is being resolved', async () => {

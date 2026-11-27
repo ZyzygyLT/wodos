@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/admin/require-admin"
 import db from "@/lib/db"
 
-const DUNGEON_SCHEDULE_TIMES = ["02:00", "06:00", "10:00", "14:00", "18:00", "22:00"]
+import { DUNGEON_SCHEDULE_TIMES } from "@/lib/dungeon-schedule"
 
 export async function GET() {
   const r = await requireAdmin()
   if ("error" in r) return NextResponse.json({ error: r.error }, { status: r.status })
 
   const dungeons = await db.dungeon.findMany({ orderBy: { id: "asc" } })
-  return NextResponse.json(dungeons)
+  return NextResponse.json(dungeons.map(dungeon => ({
+    ...dungeon,
+    scheduledTimes: dungeon.isInstant ? [] : DUNGEON_SCHEDULE_TIMES,
+  })))
 }
 
 export async function POST(req: NextRequest) {

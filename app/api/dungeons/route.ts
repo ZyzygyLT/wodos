@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import db from "@/lib/db"
 import { getActiveHeroByUserId } from "@/lib/hero-utils"
 import { calcClanBonuses } from "@/lib/clan/upgrades"
+import { DUNGEON_SCHEDULE_TIMES } from "@/lib/dungeon-schedule"
 
 export async function GET() {
   const session = await auth()
@@ -62,7 +63,7 @@ export async function GET() {
   const selectableProfiles = generalProfiles.length > 0 ? generalProfiles : hero.combatProfiles.slice(0, 1)
 
   const result = dungeons.map(d => {
-    const times = (d.scheduledTimes ?? []) as string[]
+    const times = d.isInstant ? [] : DUNGEON_SCHEDULE_TIMES
     const nextScheduledTime = getNextScheduledTime(times)
     const isRegistered = activeRun?.dungeonId === d.id
 
