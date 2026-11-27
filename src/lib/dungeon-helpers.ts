@@ -404,6 +404,7 @@ export async function enrichDungeonLevels(dungeon: any): Promise<DungeonData> {
           skillId: s.id,
           name: s.name,
           icon: s.icon,
+          type: s.type,
           effect: s.effect,
           multiplier: s.multiplier,
           manaCost: s.manaCost,
@@ -417,7 +418,7 @@ export async function enrichDungeonLevels(dungeon: any): Promise<DungeonData> {
       return Array.from({ length: cnt }, () => ({
         id: dbE.id, name: dbE.name, icon: dbE.icon,
         hp: dbE.hp, mp: dbE.mp, atk: dbE.atk, def: dbE.def,
-        dx: dbE.dx, ag: dbE.ag, level: dbE.level,
+        dx: dbE.dx, ag: dbE.ag, pe: dbE.pe, level: dbE.level,
         baseLevel: dbE.baseLevel ?? dbE.level,
         growthFactor: dbE.growthFactor ?? undefined,
         position: entry.pos ?? dbE.position,

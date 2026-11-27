@@ -165,6 +165,7 @@ model Enemy {
   def          Int
   dx           Int            @default(10)
   ag           Int            @default(10)
+  pe           Int            @default(10)
   level        Int
   baseLevel    Int?
   growthFactor Float?

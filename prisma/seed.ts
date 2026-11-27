@@ -195,6 +195,7 @@ async function seedSkills(): Promise<Record<string, number>> {
   // Each skill belongs to a path. T1=starter, T2=mid, T3=capstone.
   // requiresSlugs chains skills within a path — resolves to IDs after creation.
   const skills: any[] = [
+    { classId: null, slug: 'organization', name: 'Organización', icon: '🧭', type: 'passive' as const, timing: 'passive' as const, tier: 1, description: 'Mejora la coordinación y la iniciativa del héroe.', effect: 'speed_up', epCost: 0, goldCost: 0, manaCost: 0, multiplier: 1.0, cooldownRounds: 0, tags: ['initiative'], formula: null },
     // ═══════════ GUERRERO (clase 1) ═══════════
     // Path DPS: Golpe Básico → Golpe Poderoso → Tajo Profundo
     { classId: classMap.guerrero, slug: 'golpe-basico', name: 'Golpe Básico', icon: '⚔️', type: 'active' as const, timing: 'round' as const, tier: 1, description: 'Ataque cuerpo a cuerpo básico.', effect: 'attack', epCost: 0, goldCost: 0, manaCost: 0, multiplier: 1.2, cooldownRounds: 0, tags: ['melee'], formula: { damageType: 'physical', diceCount: 1, diceSides: 6, diceDivisor: 2 } },
@@ -521,27 +522,27 @@ async function seedEarlyDungeons(itemSlugMap: Record<string, number>) {
 
 async function seedInitialEnemies() {
   const enemies = [
-    { id: 1, name: 'Lobo Hambriento', icon: '🐺', hp: 30, mp: 0, atk: 8, def: 4, dx: 12, ag: 10, level: 1, baseLevel: 1, growthFactor: 1.2, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 5, goldMax: 15 }, faction: null, conditions: null },
-    { id: 2, name: 'Oso Menor', icon: '🐻', hp: 50, mp: 0, atk: 10, def: 6, dx: 6, ag: 4, level: 2, baseLevel: 2, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 10, goldMax: 25 }, faction: null, conditions: null },
-    { id: 3, name: 'Murciélago Gigante', icon: '🦇', hp: 25, mp: 0, atk: 9, def: 3, dx: 14, ag: 12, level: 2, baseLevel: 2, growthFactor: 1.2, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 8, goldMax: 20 }, faction: null, conditions: null },
-    { id: 4, name: 'Escorpión de Arena', icon: '🦂', hp: 40, mp: 5, atk: 12, def: 8, dx: 8, ag: 6, level: 3, baseLevel: 3, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 15, goldMax: 30 }, faction: null, conditions: null },
-    { id: 5, name: 'Esqueleto Guerrero', icon: '💀', hp: 45, mp: 0, atk: 11, def: 10, dx: 6, ag: 4, level: 4, baseLevel: 4, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 20, goldMax: 40 }, faction: null, conditions: null },
-    { id: 6, name: 'Espectro Menor', icon: '👻', hp: 30, mp: 20, atk: 14, def: 5, dx: 10, ag: 8, level: 5, baseLevel: 5, growthFactor: 1.4, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 25, goldMax: 50 }, faction: null, conditions: null },
+    { id: 1, name: 'Lobo Hambriento', icon: '🐺', hp: 30, mp: 0, atk: 8, def: 4, dx: 12, ag: 10, pe: 8, level: 1, baseLevel: 1, growthFactor: 1.2, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 5, goldMax: 15 }, faction: null, conditions: null },
+    { id: 2, name: 'Oso Menor', icon: '🐻', hp: 50, mp: 0, atk: 10, def: 6, dx: 6, ag: 4, pe: 4, level: 2, baseLevel: 2, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 10, goldMax: 25 }, faction: null, conditions: null },
+    { id: 3, name: 'Murciélago Gigante', icon: '🦇', hp: 25, mp: 0, atk: 9, def: 3, dx: 14, ag: 12, pe: 14, level: 2, baseLevel: 2, growthFactor: 1.2, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 8, goldMax: 20 }, faction: null, conditions: null },
+    { id: 4, name: 'Escorpión de Arena', icon: '🦂', hp: 40, mp: 5, atk: 12, def: 8, dx: 8, ag: 6, pe: 7, level: 3, baseLevel: 3, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: { goldMin: 15, goldMax: 30 }, faction: null, conditions: null },
+    { id: 5, name: 'Esqueleto Guerrero', icon: '💀', hp: 45, mp: 0, atk: 11, def: 10, dx: 6, ag: 4, pe: 5, level: 4, baseLevel: 4, growthFactor: 1.3, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 20, goldMax: 40 }, faction: null, conditions: null },
+    { id: 6, name: 'Espectro Menor', icon: '👻', hp: 30, mp: 20, atk: 14, def: 5, dx: 10, ag: 8, pe: 10, level: 5, baseLevel: 5, growthFactor: 1.4, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 25, goldMax: 50 }, faction: null, conditions: null },
   ]
   for (const e of enemies) {
-    await db.enemy.upsert({ where: { id: e.id }, update: {}, create: stripNulls(e) as any })
+    await db.enemy.upsert({ where: { id: e.id }, update: { pe: e.pe }, create: stripNulls(e) as any })
   }
 }
 
 async function seedLateGameEnemies() {
   const enemies = [
-    { id: 7, name: 'Troll del Pantano', icon: '🧌', hp: 120, mp: 0, atk: 18, def: 12, dx: 4, ag: 3, level: 8, baseLevel: 8, growthFactor: 1.4, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 40, goldMax: 80 }, faction: null, conditions: null },
-    { id: 8, name: 'Araña Sombría', icon: '🕷️', hp: 60, mp: 15, atk: 16, def: 6, dx: 14, ag: 12, level: 7, baseLevel: 7, growthFactor: 1.3, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: { goldMin: 35, goldMax: 70 }, faction: null, conditions: null },
-    { id: 9, name: 'Gólem de Piedra', icon: '🗿', hp: 200, mp: 0, atk: 22, def: 20, dx: 2, ag: 2, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 60, goldMax: 120 }, faction: null, conditions: null },
-    { id: 10, name: 'Nigromante', icon: '🧙', hp: 80, mp: 50, atk: 20, def: 8, dx: 10, ag: 8, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 50, goldMax: 100 }, faction: null, conditions: null },
-    { id: 11, name: 'Dragón Joven', icon: '🐉', hp: 300, mp: 40, atk: 28, def: 18, dx: 8, ag: 6, level: 15, baseLevel: 15, growthFactor: 1.6, position: 'front' as const, damageType: 'fire', ai: { type: 'strongest' }, lootTable: { goldMin: 100, goldMax: 200 }, faction: null, conditions: null },
-    { id: 12, name: 'Caballero Oscuro', icon: '⚫', hp: 180, mp: 30, atk: 24, def: 16, dx: 8, ag: 6, level: 12, baseLevel: 12, growthFactor: 1.5, position: 'front' as const, damageType: 'dark', ai: { type: 'strongest' }, lootTable: { goldMin: 80, goldMax: 160 }, faction: null, conditions: null },
-    { id: 13, name: 'Elemental de Hielo', icon: '❄️', hp: 100, mp: 40, atk: 22, def: 10, dx: 8, ag: 6, level: 9, baseLevel: 9, growthFactor: 1.4, position: 'rear' as const, damageType: 'ice', ai: { type: 'weakest' }, lootTable: { goldMin: 45, goldMax: 90 }, faction: null, conditions: null },
+    { id: 7, name: 'Troll del Pantano', icon: '🧌', hp: 120, mp: 0, atk: 18, def: 12, dx: 4, ag: 3, pe: 3, level: 8, baseLevel: 8, growthFactor: 1.4, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 40, goldMax: 80 }, faction: null, conditions: null },
+    { id: 8, name: 'Araña Sombría', icon: '🕷️', hp: 60, mp: 15, atk: 16, def: 6, dx: 14, ag: 12, pe: 13, level: 7, baseLevel: 7, growthFactor: 1.3, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: { goldMin: 35, goldMax: 70 }, faction: null, conditions: null },
+    { id: 9, name: 'Gólem de Piedra', icon: '🗿', hp: 200, mp: 0, atk: 22, def: 20, dx: 2, ag: 2, pe: 2, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'front' as const, damageType: 'physical', ai: { type: 'strongest' }, lootTable: { goldMin: 60, goldMax: 120 }, faction: null, conditions: null },
+    { id: 10, name: 'Nigromante', icon: '🧙', hp: 80, mp: 50, atk: 20, def: 8, dx: 10, ag: 8, pe: 10, level: 10, baseLevel: 10, growthFactor: 1.5, position: 'rear' as const, damageType: 'dark', ai: { type: 'weakest' }, lootTable: { goldMin: 50, goldMax: 100 }, faction: null, conditions: null },
+    { id: 11, name: 'Dragón Joven', icon: '🐉', hp: 300, mp: 40, atk: 28, def: 18, dx: 8, ag: 6, pe: 9, level: 15, baseLevel: 15, growthFactor: 1.6, position: 'front' as const, damageType: 'fire', ai: { type: 'strongest' }, lootTable: { goldMin: 100, goldMax: 200 }, faction: null, conditions: null },
+    { id: 12, name: 'Caballero Oscuro', icon: '⚫', hp: 180, mp: 30, atk: 24, def: 16, dx: 8, ag: 6, pe: 7, level: 12, baseLevel: 12, growthFactor: 1.5, position: 'front' as const, damageType: 'dark', ai: { type: 'strongest' }, lootTable: { goldMin: 80, goldMax: 160 }, faction: null, conditions: null },
+    { id: 13, name: 'Elemental de Hielo', icon: '❄️', hp: 100, mp: 40, atk: 22, def: 10, dx: 8, ag: 6, pe: 8, level: 9, baseLevel: 9, growthFactor: 1.4, position: 'rear' as const, damageType: 'ice', ai: { type: 'weakest' }, lootTable: { goldMin: 45, goldMax: 90 }, faction: null, conditions: null },
   ]
   for (const e of enemies) {
     await db.enemy.upsert({ where: { id: e.id }, update: {}, create: stripNulls(e) as any })
@@ -550,12 +551,12 @@ async function seedLateGameEnemies() {
 
 async function seedTrapEnemies() {
   const traps = [
-    { id: 14, name: 'Trampa de Pinchos', icon: '🪤', hp: 1, mp: 0, atk: 15, def: 0, dx: 0, ag: 0, level: 3, baseLevel: 3, growthFactor: 1.0, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
-    { id: 15, name: 'Trampa de Fuego', icon: '🔥', hp: 1, mp: 0, atk: 20, def: 0, dx: 0, ag: 0, level: 5, baseLevel: 5, growthFactor: 1.0, position: 'center' as const, damageType: 'fire', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
-    { id: 16, name: 'Trampa de Veneno', icon: '☠️', hp: 1, mp: 0, atk: 18, def: 0, dx: 0, ag: 0, level: 6, baseLevel: 6, growthFactor: 1.0, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
+    { id: 14, name: 'Trampa de Pinchos', icon: '🪤', hp: 1, mp: 0, atk: 15, def: 0, dx: 0, ag: 0, pe: 0, level: 3, baseLevel: 3, growthFactor: 1.0, position: 'center' as const, damageType: 'physical', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
+    { id: 15, name: 'Trampa de Fuego', icon: '🔥', hp: 1, mp: 0, atk: 20, def: 0, dx: 0, ag: 0, pe: 0, level: 5, baseLevel: 5, growthFactor: 1.0, position: 'center' as const, damageType: 'fire', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
+    { id: 16, name: 'Trampa de Veneno', icon: '☠️', hp: 1, mp: 0, atk: 18, def: 0, dx: 0, ag: 0, pe: 0, level: 6, baseLevel: 6, growthFactor: 1.0, position: 'center' as const, damageType: 'poison', ai: { type: 'weakest' }, lootTable: null, faction: null, conditions: null },
   ]
   for (const t of traps) {
-    await db.enemy.upsert({ where: { id: t.id }, update: {}, create: stripNulls(t) as any })
+    await db.enemy.upsert({ where: { id: t.id }, update: { pe: t.pe }, create: stripNulls(t) as any })
   }
 }
 
@@ -572,13 +573,14 @@ async function assignEnemyDefenseSkills2(_skillBySlug: Record<string, number>) {
     12: ['bloquear', 'interponer'],
   }
   const posMap: Record<string, string> = { front: 'bloquear', center: 'esquivar', rear: 'escudo-magico' }
+  const initiativeEnemies = new Set([1, 3, 8])
   const allEnemies = await db.enemy.findMany()
   for (const e of allEnemies) {
-    if (e.level < 3) continue
     const override = defOverrides[e.id] ?? []
-    const defSlugs = override.length > 0 ? override : [posMap[e.position] ?? 'esquivar']
+    const defSlugs = e.level >= 3 ? (override.length > 0 ? override : [posMap[e.position] ?? 'esquivar']) : []
     const defIds = defSlugs.map(slug => _skillBySlug[slug]).filter(Boolean)
-    const combined = [...new Set([...(e.skillIds ?? []), ...defIds])]
+    const initiativeId = initiativeEnemies.has(e.id) ? _skillBySlug.organization : undefined
+    const combined = [...new Set([...(e.skillIds ?? []), ...defIds, ...(initiativeId ? [initiativeId] : [])])
     if (combined.length !== (e.skillIds ?? []).length) {
       await db.enemy.update({ where: { id: e.id }, data: { skillIds: combined } })
     }

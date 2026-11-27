@@ -95,6 +95,7 @@ export interface EnemySkillRef {
   skillId: number
   name: string
   icon: string
+  type?: 'basic' | 'active' | 'passive'
   effect?: string
   multiplier: number
   manaCost: number
@@ -115,6 +116,7 @@ export interface EnemyData {
   def: number
   dx: number
   ag: number
+  pe?: number
   /** Optional canonical attributes for hero-derived arena opponents. */
   attrs?: Record<string, number>
   level: number
@@ -563,6 +565,7 @@ function scaleEnemy(enemy: EnemyData, effectiveLevel: number, difficultyMod: num
     def: Math.round(enemy.def * clamped),
     dx: Math.round(enemy.dx * clamped),
     ag: Math.round(enemy.ag * clamped),
+    pe: Math.round((enemy.pe ?? 10) * clamped),
     level: Math.ceil(enemy.isBoss ? Math.max(effectiveLevel, baseLevel) : effectiveLevel),
   }
 }
@@ -747,7 +750,10 @@ function enemyToUnit(e: EnemyData, idx: number, random: RandomSource): CombatUni
     passiveEffects: e.passiveEffects,
     position: e.position ?? 'front',
     condition: 'ready',
-    attrs: e.attrs,
+    attrs: applyInitiativeSkillModifiers(
+      { ag: e.attrs?.ag ?? e.ag ?? 0, pe: e.attrs?.pe ?? e.pe ?? 10 },
+      (e.skills ?? []).filter(skill => skill.type === 'passive').map(skill => skill.effect)
+    ),
     def: e.def ?? 5,
     armorName: e.armorName,
     attackSkillName: e.skillName,

@@ -68,6 +68,14 @@ describe('initiative and turn queue', () => {
     expect(queue[2]).toMatchObject({ initiative: 10, isHero: false })
   })
 
+  it('uses the same AGI/PER initiative formula for enemies with canonical attributes', () => {
+    const enemy = unit('fast-enemy', 100, { attrs: { ag: 14, pe: 8 } })
+    const queue = buildTurnQueue([], [enemy], { next: () => 0 })
+
+    expect(queue).toHaveLength(1)
+    expect(queue[0]).toMatchObject({ initiative: 18, isHero: false, unit: { id: 'fast-enemy' } })
+  })
+
   it('repeats a complete Wodos queue with the same seed', () => {
     const heroes = [unit('h1', 100, { attrs: { dx: 8, ag: 7 } }), unit('h2', 100)]
     const enemies = [unit('e1', 100), unit('e2', 100)]
