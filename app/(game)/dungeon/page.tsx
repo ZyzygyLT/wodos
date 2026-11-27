@@ -187,7 +187,7 @@ export default function DungeonPage() {
       })
     }, 0)
     return () => clearTimeout(refreshTimer)
-  }, [runStatus, fetchHeroAndDungeons])
+  }, [runStatus?.status, runStatus?.runId, fetchHeroAndDungeons])
 
   async function createGroup() {
     if (!newGroupName.trim() || newGroupName.length < 2) return
