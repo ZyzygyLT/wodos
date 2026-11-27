@@ -357,7 +357,10 @@ export default function DungeonPage() {
                   <p className="mt-1 text-xs text-gray-400">La expedición está siendo resuelta. Este estado se actualizará automáticamente.</p>
                 )}
                 {!["registered", "running"].includes(runStatus.status) && (
-                  <p className="mt-1 text-xs text-gray-400">{runStatus.result === "victory" ? "Victoria" : runStatus.result === "defeat" ? "Derrota" : "Resultado disponible"} · {runStatus.levelsCleared ?? 0} niveles superados</p>
+                  <>
+                    <p className="mt-1 text-xs text-gray-400">{runStatus.result === "victory" ? "Victoria" : runStatus.result === "defeat" ? "Derrota" : "Resultado disponible"} · {runStatus.levelsCleared ?? 0} niveles superados</p>
+                    <p className="mt-1 text-xs text-amber-300">Recompensas: +{runStatus.epGained ?? 0} PE · +{runStatus.goldGained ?? 0} oro</p>
+                  </>
                 )}
               </div>
               {runStatus.runId && !["registered", "running"].includes(runStatus.status) && (
