@@ -118,6 +118,13 @@ export function calculateLegacyStatusDamage(statuses: readonly LegacyCombatStatu
   return calculatePeriodicStatusDamage(selectStatusEffectsForPhase(activeLegacyStatuses(statuses), 'round_start'))
 }
 
+/** Regeneration values are fixed HP amounts applied at the start of each remaining round. */
+export function calculateLegacyStatusHealing(statuses: readonly LegacyCombatStatusEffect[]): number {
+  return activeLegacyStatuses(statuses)
+    .filter(status => status.type === 'regen')
+    .reduce((total, status) => total + status.value, 0)
+}
+
 /** Stun and freeze skip the affected unit's turn. */
 export function isLegacyCombatUnitDisabled(statuses: readonly LegacyCombatStatusEffect[]): boolean {
   return isTurnPreventedByStatus(selectStatusEffectsForPhase(activeLegacyStatuses(statuses), 'actor_turn'))
@@ -142,7 +149,7 @@ export function advanceLegacyPeriodicStatusRound(
   statuses: readonly LegacyCombatStatusEffect[]
 ): readonly LegacyCombatStatusEffect[] {
   return advanceSelectedLegacyStatuses(statuses, status =>
-    status.type === 'poison' || status.type === 'burn' || status.type === 'bleed'
+    status.type === 'poison' || status.type === 'burn' || status.type === 'bleed' || status.type === 'regen'
   )
 }
 

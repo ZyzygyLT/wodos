@@ -37,6 +37,8 @@ export interface SkillExecutionInput<T extends TargetableUnit> {
 export type SkillExecutionPlan<T> =
   | { readonly kind: 'unsupported'; readonly effect: string }
   | { readonly kind: 'heal'; readonly target: T | null; readonly healPct: number }
+  | { readonly kind: 'group_heal'; readonly targets: readonly T[]; readonly healPct: number }
+  | { readonly kind: 'heal_over_time'; readonly target: T | null; readonly healPct: number; readonly ticks: number }
   | { readonly kind: 'party_buff'; readonly buff: 'atk' | 'def'; readonly bonus: number }
   | { readonly kind: 'self_buff'; readonly buffs: readonly { readonly buff: 'atk' | 'def'; readonly bonus: number }[] }
   | { readonly kind: 'area_attack'; readonly targets: readonly T[]; readonly armorPenetration: boolean; readonly critical: boolean }
@@ -89,6 +91,12 @@ export function resolveSkillExecution<T extends TargetableUnit>(
           return best
         }, null)
       : null
+    if (healPct > 0 && skill.tags?.includes('aoe')) {
+      return { kind: 'group_heal', targets: candidates, healPct }
+    }
+    if (healPct > 0 && (skill.slug === 'renovacion' || skill.slug === 'regeneracion')) {
+      return { kind: 'heal_over_time', target, healPct, ticks: 3 }
+    }
     return { kind: 'heal', target, healPct }
   }
 

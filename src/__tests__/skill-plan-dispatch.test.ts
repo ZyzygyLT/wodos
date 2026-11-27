@@ -17,6 +17,30 @@ describe('skill execution plan dispatch', () => {
     expect(result).toEqual({ kind: 'healed', unit: target, pct: 35 })
   })
 
+  it('routes group healing plans with all selected targets', () => {
+    const targets = [{ id: 'a' }, { id: 'b' }]
+    const plan: SkillExecutionPlan<typeof targets[number]> = { kind: 'group_heal', targets, healPct: 20 }
+    const result = dispatchSkillExecutionPlan(plan, {
+      heal: () => 'single',
+      group_heal: (units, pct) => ({ units, pct }),
+      party_buff: () => 'buff', self_buff: () => 'self', area_attack: () => 'area',
+      single_attack: () => 'attack', unsupported: effect => effect,
+    })
+    expect(result).toEqual({ units: targets, pct: 20 })
+  })
+
+  it('routes periodic healing plans with their target, percentage and tick count', () => {
+    const target = { id: 'ally' }
+    const plan: SkillExecutionPlan<typeof target> = { kind: 'heal_over_time', target, healPct: 28, ticks: 3 }
+    const result = dispatchSkillExecutionPlan(plan, {
+      heal: () => 'single',
+      heal_over_time: (unit, pct, ticks) => ({ unit, pct, ticks }),
+      party_buff: () => 'buff', self_buff: () => 'self', area_attack: () => 'area',
+      single_attack: () => 'attack', unsupported: effect => effect,
+    })
+    expect(result).toEqual({ unit: target, pct: 28, ticks: 3 })
+  })
+
   it('routes party buffs and forwards buff type and bonus', () => {
     const plan: SkillExecutionPlan<never> = { kind: 'party_buff', buff: 'def', bonus: 18 }
     const result = dispatchSkillExecutionPlan(plan, {

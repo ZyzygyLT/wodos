@@ -24,6 +24,18 @@ describe('central skill execution planning', () => {
     expect(plan).toEqual({ kind: 'heal', target: base.allies[0], healPct: 35 })
   })
 
+  it('selects every living injured ally for an area healing skill', () => {
+    const plan = resolve({ skillId: 20, slug: 'cura-grupo', effect: 'heal', healPct: 20, tags: ['heal', 'aoe'] })
+    expect(plan).toEqual({ kind: 'group_heal', targets: [base.actor, base.allies[0]], healPct: 20 })
+  })
+
+  it('resolves Renovación and Regeneración as three-tick healing effects', () => {
+    for (const slug of ['renovacion', 'regeneracion']) {
+      const plan = resolve({ skillId: 21, slug, effect: 'heal', healPct: 28, tags: ['heal'] })
+      expect(plan).toEqual({ kind: 'heal_over_time', target: base.allies[0], healPct: 28, ticks: 3 })
+    }
+  })
+
   it('respects an explicit self target for a healing action', () => {
     const plan = resolve(
       { skillId: 16, effect: 'heal', healPct: 20 },

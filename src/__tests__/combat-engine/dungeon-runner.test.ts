@@ -1044,6 +1044,56 @@ describe('runDungeon', () => {
     expect(healingStateChanges.find(change => change.unitId === hero.id)?.condition).toBeTruthy()
   })
 
+  it('heals every injured living party member with Cura Grupal and reports each target', async () => {
+    setupRand(...Array(100).fill(0.5))
+    const healer = makeHero({
+      id: 'healer', name: 'Healer', hpMax: 100, hpCurrent: 50, mpMax: 100, mpCurrent: 100,
+      combatProfile: { position: 'rear', prelimRules: [], roundRules: [
+        { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },
+      ], defenseSkills: {} },
+      skills: [
+        { skillId: 1, name: 'Basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+        { skillId: 2, slug: 'cura-grupo', name: 'Cura Grupal', multiplier: 1, manaCost: 35, effect: 'heal', rank: 1,
+          healPct: 20, tags: ['heal', 'aoe'], formula: null as any },
+      ],
+    })
+    const ally = makeHero2({ id: 'ally', name: 'Ally', hpMax: 100, hpCurrent: 20, mpMax: 100, mpCurrent: 100 })
+    const result = await runDungeon([healer, ally], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 10000, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    }))
+    const action = result.levelReports[0]?.rounds[0]?.actions.find(entry => entry.skillName === 'Cura Grupal')
+    expect(action?.mpCost).toBe(35)
+    expect(action?.healingResults).toEqual([
+      { targetId: 'healer', targetName: 'Healer', amount: 20 },
+      { targetId: 'ally', targetName: 'Ally', amount: 20 },
+    ])
+    expect(result.log.filter(entry => entry.skill === 'Cura Grupal' && entry.type === 'heal')).toHaveLength(2)
+  })
+
+  it('applies Renovación as three real round-start healing ticks', async () => {
+    setupRand(...Array(500).fill(0.5))
+    const hero = makeHero({
+      hpMax: 100, hpCurrent: 10, mpMax: 100, mpCurrent: 100,
+      combatProfile: { position: 'front', prelimRules: [], roundRules: [
+        { priority: 1, condition: { type: 'always' }, action: { skillId: 2, targetPos: 'auto', targetType: 'most_injured_ally' } },
+      ], defenseSkills: {} },
+      skills: [
+        { skillId: 1, name: 'Basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
+          formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
+        { skillId: 2, slug: 'renovacion', name: 'Renovación', multiplier: 1, manaCost: 12, effect: 'heal', rank: 1,
+          healPct: 20, cooldownRounds: 10, tags: ['heal'], formula: null as any },
+      ],
+    })
+    const result = await runDungeon([hero], makeDungeon({
+      levels: [{ number: 1, enemies: [{ id: 1, name: 'Training Golem', icon: '🗿', hp: 10000, mp: 0, atk: 0, def: 0, dx: 1, ag: 1, level: 1, position: 'front' }], epReward: 0, goldReward: 0 }],
+    }))
+    const ticks = result.log.filter(entry => entry.skill === 'Regeneración' && entry.type === 'heal')
+    expect(ticks.map(entry => entry.round)).toEqual([2, 3, 4])
+    expect(ticks.map(entry => entry.value)).toEqual([20, 20, 20])
+    expect(result.heroesFinalState[0]?.hp).toBe(70)
+  })
+
   it('handles healing skills in combat', async () => {
     setupRand(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5)
     const hero = makeHero({

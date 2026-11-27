@@ -21,6 +21,7 @@ import {
   advanceLegacyNonPeriodicStatusRound,
   applyLegacyStatusEffect,
   calculateLegacyStatusDamage,
+  calculateLegacyStatusHealing,
   type LegacyCombatStatusEffect,
   isLegacyCombatUnitDisabled,
   applyLegacyStatusStatModifiers,
@@ -249,6 +250,9 @@ export interface DetailedAction {
   targetResults?: TargetResult[]
   healAmount?: number
   healType?: 'hp' | 'mp'
+  /** Per-unit healing breakdown for group and periodic healing actions. */
+  healingResults?: Array<{ targetId: string; targetName: string; amount: number }>
+  appliedStatus?: string
   buffName?: string
   buffValue?: number
   itemName?: string
@@ -1173,6 +1177,69 @@ function handleHeroSkillMana(
   }
 }
 
+function executeHeroGroupHealAction(
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: HeroSkill,
+  skillName: string,
+  ctx: CombatCtx,
+  meta: ActionMeta,
+  targets: readonly CombatUnit[],
+  healPct: number,
+): DetailedAction {
+  const healingResults: Array<{ targetId: string; targetName: string; amount: number }> = []
+  for (const target of targets) {
+    const amount = calculateEffectiveHealing(target.hp, target.maxHp, calcHeal(target.maxHp, healPct))
+    const healed = applyHealingWithEvent(target, amount, heroUnit.id, ctx)
+    if (healed <= 0) continue
+    healingResults.push({ targetId: target.id, targetName: target.name, amount: healed })
+    addLog(ctx.log, 'heal', ctx.round, ctx.level, 'combat',
+      `${heroUnit.name} usa ${skillName} → ${target.name} recupera ${healed} HP`,
+      { actor: heroUnit.name, target: target.name, skill: skillName, value: healed })
+  }
+  const totalHealed = healingResults.reduce((total, result) => total + result.amount, 0)
+  const message = totalHealed > 0
+    ? `${heroUnit.name} usa ${skillName} → cura a ${healingResults.length} aliado(s), ${totalHealed} HP en total`
+    : `${heroUnit.name} usa ${skillName} — ningún aliado necesita curación`
+  const detail = makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative,
+    actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+    healA: totalHealed > 0 ? totalHealed : null, healT: totalHealed > 0 ? 'hp' : null,
+    buffN: null, buffV: null, itemN: null, defVal: undefined, defRoll: undefined,
+    defSkill: undefined, defEffect: undefined, defEquip: undefined, msg: message, mpCost: meta.mpCost })
+  detail.healingResults = healingResults
+  return detail
+}
+
+function executeHeroHealOverTimeAction(
+  heroUnit: CombatUnit & { attrs: Record<string, number> },
+  skill: HeroSkill,
+  skillName: string,
+  ctx: CombatCtx,
+  meta: ActionMeta,
+  target: CombatUnit | null,
+  healPct: number,
+  ticks: number,
+): DetailedAction {
+  if (!target || target.hp <= 0 || target.hp >= target.maxHp || healPct <= 0) {
+    return makeDetail({ skill, heroUnit, target: null, action: meta.action!, initiative: meta.initiative,
+      actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+      healA: null, healT: null, buffN: null, buffV: null, itemN: null, defVal: undefined,
+      defRoll: undefined, defSkill: undefined, defEffect: undefined, defEquip: undefined,
+      msg: `${heroUnit.name} usa ${skillName} — sin objetivo para regenerar`, mpCost: meta.mpCost })
+  }
+  const healingPerTick = calcHeal(target.maxHp, healPct)
+  applyStatusEffect(target, 'regen', healingPerTick, ticks, skillName, ctx)
+  const message = `${heroUnit.name} usa ${skillName} → ${target.name} recibe regeneración de ${healingPerTick} HP al inicio de las próximas ${ticks} rondas`
+  addLog(ctx.log, 'buff', ctx.round, ctx.level, 'combat', message,
+    { actor: heroUnit.name, target: target.name, skill: skillName, value: healingPerTick })
+  const detail = makeDetail({ skill, heroUnit, target, action: meta.action!, initiative: meta.initiative,
+    actionNum: meta.actionNum, total: meta.totalActions, dmg: null, hit: null, crit: null,
+    healA: null, healT: null, buffN: 'Regeneración', buffV: healingPerTick, itemN: null,
+    defVal: undefined, defRoll: undefined, defSkill: undefined, defEffect: undefined,
+    defEquip: undefined, msg: message, mpCost: meta.mpCost })
+  detail.appliedStatus = 'regen'
+  return detail
+}
+
 function executeHeroHealAction(
   heroUnit: CombatUnit & { attrs: Record<string, number> },
   skill: HeroSkill,
@@ -1488,6 +1555,8 @@ function executeHeroAction(
   const skillInfo: HeroSkillAttackInfo = { skill, skillName, formula }
   const detailedAction = dispatchSkillExecutionPlan(plan, {
     heal: target => executeHeroHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target),
+    group_heal: (targets, healPct) => executeHeroGroupHealAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, targets, healPct),
+    heal_over_time: (target, healPct, ticks) => executeHeroHealOverTimeAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, target, healPct, ticks),
     party_buff: (buff, bonus) => executeHeroBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buff, bonus),
     self_buff: buffs => executeHeroSelfBuffAction(heroUnit, skill, skillName, ctx, { ...meta, mpCost }, buffs),
     area_attack: (targets, armorPenetration, critical) => {
@@ -1930,19 +1999,34 @@ function processDotDamage(
 ): number {
   if (!unit.statusEffects || unit.hp <= 0) return 0
   const doT = calculateLegacyStatusDamage(unit.statusEffects)
-  if (doT <= 0) return 0
-
-  const appliedDamage = applyDamageWithEvent(unit, doT, `status:${unit.id}`, ctx)
-  unit.condition = getCondition(unit.hp, unit.maxHp)
-  if (appliedDamage > 0) {
-    ctx.state!.damagedThisRound = true
-    processPassiveEffects('on_damage', unit, heroUnits, enemyUnits, undefined, ctx)
-    addLog(log, 'hit', round, level, 'combat',
-      `☠️ ${unitName} recibe ${appliedDamage} daño de efectos`,
-      { target: unitName, value: appliedDamage })
+  let appliedDamage = 0
+  if (doT > 0) {
+    appliedDamage = applyDamageWithEvent(unit, doT, `status:${unit.id}`, ctx)
+    unit.condition = getCondition(unit.hp, unit.maxHp)
+    if (appliedDamage > 0) {
+      ctx.state!.damagedThisRound = true
+      processPassiveEffects('on_damage', unit, heroUnits, enemyUnits, undefined, ctx)
+      addLog(log, 'hit', round, level, 'combat',
+        `☠️ ${unitName} recibe ${appliedDamage} daño de efectos`,
+        { target: unitName, value: appliedDamage })
+    }
+    if (unit.hp <= 0) {
+      processUnitDefeat(unit, undefined, heroUnits, enemyUnits, ctx, `💀 ${unitName} derribado por efectos`)
+    }
   }
-  if (unit.hp <= 0) {
-    processUnitDefeat(unit, undefined, heroUnits, enemyUnits, ctx, `💀 ${unitName} derribado por efectos`)
+
+  // Regeneration ticks at round start before duration decay; defeated units never revive.
+  if (unit.hp > 0) {
+    const regeneration = calculateLegacyStatusHealing(unit.statusEffects)
+    if (regeneration > 0) {
+      const healed = applyHealingWithEvent(unit, regeneration, `status:${unit.id}`, ctx)
+      if (healed > 0) {
+        unit.condition = getCondition(unit.hp, unit.maxHp)
+        addLog(log, 'heal', round, level, 'combat',
+          `🌿 ${unitName} recupera ${healed} HP por regeneración`,
+          { target: unitName, value: healed, skill: 'Regeneración' })
+      }
+    }
   }
   return appliedDamage
 }
