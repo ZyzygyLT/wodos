@@ -171,11 +171,13 @@ export default function DungeonPage() {
     void Promise.resolve().then(fetchData)
   }, [fetchData, loadAttempt])
 
+  const activeRunStatus = runStatus?.status
+
   useEffect(() => {
-    if (!runStatus || !["registered", "running"].includes(runStatus.status)) return
+    if (!activeRunStatus || !["registered", "running"].includes(activeRunStatus)) return
     const interval = setInterval(() => { void fetchRunStatus() }, 15_000)
     return () => clearInterval(interval)
-  }, [runStatus?.status, fetchRunStatus])
+  }, [activeRunStatus, fetchRunStatus])
 
   async function createGroup() {
     if (!newGroupName.trim() || newGroupName.length < 2) return
