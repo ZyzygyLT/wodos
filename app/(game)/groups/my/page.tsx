@@ -32,7 +32,6 @@ export default function MyGroupsPage() {
   const { show: toast } = useToast()
 
   const fetchData = useCallback(async () => {
-    setLoading(true)
     try {
       const [groupsRes, heroRes, invitesRes] = await Promise.all([
         fetch("/api/groups"),
