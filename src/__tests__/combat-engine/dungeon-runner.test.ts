@@ -1082,7 +1082,7 @@ describe('runDungeon', () => {
         { skillId: 1, name: 'Basic', multiplier: 1, manaCost: 0, effect: 'attack', rank: 1,
           formula: { attrCoeffs: {}, skillRankCoeff: 0, diceSides: 0, diceCount: 0, flatBonus: 1 } },
         { skillId: 2, slug: 'renovacion', name: 'Renovación', multiplier: 1, manaCost: 12, effect: 'heal', rank: 1,
-          healPct: 20, cooldownRounds: 10, tags: ['heal'], formula: null as unknown as HeroData['skills'][number]['formula'] },
+          healPct: 20, cooldownRounds: 99, tags: ['heal'], formula: null as unknown as HeroData['skills'][number]['formula'] },
       ],
     })
     const result = await runDungeon([hero], makeDungeon({
