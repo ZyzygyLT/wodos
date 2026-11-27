@@ -83,8 +83,9 @@ export async function POST(req: NextRequest) {
   const hero = await getActiveHeroByUserId(session.user.id, { select: { id: true } })
   if (!hero) return NextResponse.json({ error: "Héroe no encontrado" }, { status: 404 })
 
-  const { name } = await req.json()
-  if (!name || name.length < 2) return NextResponse.json({ error: "Nombre del grupo (min 2 caracteres)" }, { status: 400 })
+  const payload = await req.json()
+  const name = typeof payload?.name === "string" ? payload.name.trim() : ""
+  if (name.length < 2) return NextResponse.json({ error: "Nombre del grupo (min 2 caracteres)" }, { status: 400 })
 
   const groupCount = await db.clanGroup.count({ where: { clanId: null } })
   if (groupCount >= MAX_GROUPS) return NextResponse.json({ error: `Máximo ${MAX_GROUPS} grupos independientes` }, { status: 400 })

@@ -54,13 +54,14 @@ export default function MyGroupsPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   async function createGroup() {
-    if (!newGroupName.trim()) return
+    const groupName = newGroupName.trim()
+    if (groupName.length < 2) return
     setCreating(true)
     try {
       const res = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newGroupName.trim() }),
+        body: JSON.stringify({ name: groupName }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -106,7 +107,7 @@ export default function MyGroupsPage() {
           />
           <button
             onClick={createGroup}
-            disabled={creating || !newGroupName.trim()}
+            disabled={creating || newGroupName.trim().length < 2}
             className="px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-50 text-sm transition"
           >
             {creating ? "..." : "+ Crear"}
